@@ -3,9 +3,11 @@
 # dependencies = [
 #     "hidapi",
 #     "websockets",
-#     "pydantic"
+#     "pydantic",
+#     "requests",
 # ]
 # ///
+__version__ = "1.0.0"
 
 import hid
 import asyncio
@@ -18,6 +20,7 @@ from pydantic import BaseModel, Field, ValidationError
 from typing import Optional, ClassVar, override
 import platform
 from abc import ABC, abstractmethod
+import requests
 
 _logger = logging.getLogger(__name__)
 
@@ -519,6 +522,7 @@ class WebSocketClient:
 
 class Macropad:
     def __init__(self, vid=0x2E8A, pid=0x2083):
+        self._version_seen = None
         self._setup(vid, pid)
 
     def _setup(self, vid=0x2E8A, pid=0x2083):
@@ -570,6 +574,12 @@ class Macropad:
                     client_message.parameters = parameters
 
                 await self.websocket.send_message(client_message)
+        elif isinstance(msg, VersionInfo):
+            if self._version_seen != msg.version:
+                _logger.info(f"Version Info: {msg}")
+                self._version_seen = msg.version
+            else:
+                _logger.debug(f"Version Info: {msg}")
 
     async def _teams_callback(self, msg: ServerMessage):
         _logger.debug("Teams message: %s", msg)
@@ -611,6 +621,20 @@ class Macropad:
             await asyncio.gather(self.device.process(), self.websocket.process())
         except Exception as e:
             _logger.error(f"Error in Macropad process: {e}")
+            
+def check_for_device_update():
+    try:
+        requests.get("https://m42e.de/mutenix/macropad/latest")
+    except requests.RequestException as e:
+        _logger.error("Failed to check for device update availability")
+        
+def check_for_self_update():
+    try:
+        requests.get("https://m42e.de/mutenix/software/latest")
+    except requests.RequestException as e:
+        _logger.error("Failed to check for device update availability")
+
+    
 
 
 async def main():
