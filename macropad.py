@@ -149,6 +149,17 @@ class HidCommand(HidOutputMessage, ABC):
 
 
 class SetLed(HidCommand):
+    RED = (0xFF, 0x00, 0x00, 0x00)
+    GREEN = (0x00, 0xFF, 0x00, 0x00)
+    BLUE = (0x00, 0x00, 0xFF, 0x00)
+    WHITE = (0xFF, 0xFF, 0xFF, 0xFF)
+    BLACK = (0x00, 0x00, 0x00, 0x00)
+    YELLOW = (0xFF, 0xFF, 0x00, 0x00)
+    CYAN = (0x00, 0xFF, 0xFF, 0x00)
+    MAGENTA = (0xFF, 0x00, 0xFF, 0x00)
+    ORANGE = (0xFF, 0xA5, 0x00, 0x00)
+    PURPLE = (0x80, 0x00, 0x80, 0x00)
+
     def __init__(
         self, id, r=int | list[int], g: int = None, b: int = None, w: int = None
     ):
@@ -333,7 +344,9 @@ class HidDevice:
             return
         self._waiting_for_device = True
         while True:
-            _logger.info(f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}")
+            _logger.info(
+                f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}"
+            )
             try:
                 self._device = hid.device()
                 self._device.open(self._vid, self._pid)
@@ -567,35 +580,27 @@ class Macropad:
             except IOError as e:
                 _logger.error(f"Failed to write token to file: {e}")
         msgs = []
+
+        def set_led(id, condition, true_color, false_color):
+            if condition:
+                msgs.append(SetLed(id, true_color))
+            else:
+                msgs.append(SetLed(id, false_color))
+
         if msg.meeting_update:
             if msg.meeting_update.meeting_state:
                 state = msg.meeting_update.meeting_state
                 if state.is_in_meeting:
-                    if state.is_muted:
-                        msgs.append(SetLed(4, [0x0A, 0x00, 0x00, 0x00]))
-                    else:
-                        msgs.append(SetLed(1, [0x00, 0x0A, 0x00, 0x00]))
-
-                    if state.is_hand_raised:
-                        msgs.append(SetLed(2, [0x0A, 0x0A, 0x00, 0x00]))
-                    else:
-                        msgs.append(SetLed(2, [0x00, 0x00, 0x00, 0x0A]))
-
-                    if state.is_video_on:
-                        msgs.append(SetLed(3, [0x00, 0x0A, 0x00, 0x00]))
-                    else:
-                        msgs.append(SetLed(3, [0x0A, 0x00, 0x00, 0x00]))
-
+                    set_led(1, state.is_muted, SetLed.RED, SetLed.GREEN)
+                    set_led(2, state.is_hand_raised, SetLed.YELLOW, SetLed.WHITE)
+                    set_led(3, state.is_video_on, SetLed.GREEN, SetLed.RED)
                 else:
                     for i in range(5):
-                        msgs.append(SetLed(i, [0x00, 0x00, 0x00, 0x00]))
+                        set_led(i, False, SetLed.BLACK, SetLed.BLACK)
 
             if msg.meeting_update.meeting_permissions:
                 permissions = msg.meeting_update.meeting_permissions
-                if permissions.can_leave:
-                    msgs.append(SetLed(5, [0x0A, 0x00, 0x00, 0x00]))
-                else:
-                    msgs.append(SetLed(5, [0x00, 0x00, 0x00, 0x00]))
+                set_led(5, permissions.can_leave, SetLed.GREEN, SetLed.BLACK)
 
         for m in msgs:
             await self.device.send_msg(m)
