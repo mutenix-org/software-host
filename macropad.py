@@ -5,6 +5,8 @@
 #     "websockets",
 #     "pydantic",
 #     "requests",
+#     "pywin32; platform_system=='Windows'",
+#     "pywinauto; platform_system=='Windows'",
 # ]
 # ///
 __version__ = "1.0.0"
@@ -28,15 +30,18 @@ _logger = logging.getLogger(__name__)
 def bring_teams_to_foreground() -> None:
     """Bring the Microsoft Teams window to the foreground."""
     if platform.system() == "Windows":
+        from pywinauto.findwindows import find_windows
+        from pywinauto.win32functions import SetFocus
         import win32gui
         import win32con
 
-        hwnd = win32gui.FindWindow(None, "Microsoft Teams")
-        if hwnd:
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-            win32gui.SetForegroundWindow(hwnd)
-        else:
-            _logger.info("Microsoft Teams window not found")
+        window_id = find_windows(title_re=".*Teams.*")
+        print(window_id)
+        for w in window_id:
+            win32gui.ShowWindow(w, win32con.SW_MINIMIZE)
+            win32gui.ShowWindow(w, win32con.SW_RESTORE)
+            win32gui.SetActiveWindow(w)
+
     elif platform.system() == "Darwin":
         import os
 
@@ -58,6 +63,17 @@ def bring_teams_to_foreground() -> None:
             _logger.info("Microsoft Teams window not found")
     else:
         _logger.error("Platform not supported")
+
+
+class HardwareTypes(IntEnum):
+    """Hardware types for the Macropad."""
+
+    UNKNOWN = 0x00
+    SINGLE_BUTTON = 0x01
+    FIVE_BUTTON_USB = 0x02
+    FIVE_BUTTON_BT = 0x03
+    TEN_BUTTON_USB = 0x04
+    TEN_BUTTON_BT = 0x05
 
 
 # HID Messages and Commands
@@ -139,6 +155,10 @@ class VersionInfo(HidInputMessage):
     def version(self):
         return f"{self.buffer[0]}.{self.buffer[1]}.{self.buffer[2]}"
 
+    @property
+    def type(self):
+        return HardwareTypes(self.buffer[3])
+
 
 class HidOutputMessage:
     REPORT_ID = 1
@@ -152,16 +172,16 @@ class HidCommand(HidOutputMessage, ABC):
 
 
 class SetLed(HidCommand):
-    RED = (0xFF, 0x00, 0x00, 0x00)
-    GREEN = (0x00, 0xFF, 0x00, 0x00)
-    BLUE = (0x00, 0x00, 0xFF, 0x00)
-    WHITE = (0xFF, 0xFF, 0xFF, 0xFF)
+    RED = (0x0A, 0x00, 0x00, 0x00)
+    GREEN = (0x00, 0x0A, 0x00, 0x00)
+    BLUE = (0x00, 0x00, 0x0A, 0x00)
+    WHITE = (0x00, 0x00, 0x00, 0x0A)
     BLACK = (0x00, 0x00, 0x00, 0x00)
-    YELLOW = (0xFF, 0xFF, 0x00, 0x00)
-    CYAN = (0x00, 0xFF, 0xFF, 0x00)
-    MAGENTA = (0xFF, 0x00, 0xFF, 0x00)
-    ORANGE = (0xFF, 0xA5, 0x00, 0x00)
-    PURPLE = (0x80, 0x00, 0x80, 0x00)
+    YELLOW = (0x0A, 0x0A, 0x00, 0x00)
+    CYAN = (0x00, 0x0A, 0x0A, 0x00)
+    MAGENTA = (0x0A, 0x00, 0x0A, 0x00)
+    ORANGE = (0x0A, 0x08, 0x00, 0x00)
+    PURPLE = (0x09, 0x00, 0x09, 0x00)
 
     def __init__(
         self, id, r=int | list[int], g: int = None, b: int = None, w: int = None
@@ -524,6 +544,7 @@ class Macropad:
     def __init__(self, vid=0x2E8A, pid=0x2083):
         self._version_seen = None
         self._setup(vid, pid)
+        self._current_state = None
 
     def _setup(self, vid=0x2E8A, pid=0x2083):
         self.device = HidDevice(vid, pid)
@@ -580,16 +601,24 @@ class Macropad:
                 self._version_seen = msg.version
             else:
                 _logger.debug(f"Version Info: {msg}")
+            await self._update_device_status()
 
     async def _teams_callback(self, msg: ServerMessage):
         _logger.debug("Teams message: %s", msg)
+        self._current_state = msg
         if msg.token_refresh:
             try:
                 with open("macropad-teams-token.txt", "w") as f:
                     f.write(msg.token_refresh)
             except IOError as e:
                 _logger.error(f"Failed to write token to file: {e}")
+        await self._update_device_status()
+
+    async def _update_device_status(self):
+        if self._current_state is None:
+            return
         msgs = []
+        msg = self._current_state
 
         def set_led(id, condition, true_color, false_color):
             if condition:
@@ -621,20 +650,20 @@ class Macropad:
             await asyncio.gather(self.device.process(), self.websocket.process())
         except Exception as e:
             _logger.error(f"Error in Macropad process: {e}")
-            
+
+
 def check_for_device_update():
     try:
         requests.get("https://m42e.de/mutenix/macropad/latest")
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability")
-        
+
+
 def check_for_self_update():
     try:
         requests.get("https://m42e.de/mutenix/software/latest")
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability")
-
-    
 
 
 async def main():
