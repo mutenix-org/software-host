@@ -7,64 +7,95 @@
 #     "requests",
 #     "pywin32; platform_system=='Windows'",
 #     "pywinauto; platform_system=='Windows'",
+#     "aiohttp",
+#     "tqdm",
+#     "semver",
 # ]
 # ///
 __version__ = "1.0.0"
 
-import hid
 import asyncio
-import logging
 import concurrent.futures
-from enum import IntEnum, Enum
-import websockets
-import argparse
-from pydantic import BaseModel, Field, ValidationError
-from typing import Optional, ClassVar, override
+import hid
+import io
+import json
+import logging
+import os
+import pathlib
 import platform
-from abc import ABC, abstractmethod
 import requests
+import semver
+import tarfile
+import tempfile
+import time
+import websockets
 
+from abc import ABC, abstractmethod
+from aiohttp import web
+from enum import IntEnum, Enum, ReprEnum
+from pydantic import BaseModel, Field, ValidationError
+from tqdm import tqdm
+from typing import Optional, ClassVar, override
+if platform.system().lower() == "windows":
+    from pywinauto.findwindows import find_windows
+    from pywinauto.win32functions import SetFocus
+    import win32gui
+    import win32con
+elif platform.system().lower() == "linux":
+    import subprocess
+
+
+# region: Logging
+
+# Configure logging to write to a file
+log_file_path = pathlib.Path(__file__).parent / "macropad.log"
+logging.basicConfig(
+    level=logging.INFO,
+    filename=log_file_path,
+    filemode="a",
+    format="%(asctime)s - %(name)s - %(levelname)-8s - %(message)s",
+)
 _logger = logging.getLogger(__name__)
+
+# endregion
+
+
+# region: Teams foreground activation
 
 
 def bring_teams_to_foreground() -> None:
     """Bring the Microsoft Teams window to the foreground."""
-    if platform.system() == "Windows":
-        from pywinauto.findwindows import find_windows
-        from pywinauto.win32functions import SetFocus
-        import win32gui
-        import win32con
-
+    if platform.system().lower() == "windows":
         window_id = find_windows(title_re=".*Teams.*")
-        print(window_id)
+        _logger.debug(window_id)
         for w in window_id:
             win32gui.ShowWindow(w, win32con.SW_MINIMIZE)
             win32gui.ShowWindow(w, win32con.SW_RESTORE)
             win32gui.SetActiveWindow(w)
 
-    elif platform.system() == "Darwin":
-        import os
-
+    elif platform.system().lower() == "darwin":
         os.system("osascript -e 'tell application \"Microsoft Teams\" to activate'")
         os.system(
             'osascript -e \'tell application "System Events" to tell process "Microsoft Teams" to set frontmost to true\''
         )
-    elif platform.system() == "Linux":
-        import os
-
+    elif platform.system().lower() == "linux":
         try:
             # Get the window ID of Microsoft Teams
             window_id = (
-                os.system(["xdotool search --name Microsoft Teams"]).strip().decode()
+                subprocess.check_output("xdotool search --name 'Microsoft Teams'", shell=True).strip().decode()
             )
             # Activate the window
             os.system(f"xdotool windowactivate {window_id}")
         except Exception as e:
-            _logger.info("Microsoft Teams window not found")
+            _logger.error("Microsoft Teams window not found: %s", e)
     else:
         _logger.error("Platform not supported")
 
 
+# endregion
+
+
+# region HID Device Messages and Commands
 class HardwareTypes(IntEnum):
     """Hardware types for the Macropad."""
 
@@ -149,7 +180,7 @@ class VersionInfo(HidInputMessage):
         self.buffer = buffer
 
     def __str__(self):
-        return f"Initialize {{ buffer: {self.buffer} }}"
+        return f"Version Info: {self.version}, type {self.type.name}"
 
     @property
     def version(self):
@@ -171,34 +202,39 @@ class HidCommand(HidOutputMessage, ABC):
         raise NotImplementedError
 
 
-class SetLed(HidCommand):
-    RED = (0x0A, 0x00, 0x00, 0x00)
-    GREEN = (0x00, 0x0A, 0x00, 0x00)
+class LedColor(tuple, ReprEnum):
+    # The colors are encoded Green, Red, Blue, White
+    RED = (0x00, 0x0A, 0x00, 0x00)
+    GREEN = (0x0A, 0x00, 0x00, 0x00)
     BLUE = (0x00, 0x00, 0x0A, 0x00)
     WHITE = (0x00, 0x00, 0x00, 0x0A)
     BLACK = (0x00, 0x00, 0x00, 0x00)
     YELLOW = (0x0A, 0x0A, 0x00, 0x00)
-    CYAN = (0x00, 0x0A, 0x0A, 0x00)
-    MAGENTA = (0x0A, 0x00, 0x0A, 0x00)
-    ORANGE = (0x0A, 0x08, 0x00, 0x00)
-    PURPLE = (0x09, 0x00, 0x09, 0x00)
+    CYAN = (0x0A, 0x00, 0x0A, 0x00)
+    MAGENTA = (0x00, 0x0A, 0x0A, 0x00)
+    ORANGE = (0x08, 0x0A, 0x00, 0x00)
+    PURPLE = (0x00, 0x09, 0x09, 0x00)
 
-    def __init__(
-        self, id, r=int | list[int], g: int = None, b: int = None, w: int = None
-    ):
+
+class SetLed(HidCommand):
+    def __init__(self, id, led_color: LedColor):
         self.id = id
-        if isinstance(r, int):
-            r = r, g, b, w
-        if len(r) != 4:
-            raise ValueError("Color must be a list of 4 integers")
-        if any([c < 0 or c > 0xFF for c in r]):
-            raise ValueError("Color values must be between 0 and 255")
-        self.r, self.g, self.b, self.w = r
+        self.color = led_color
 
     @override
     def to_buffer(self) -> bytes:
+        color = self.color.value
         return bytes(
-            [HidOutCommands.SET_LED, self.id, self.r, self.g, self.b, self.w, 0, 0]
+            [
+                HidOutCommands.SET_LED,
+                self.id,
+                color[0],
+                color[1],
+                color[2],
+                color[3],
+                0,
+                0,
+            ]
         )
 
 
@@ -225,12 +261,10 @@ class Reset(SimpleHidCommand):
     def __init__(self):
         super().__init__(HidOutCommands.RESET)
 
-
-# Teams WebSocket Messages
-# ServerMessage are messages sent from the server to the client
-# ClientMessage are messages sent from the client to the server
+# endregion
 
 
+# region: Teams WebSocket Messages
 class MeetingPermissions(BaseModel):
     """Permissions for the meeting communicated by teams."""
 
@@ -312,6 +346,7 @@ class MeetingAction(str, Enum):
 
 
 class ClientMessage(BaseModel):
+    """Message sent to the Teams WebSocket server."""
     action: MeetingAction
     parameters: Optional[ClientMessageParameter] = None
     request_id: int = Field(None, serialization_alias="requestId")
@@ -327,12 +362,13 @@ class ClientMessage(BaseModel):
         return cls(*args, **kwargs)
 
 
-# Device Info is sent to the WebSocket server to identify the device
-# the token should be stored after reception to identify the device
+# endregion
 
 
 class Identifier:
-    """Identifies the device to the Teams Websocket server."""
+    """Identifies the device to the Teams Websocket server.
+    The token is used to authenticate the device with the server. It is received once the user
+    allows the device to connect to Teams."""
 
     def __init__(self, manufacturer, device, app, app_version, token=""):
         self.protocol_version = "2.0.0"
@@ -366,10 +402,13 @@ class HidDevice:
                 await asyncio.sleep(0.1)
             return
         self._waiting_for_device = True
+        searching = False
         while True:
-            _logger.info(
-                f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}"
-            )
+            if not searching:
+                _logger.info(
+                    f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}"
+                )
+            searching = True
             try:
                 self._device = hid.device()
                 self._device.open(self._vid, self._pid)
@@ -541,19 +580,21 @@ class WebSocketClient:
 
 
 class Macropad:
+    """The main logic for the Macropad."""
+
     def __init__(self, vid=0x2E8A, pid=0x2083):
         self._version_seen = None
         self._setup(vid, pid)
         self._current_state = None
 
     def _setup(self, vid=0x2E8A, pid=0x2083):
-        self.device = HidDevice(vid, pid)
+        self._device = HidDevice(vid, pid)
         try:
             with open("macropad-teams-token.txt", "r") as f:
                 token = f.read()
         except FileNotFoundError:
             token = ""
-        self.websocket = WebSocketClient(
+        self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",
             Identifier(
                 manufacturer="test",
@@ -563,8 +604,10 @@ class Macropad:
                 token=token,
             ),
         )
-        self.websocket.register_callback(self._teams_callback)
-        self.device.register_callback(self._hid_callback)
+        self._virtual_macropad = VirtualMacropad()
+        self._websocket.register_callback(self._teams_callback)
+        self._device.register_callback(self._hid_callback)
+        self._virtual_macropad.register_callback(self._hid_callback)
 
     async def _hid_callback(self, msg):
         if isinstance(msg, Status):
@@ -594,13 +637,14 @@ class Macropad:
                 if msg.button == 4:
                     client_message.parameters = parameters
 
-                await self.websocket.send_message(client_message)
+                await self._websocket.send_message(client_message)
         elif isinstance(msg, VersionInfo):
             if self._version_seen != msg.version:
-                _logger.info(f"Version Info: {msg}")
+                _logger.info(msg)
                 self._version_seen = msg.version
+                check_for_device_update(msg)
             else:
-                _logger.debug(f"Version Info: {msg}")
+                _logger.debug(msg)
             await self._update_device_status()
 
     async def _teams_callback(self, msg: ServerMessage):
@@ -630,40 +674,457 @@ class Macropad:
             if msg.meeting_update.meeting_state:
                 state = msg.meeting_update.meeting_state
                 if state.is_in_meeting:
-                    set_led(1, state.is_muted, SetLed.RED, SetLed.GREEN)
-                    set_led(2, state.is_hand_raised, SetLed.YELLOW, SetLed.WHITE)
-                    set_led(3, state.is_video_on, SetLed.GREEN, SetLed.RED)
+                    set_led(1, state.is_muted, LedColor.RED, LedColor.GREEN)
+                    set_led(2, state.is_hand_raised, LedColor.YELLOW, LedColor.WHITE)
+                    set_led(3, state.is_video_on, LedColor.GREEN, LedColor.RED)
                 else:
                     for i in range(5):
-                        set_led(i, False, SetLed.BLACK, SetLed.BLACK)
+                        set_led(i, False, LedColor.BLACK, LedColor.BLACK)
 
             if msg.meeting_update.meeting_permissions:
                 permissions = msg.meeting_update.meeting_permissions
-                set_led(5, permissions.can_leave, SetLed.GREEN, SetLed.BLACK)
+                set_led(5, permissions.can_leave, LedColor.GREEN, LedColor.BLACK)
 
         for m in msgs:
-            await self.device.send_msg(m)
+            try:
+                self._device.send_msg(m).add_done_callback(
+                    lambda x: _logger.debug(f"Sent {x} bytes to device")
+                )
+                self._virtual_macropad.send_msg(m).add_done_callback(
+                    lambda x: _logger.debug(f"Sent {x} bytes to virtual device")
+                )
+            except Exception as e:
+                print(e)
 
     async def process(self):
         """Starts the process loop for the device and the WebSocket connection."""
         try:
-            await asyncio.gather(self.device.process(), self.websocket.process())
+            await asyncio.gather(
+                self._device.process(),
+                self._websocket.process(),
+                self._virtual_macropad.process(),
+            )
         except Exception as e:
             _logger.error(f"Error in Macropad process: {e}")
 
 
-def check_for_device_update():
+class VirtualMacropad:
+    """A virtual representation of the Macropad for testing or playing around."""
+
+    def __init__(self, host="127.0.0.1", port=8080):
+        self.host = host
+        self.port = port
+        self._callback = None
+        self.app = web.Application()
+        self.app.add_routes(
+            [
+                web.get("/", self.index),
+                web.post("/button", self.button_handler),
+                web.get("/ws", self.websocket_handler),
+            ]
+        )
+        self._websockets = set()
+        self._led_status = {}
+
+    def register_callback(self, callback):
+        self._callback = callback
+
+    async def index(self, request):
+        return web.Response(
+            text="""
+            <html>
+            <body>
+            <div id="mainDiv" style="background-color: black; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; align-items: center; width: 150px;">
+            <div style="display: flex; align-items: center;">
+                <button style="background-color: green; border-radius: 50%; margin: 5px; padding: 30px;" title="(Un)Mute" onclick="sendButtonPress(1)"></button>
+                <div id="indicator1" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <button style="background-color: yellow; border-radius: 50%; margin: 5px; padding: 30px;" title="Lower/Raise Hand" onclick="sendButtonPress(2)"></button>
+                <div id="indicator2" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <button style="background-color: black; color:white; border-radius: 50%; margin: 5px; padding: 30px;" title="Show Teams" onclick="sendButtonPress(3)"></button>
+                <div id="indicator3" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <button style="background-color: blue; border-radius: 50%; margin: 5px; padding: 30px;" title="Like" onclick="sendButtonPress(4)"></button>
+                <div id="indicator4" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <button style="background-color: red; border-radius: 50%; margin: 5px; padding: 30px;" title="Leave Call" onclick="sendButtonPress(5)"></button>
+                <div id="indicator5" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+            </div>
+            </div>
+            <button onclick="openPopup()">Open in Popup</button>
+            <script>
+            function openPopup() {
+                const mainDiv = document.getElementById('mainDiv');
+                const width = mainDiv.offsetWidth;
+                const height = mainDiv.offsetHeight;
+                const popup = window.open('', 'popup', `width=${width+20},height=${height+20},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`);
+                popup.document.write(document.documentElement.outerHTML);
+                popup.document.close();
+                popup.focus();
+            }
+            </script>
+            <script>
+            const ws = new WebSocket('ws://' + window.location.host + '/ws');
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
+            };
+            async function sendButtonPress(button) {
+                ws.send(JSON.stringify({button: button}));
+            }
+            ws.onopen = function() {
+                ws.send(JSON.stringify({state_request: true}));
+            };
+            setInterval(() => {
+                ws.send(JSON.stringify({state_request: true}));
+            }, 5000);
+            </script>
+            </body>
+            </html>
+        """,
+            content_type="text/html",
+        )
+
+    async def button_handler(self, request):
+        data = await request.json()
+        button = data.get("button")
+        if self._callback:
+            msg = Status(bytes([button, 1, 0, 0, 1]))
+            await self._callback(msg)
+        return web.Response(status=200)
+
+    async def websocket_handler(self, request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        self._websockets.add(ws)
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                data = json.loads(msg.data)
+                if "button" in data:
+                    button = data.get("button")
+                    if self._callback:
+                        msg = Status(bytes([button, 1, 0, 0, 1]))
+                        await self._callback(msg)
+                if "state_request" in data:
+                    for i, color in self._led_status.items():
+                        if color:
+                            await ws.send_json({"button": i, "color": color})
+        self._websockets.remove(ws)
+        return ws
+
+    def _send_led_status(self, button, color):
+        for ws in self._websockets:
+            asyncio.create_task(ws.send_json({"button": button, "color": color}))
+
+    def send_msg(self, msg: HidOutputMessage):
+        future = asyncio.get_event_loop().create_future()
+        if isinstance(msg, SetLed):
+            color = msg.color.name.lower()
+            self._led_status[msg.id] = color
+            for ws in self._websockets:
+                asyncio.create_task(
+                    ws.send_json({"button": msg.id, "color": color})
+                ).add_done_callback(lambda x: future.set_result(True))
+        else:
+            future.set_exception(Exception("Unsupported message type"))
+        _logger.debug("Put message")
+        return future
+
+    async def process(self):
+        runner = web.AppRunner(self.app, access_log=None)
+        await runner.setup()
+        site = web.TCPSite(runner, self.host, self.port)
+        await site.start()
+        _logger.info(f"VirtualMacropad running at http://{self.host}:{self.port}")
+        print(f"VirtualMacropad running at http://{self.host}:{self.port}")
+
+
+# region: Update Firmware
+def check_for_device_update(device_version: VersionInfo):
     try:
-        requests.get("https://m42e.de/mutenix/macropad/latest")
+        result = requests.get("https://m42e.de/mutenix/macropad/releases")
+        if result.status_code != 200:
+            _logger.error(
+                "Failed to download the release info, status code: %s",
+                result.status_code,
+            )
+            return
+
+        releases = result.json()
+        versions = releases.get(device_version.type.name, {})
+        _logger.debug("Versions: %s", versions)
+        latest_version = versions.get("latest", "0.0.0")
+        _logger.debug("Latest version: %s", latest_version)
+        if semver.compare(device_version.version, latest_version) >= 0:
+            _logger.info("Device is up to date")
+            return
+
+        print("Device update available, starting update, please be patient")
+        update_url = versions.get(latest_version).get("url")
+        result = requests.get(update_url)
+        result.raise_for_status()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            with tarfile.open(fileobj=io.BytesIO(result.content), mode="r:gz") as tar:
+                tar.extractall(path=tmpdirname)
+        files = list(filter(lambda x: x.endswith(".py"), os.listdir(tmpdirname)))
+        perform_hid_upgrade(files)
+        _logger.info("Successfully updated device firmware")
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability")
 
 
+HEADER_SIZE = 8
+MAX_CHUNK_SIZE = 60 - HEADER_SIZE
+DATA_TRANSFER_SLEEP_TIME = 0.02
+STATE_CHANGE_SLEEP_TIME = 0.5
+
+
+class RequestChunk:
+    def __init__(self, data: bytes):
+        self.parse(data)
+        self.id = ""
+        self.segment = 0
+
+    def parse(self, data: bytes):
+        self.identifier = data[:2].decode("utf-8")
+        if self.identifier != "RQ":
+            return
+        self.id = int.from_bytes(data[2:4], "little")
+        self.package = int.from_bytes(data[4:6], "little")
+        _logger.info("Chunk request: %s", self)
+
+    def is_valid(self):
+        return self.identifier == "RQ"
+
+    def __str__(self):
+        if self.is_valid():
+            return f"File: {self.id}, Package: {self.package}"
+        return "Invalid Request"
+
+
+class Chunk:
+    @abstractmethod
+    def packet(self):
+        pass
+
+
+class FileChunk(Chunk):
+    def __init__(self, id: int, package: int, total_packages: int, content: bytes):
+        self.id = id
+        self.package = package
+        self.total_packages = total_packages
+        self.content = content
+
+    def packet(self):
+        return (
+            int(2).to_bytes(2, "little")
+            + self.id.to_bytes(2, "little")
+            + self.total_packages.to_bytes(2, "little")
+            + self.package.to_bytes(2, "little")
+            + self.content
+            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
+        )
+
+
+class FileStart(Chunk):
+    def __init__(
+        self, id: int, package: int, total_packages: int, filename: bytes, filesize: int
+    ):
+        self.id = id
+        self.package = package
+        self.total_packages = total_packages
+        self.content = (
+            bytes((len(filename),))
+            + filename.encode("utf-8")
+            + bytes((2,))
+            + filesize.to_bytes(2, "little")
+        )
+
+    def packet(self):
+        return (
+            int(1).to_bytes(2, "little")
+            + self.id.to_bytes(2, "little")
+            + self.total_packages.to_bytes(2, "little")
+            + self.package.to_bytes(2, "little")
+            + self.content
+            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
+        )
+
+
+class FileEnd(Chunk):
+    def __init__(self, id: int):
+        self.id = id
+
+    def packet(self):
+        return (
+            int(3).to_bytes(2, "little")
+            + self.id.to_bytes(2, "little")
+            + b"\0" * (MAX_CHUNK_SIZE + 4)
+        )
+
+
+class TransferFile:
+    def __init__(self, id, filename: str):
+        self.id = id
+        file = pathlib.Path(filename)
+        self.filename = file.name
+        with open(file, "rb") as f:
+            self.content = f.read()
+        self.size = len(self.content)
+        self.packages_sent = []
+        self._chunks = []
+        self.make_chunks()
+        _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
+
+    def make_chunks(self):
+        total_packages = self.size // MAX_CHUNK_SIZE
+        self._chunks.append(
+            FileStart(self.id, 0, total_packages, self.filename, self.size)
+        )
+        for i in range(0, self.size, MAX_CHUNK_SIZE):
+            self._chunks.append(
+                FileChunk(
+                    self.id,
+                    i // MAX_CHUNK_SIZE,
+                    total_packages,
+                    self.content[i : i + MAX_CHUNK_SIZE],
+                )
+            )
+        self._chunks.append(FileEnd(self.id))
+
+    def get_next_chunk(self) -> FileChunk:
+        next = max(self.packages_sent) + 1 if len(self.packages_sent) > 0 else 0
+        self.packages_sent.append(next)
+        return self._chunks[next]
+
+    @property
+    def chunks(self):
+        return len(self._chunks)
+
+    def get_chunk(self, request: RequestChunk):
+        if request.id != self.id:
+            raise FileNotFoundError("File not found")
+        if request.segment < 0 or request.segment >= len(self._chunks):
+            raise ValueError("Invalid request")
+        return self._chunks[request.segment + 1]
+
+    def is_complete(self):
+        return len(self.packages_sent) == len(self._chunks)
+
+
+def perform_hid_upgrade(files: list[str]):
+    _logger.debug("Opening device for update")
+    device = hid.device()
+    device.open(0x2E8A, 0x2083)
+    _logger.debug("Sending prepare update")
+    device.write([1, 0xE0] + [0] * 7)
+    time.sleep(STATE_CHANGE_SLEEP_TIME)
+
+    transfer_files = [TransferFile(i, file) for i, file in enumerate(files)]
+
+    chunk_requests = []
+    finished = False
+    finished_at = None
+
+    _logger.debug("Preparing to send %s files", len(transfer_files))
+    file_progress_bars = {
+        file.id: tqdm(
+            total=file.chunks, desc=f"{file.id}/{len(transfer_files)} {file.filename}"
+        )
+        for file in transfer_files
+    }
+
+    while True:
+        received = device.read(24, 100)
+        if len(received) > 0:
+            rc = RequestChunk(bytes(received))
+            if rc.is_valid():
+                print(rc)
+                try:
+                    chunk_requests.append(rc)
+                except FileNotFoundError:
+                    print("File not found")
+
+        if len(chunk_requests) > 0:
+            _logger.debug("Sending requested chunk")
+            cr = chunk_requests.pop(0)
+            file = next((f for f in transfer_files if f.id == cr.id), None)
+            chunk = file.get_chunk(cr)
+            device.write(bytearray((2,)) + chunk.packet())
+            time.sleep(DATA_TRANSFER_SLEEP_TIME)
+
+        try:
+            file = next(filter(lambda x: not x.is_complete(), transfer_files))
+            chunk = file.get_next_chunk()
+            if chunk:
+                _logger.debug("Sending chunk of file %s", file.filename)
+                cnk = bytes((2,)) + chunk.packet()
+                device.write(cnk)
+                file_progress_bars[file.id].update(1)
+                time.sleep(DATA_TRANSFER_SLEEP_TIME)
+            else:
+                print(f"File {file.filename} transfered")
+        except StopIteration:
+            if (finished_at and time.monotonic() - finished_at > 5) or (
+                not finished_at
+            ):
+                break
+            if not finished:
+                print("All files transfered")
+                finished = True
+                finished_at = time.monotonic()
+    time.sleep(STATE_CHANGE_SLEEP_TIME)
+    device.write([2, 4] + [0] * 59)
+    time.sleep(STATE_CHANGE_SLEEP_TIME)
+    print("Resetting")
+    device.write([1, 0xE1] + [0] * 7)
+
+
+# endregion
+
+
+# region: Update Application
 def check_for_self_update():
     try:
-        requests.get("https://m42e.de/mutenix/software/latest")
+        result = requests.get("https://m42e.de/mutenix/software/releases")
+        if result.status_code != 200:
+            _logger.error(
+                "Failed to download the release info, status code: %s",
+                result.status_code,
+            )
+            return
+
+        versions = result.json()
+        _logger.debug("Versions: %s", versions)
+        latest_version = versions.get("latest", "0.0.0")
+        _logger.debug("Latest version: %s", latest_version)
+        if semver.compare(__version__, latest_version) >= 0:
+            _logger.info("Application is up to date")
+            return
+
+        print("Application update available, starting update, please be patient")
+        update_url = versions.get(latest_version).get("url")
+        result = requests.get(update_url)
+        result.raise_for_status()
+        if result.status_code == 200:
+            with tarfile.open(fileobj=io.BytesIO(result.content), mode="r:gz") as tar:
+                tar.extract("macropad.py", path=pathlib.Path(__file__).parent)
+                _logger.info("Successfully updated macropad.py")
+        else:
+            _logger.error(
+                "Failed to download the update, status code: %s", result.status_code
+            )
+
     except requests.RequestException as e:
-        _logger.error("Failed to check for device update availability")
+        _logger.error("Failed to check for application update availability", e)
+
+
+# endregion
 
 
 async def main():
