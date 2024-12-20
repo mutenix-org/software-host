@@ -27,6 +27,7 @@ from mutenix.teams_messages import (
 
 _logger = logging.getLogger(__name__)
 
+
 class Macropad:
     """The main logic for the Macropad."""
 
@@ -154,4 +155,3 @@ class Macropad:
             )
         except Exception as e:
             _logger.error(f"Error in Macropad process: {e}")
-

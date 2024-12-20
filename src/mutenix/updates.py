@@ -58,7 +58,7 @@ STATE_CHANGE_SLEEP_TIME = 0.5
 class RequestChunk:
     def __init__(self, data: bytes):
         self.parse(data)
-        self.id = ""
+        self.id = 0
         self.segment = 0
 
     def parse(self, data: bytes):
@@ -104,7 +104,7 @@ class FileChunk(Chunk):
 
 class FileStart(Chunk):
     def __init__(
-        self, id: int, package: int, total_packages: int, filename: bytes, filesize: int
+        self, id: int, package: int, total_packages: int, filename: str, filesize: int
     ):
         self.id = id
         self.package = package
@@ -147,8 +147,8 @@ class TransferFile:
         with open(file, "rb") as f:
             self.content = f.read()
         self.size = len(self.content)
-        self.packages_sent = []
-        self._chunks = []
+        self.packages_sent: list[int] = []
+        self._chunks: list[Chunk] = []
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
 
@@ -168,7 +168,7 @@ class TransferFile:
             )
         self._chunks.append(FileEnd(self.id))
 
-    def get_next_chunk(self) -> FileChunk:
+    def get_next_chunk(self) -> Chunk:
         next = max(self.packages_sent) + 1 if len(self.packages_sent) > 0 else 0
         self.packages_sent.append(next)
         return self._chunks[next]
@@ -177,7 +177,7 @@ class TransferFile:
     def chunks(self):
         return len(self._chunks)
 
-    def get_chunk(self, request: RequestChunk):
+    def get_chunk(self, request: RequestChunk) -> Chunk:
         if request.id != self.id:
             raise FileNotFoundError("File not found")
         if request.segment < 0 or request.segment >= len(self._chunks):
@@ -215,7 +215,6 @@ def perform_hid_upgrade(files: list[str]):
         if len(received) > 0:
             rc = RequestChunk(bytes(received))
             if rc.is_valid():
-                print(rc)
                 try:
                     chunk_requests.append(rc)
                 except FileNotFoundError:
@@ -225,8 +224,12 @@ def perform_hid_upgrade(files: list[str]):
             _logger.debug("Sending requested chunk")
             cr = chunk_requests.pop(0)
             file = next((f for f in transfer_files if f.id == cr.id), None)
-            chunk = file.get_chunk(cr)
-            device.write(bytearray((2,)) + chunk.packet())
+            if not file:
+                print("File not found")
+                _logger.warning("File not found")
+                continue
+            file_chunk = file.get_chunk(cr)
+            device.write(bytearray((2,)) + file_chunk.packet())
             time.sleep(DATA_TRANSFER_SLEEP_TIME)
 
         try:

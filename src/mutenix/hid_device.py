@@ -3,9 +3,10 @@ import concurrent.futures
 import hid
 import logging
 
-from mutenix.hid_commands import HidOutputMessage, HidInputMessage, Ping
+from mutenix.hid_commands import HidCommand, HidOutputMessage, HidInputMessage, Ping
 
 _logger = logging.getLogger(__name__)
+
 
 class HidDevice:
     """Handles the HID connection to the device.
@@ -17,7 +18,7 @@ class HidDevice:
         self._pid = pid
         self._device = hid.device()
         self._callback = None
-        self._send_buffer = asyncio.Queue()
+        self._send_buffer: asyncio.Queue = asyncio.Queue()
         self._last_communication = 0
         self._waiting_for_device = False
 
@@ -48,7 +49,7 @@ class HidDevice:
                 await asyncio.sleep(1)
         self._waiting_for_device = False
 
-    def _send_report(self, data: HidOutputMessage):
+    def _send_report(self, data: HidCommand):
         buffer = bytes([data.REPORT_ID]) + data.to_buffer()
         buffer = bytes(buffer)
         return self._device.write(buffer)

@@ -3,6 +3,7 @@ import websockets
 import logging
 from pydantic import ValidationError
 from mutenix.teams_messages import ServerMessage, ClientMessage
+from typing import Callable
 
 _logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class WebSocketClient:
     def __init__(self, uri: str, identifier):
         self._uri = uri
         self._connection = None
-        self._send_queue = asyncio.Queue()
-        self._callback = None
+        self._send_queue: asyncio.Queue = asyncio.Queue()
+        self._callback: Callable[[ServerMessage], None] | None = None
         params = f"?protocol-version={identifier.protocol_version}&manufacturer={identifier.manufacturer}&device={identifier.device}&app={identifier.app}&app-version={identifier.app_version}&token={identifier.token}"
         self._uri += params
         self._connecting = False
@@ -53,7 +54,7 @@ class WebSocketClient:
         self._send_queue.put_nowait((message, future))
         return future
 
-    def register_callback(self, callback: callable):
+    def register_callback(self, callback: Callable[[ServerMessage], None]):
         self._callback = callback
 
     async def _send_loop(self):

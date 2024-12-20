@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import pathlib
-from version import __version__
 
+from mutenix.version import __version__
 from mutenix.updates import check_for_self_update
 from mutenix.macropad import Macropad
 
