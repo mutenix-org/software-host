@@ -12,8 +12,10 @@
 #     "semver",
 # ]
 # ///
+
 __version__ = "1.0.0"
 
+# region: imports
 import asyncio
 import concurrent.futures
 import hid
@@ -36,6 +38,7 @@ from enum import IntEnum, Enum, ReprEnum
 from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 from typing import Optional, ClassVar, override
+
 if platform.system().lower() == "windows":
     from pywinauto.findwindows import find_windows
     from pywinauto.win32functions import SetFocus
@@ -43,6 +46,8 @@ if platform.system().lower() == "windows":
     import win32con
 elif platform.system().lower() == "linux":
     import subprocess
+
+# endregion
 
 
 # region: Logging
@@ -82,7 +87,11 @@ def bring_teams_to_foreground() -> None:
         try:
             # Get the window ID of Microsoft Teams
             window_id = (
-                subprocess.check_output("xdotool search --name 'Microsoft Teams'", shell=True).strip().decode()
+                subprocess.check_output(
+                    "xdotool search --name 'Microsoft Teams'", shell=True
+                )
+                .strip()
+                .decode()
             )
             # Activate the window
             os.system(f"xdotool windowactivate {window_id}")
@@ -261,6 +270,7 @@ class Reset(SimpleHidCommand):
     def __init__(self):
         super().__init__(HidOutCommands.RESET)
 
+
 # endregion
 
 
@@ -347,6 +357,7 @@ class MeetingAction(str, Enum):
 
 class ClientMessage(BaseModel):
     """Message sent to the Teams WebSocket server."""
+
     action: MeetingAction
     parameters: Optional[ClientMessageParameter] = None
     request_id: int = Field(None, serialization_alias="requestId")
@@ -847,7 +858,9 @@ class VirtualMacropad:
 # region: Update Firmware
 def check_for_device_update(device_version: VersionInfo):
     try:
-        result = requests.get("https://m42e.de/mutenix/macropad/releases")
+        result = requests.get(
+            f"https://mutenix.de/api/v1/releases/macropad-{device_version.type.name}"
+        )
         if result.status_code != 200:
             _logger.error(
                 "Failed to download the release info, status code: %s",
@@ -856,16 +869,14 @@ def check_for_device_update(device_version: VersionInfo):
             return
 
         releases = result.json()
-        versions = releases.get(device_version.type.name, {})
-        _logger.debug("Versions: %s", versions)
-        latest_version = versions.get("latest", "0.0.0")
+        latest_version = releases.get("latest", "0.0.0")
         _logger.debug("Latest version: %s", latest_version)
         if semver.compare(device_version.version, latest_version) >= 0:
             _logger.info("Device is up to date")
             return
 
         print("Device update available, starting update, please be patient")
-        update_url = versions.get(latest_version).get("url")
+        update_url = releases.get(latest_version).get("url")
         result = requests.get(update_url)
         result.raise_for_status()
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -1091,7 +1102,7 @@ def perform_hid_upgrade(files: list[str]):
 # region: Update Application
 def check_for_self_update():
     try:
-        result = requests.get("https://m42e.de/mutenix/software/releases")
+        result = requests.get("https://mutenix.de/api/v1/releases/software-python")
         if result.status_code != 200:
             _logger.error(
                 "Failed to download the release info, status code: %s",
