@@ -15,6 +15,7 @@ dependencies = [
      "tqdm",
      "semver",
      "types-requests>=2.32.0.20241016",
+     "pytest-asyncio>=0.25.0",
 ]
 
 [project.scripts]
@@ -23,3 +24,10 @@ hello = "mutenix:hello"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest-cov>=6.0.0",
+    "pytest-timeout>=2.3.1",
+    "pytest>=8.3.4",
+]

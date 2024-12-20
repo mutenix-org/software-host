@@ -4,14 +4,22 @@ from aiohttp import web
 from mutenix.hid_commands import Status, HidOutputMessage, SetLed
 import logging
 
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8080
+
 _logger = logging.getLogger(__name__)
+
+class UnsupportedMessageTypeError(Exception):
+    """Exception raised for unsupported message types in VirtualMacropad."""
+    pass
 
 class VirtualMacropad:
     """A virtual representation of the Macropad for testing or playing around."""
 
-    def __init__(self, host="127.0.0.1", port=8080):
+    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
         self.host = host
         self.port = port
+        # Callback function to handle button press events
         self._callback = None
         self.app = web.Application()
         self.app.add_routes(
@@ -23,6 +31,7 @@ class VirtualMacropad:
         )
         self._websockets = set()
         self._led_status = {}
+        self._led_status_lock = asyncio.Lock()
 
     def register_callback(self, callback):
         self._callback = callback
@@ -78,9 +87,22 @@ class VirtualMacropad:
             ws.onopen = function() {
                 ws.send(JSON.stringify({state_request: true}));
             };
-            setInterval(() => {
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+            };
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
+            };
+            async function sendButtonPress(button) {
+                ws.send(JSON.stringify({button: button}));
+            }
+            window.onblur = function() {
                 ws.send(JSON.stringify({state_request: true}));
-            }, 5000);
+            };
+            window.onfocus = function() {
+                ws.send(JSON.stringify({state_request: true}));
+            };
             </script>
             </body>
             </html>
@@ -92,7 +114,7 @@ class VirtualMacropad:
         data = await request.json()
         button = data.get("button")
         if self._callback:
-            msg = Status(bytes([button, 1, 0, 0, 1]))
+            msg = Status.trigger_button(button)
             await self._callback(msg)
         return web.Response(status=200)
 
@@ -106,32 +128,35 @@ class VirtualMacropad:
                 if "button" in data:
                     button = data.get("button")
                     if self._callback:
-                        msg = Status(bytes([button, 1, 0, 0, 1]))
+                        msg = Status.trigger_button(button)
                         await self._callback(msg)
                 if "state_request" in data:
-                    for i, color in self._led_status.items():
-                        if color:
-                            await ws.send_json({"button": i, "color": color})
+                    async with self._led_status_lock:
+                        for i, color in self._led_status.items():
+                            if color:
+                                await ws.send_json({"button": i, "color": color})
         self._websockets.remove(ws)
         return ws
 
     def _send_led_status(self, button, color):
-        for ws in self._websockets:
-            asyncio.create_task(ws.send_json({"button": button, "color": color}))
+        async def send_json_safe(ws, data):
+            try:
+                await ws.send_json(data)
+            except Exception as e:
+                _logger.error(f"Error sending LED status: {e} to websocket {ws}")
 
-    def send_msg(self, msg: HidOutputMessage):
-        future = asyncio.get_event_loop().create_future()
+        for ws in self._websockets:
+            asyncio.create_task(send_json_safe(ws, {"button": button, "color": color}))
+
+    async def send_msg(self, msg: HidOutputMessage):
         if isinstance(msg, SetLed):
             color = msg.color.name.lower()
-            self._led_status[msg.id] = color
-            for ws in self._websockets:
-                asyncio.create_task(
-                    ws.send_json({"button": msg.id, "color": color})
-                ).add_done_callback(lambda x: future.set_result(True))
+            async with self._led_status_lock:
+                self._led_status[msg.id] = color
+            self._send_led_status(msg.id, color)
         else:
-            future.set_exception(Exception("Unsupported message type"))
-        _logger.debug("Put message")
-        return future
+            raise UnsupportedMessageTypeError("Unsupported message type")
+        _logger.debug(f"Sent message: {msg}")
 
     async def process(self):
         runner = web.AppRunner(self.app, access_log=None)

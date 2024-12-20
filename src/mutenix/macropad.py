@@ -91,7 +91,7 @@ class Macropad:
             if self._version_seen != msg.version:
                 _logger.info(msg)
                 self._version_seen = msg.version
-                check_for_device_update(msg)
+                check_for_device_update(self._device, msg)
             else:
                 _logger.debug(msg)
             await self._update_device_status()

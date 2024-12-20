@@ -5,15 +5,29 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-if platform.system().lower() == "windows":
+if platform.system().lower() == "windows": # pragma: no cover
     from pywinauto.findwindows import find_windows # type: ignore
     import win32gui # type: ignore
     import win32con # type: ignore
-elif platform.system().lower() == "linux":
+elif platform.system().lower() == "linux": # pragma: no cover
     import subprocess
 
-def bring_teams_to_foreground() -> None:
-    """Bring the Microsoft Teams window to the foreground."""
+def bring_teams_to_foreground() -> None: # pragma: no cover
+    """
+    Bring the Microsoft Teams window to the foreground.
+
+    This function attempts to bring the Microsoft Teams application window to the foreground
+    on different operating systems (Windows, macOS, and Linux). It uses platform-specific
+    methods to achieve this.
+
+    - On Windows, it uses the `win32gui` and `win32con` modules to minimize and restore the window.
+    - On macOS, it uses AppleScript commands to activate the application and set it as frontmost.
+    - On Linux, it uses the `xdotool` command to search for and activate the window.
+
+    If the platform is not supported, it logs an error message.
+
+    Note: This function will not be coverable due to its OS dependencies.
+    """
     if platform.system().lower() == "windows":
         window_id = find_windows(title_re=".*Teams.*")
         _logger.debug(window_id)

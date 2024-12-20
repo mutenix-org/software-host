@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 import hid
 import logging
 
@@ -16,11 +15,12 @@ class HidDevice:
     def __init__(self, vid: int, pid: int):
         self._vid = vid
         self._pid = pid
-        self._device = hid.device()
+        self._device: hid.device = hid.device()
         self._callback = None
         self._send_buffer: asyncio.Queue = asyncio.Queue()
         self._last_communication = 0
         self._waiting_for_device = False
+        self._run = True
 
     def __del__(self):
         self._device.close()
@@ -63,26 +63,26 @@ class HidDevice:
     def register_callback(self, callback):
         self._callback = callback
 
-    async def _read(self) -> bytes:
-        loop = asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            result = await loop.run_in_executor(pool, self._device.read, 64)
-        return result
-
     async def _read_loop(self):
-        while True:
-            try:
-                buffer = await self._read()
-                if buffer:
-                    msg = HidInputMessage.from_buffer(buffer)
-                    if self._callback:
-                        if asyncio.iscoroutinefunction(self._callback):
-                            asyncio.create_task(self._callback(msg))
-                        else:
-                            self._callback(msg)
-            except OSError as e:  # Device disconnected
-                _logger.error("Device disconnected: %s", e)
-                await self._wait_for_device()
+        while self._run:
+            await self._read()
+
+    async def _read(self):
+        try:
+            buffer = await self._device.read(64, timeout_ms=100)
+            if buffer and len(buffer):
+                msg = HidInputMessage.from_buffer(buffer)
+                if self._callback:
+                    if asyncio.iscoroutinefunction(self._callback):
+                        asyncio.create_task(self._callback(msg))
+                    else:
+                        self._callback(msg)
+        except OSError as e:  # Device disconnected
+            _logger.error("Device disconnected: %s", e)
+            await self._wait_for_device()
+            _logger.info("Device reconnected")
+        except Exception as e:
+            _logger.error("Error reading message: %s", e)
 
     async def _write_loop(self):
         """
@@ -92,40 +92,53 @@ class HidDevice:
         and sending them to the HID device. It sets the result of the future associated
         with each message once the message is sent.
         """
-        while True:
-            try:
-                msg, future = await self._send_buffer.get()
-                result = self._send_report(msg)
-                if result < 0:
-                    _logger.error("Failed to send message: %s", msg)
-                    future.set_exception(Exception("Failed to send message"))
-                self._last_communication = asyncio.get_event_loop().time()
-                if not future.cancelled():
-                    future.set_result(result)
-                self._send_buffer.task_done()
-            except OSError as e:  # Device disconnected
-                _logger.error("Device disconnected: %s", e)
-            except ValueError as e:
-                _logger.error("Error sending message: %s", e)
+        while self._run:
+            await self._write()
+
+    async def _write(self):
+        try:
+            msg, future = await self._send_buffer.get()
+            result = self._send_report(msg)
+            if result < 0:
+                _logger.error("Failed to send message: %s", msg)
+                future.set_exception(Exception("Failed to send message"))
+                return
+            self._last_communication = asyncio.get_event_loop().time()
+            if not future.cancelled():
+                future.set_result(result)
+            self._send_buffer.task_done()
+        except OSError as e:  # Device disconnected
+            _logger.error("Device disconnected: %s", e)
+        except ValueError as e:
+            _logger.error("Error sending message: %s", e)
+
+    async def _ping_loop(self):
+        """
+        Sends a ping message to the HID device every 4.5 seconds.
+        """
+        while self._run:
+            self._ping()
 
     async def _ping(self):
         """
         Sends a ping message to the HID device.
         """
-        while True:
-            await asyncio.sleep(
-                self._last_communication + 4.5 - asyncio.get_event_loop().time()
-            )
-            if asyncio.get_event_loop().time() - self._last_communication > 4.5:
-                _logger.debug("Sending ping")
-                msg = Ping()
-                self.send_msg(msg)
-                self._last_communication = asyncio.get_event_loop().time()
+        await asyncio.sleep(
+            self._last_communication + 4.5 - asyncio.get_event_loop().time()
+        )
+        if asyncio.get_event_loop().time() - self._last_communication > 4.5:
+            _logger.debug("Sending ping")
+            msg = Ping()
+            self.send_msg(msg)
+            self._last_communication = asyncio.get_event_loop().time()
 
     async def process(self):
         """
         Starts the read and write loops to process incoming and outgoing HID messages.
         """
-        while True:
+        while self._run:
             await self._wait_for_device()
             await asyncio.gather(self._read_loop(), self._write_loop(), self._ping())
+
+    async def stop(self):
+        self._run = False

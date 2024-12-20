@@ -11,5 +11,16 @@
             "program": "${workspaceFolder}/macropad.py",
             "console": "integratedTerminal"
         }
+        ,
+        {
+            "name": "Python: pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.venv/bin/pytest",
+            "args": [
+                "-k", "send_connection_exception"
+            ],
+            "console": "integratedTerminal"
+        }
     ]
 }

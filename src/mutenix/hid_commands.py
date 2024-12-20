@@ -38,6 +38,10 @@ class HidInputMessage:
         return self.__str__()
 
 class Status(HidInputMessage):
+
+    @classmethod
+    def trigger_button(cls, button: int):
+        return cls(bytes([button, 1, 0, 0, 1]))
     def __init__(self, buffer: bytes):
         self.buffer = buffer
 

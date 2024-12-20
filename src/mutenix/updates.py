@@ -11,12 +11,12 @@ from abc import abstractmethod
 from tqdm import tqdm
 from mutenix.hid_commands import VersionInfo
 import logging
-from version import __version__
+from mutenix.version import __version__
 
 _logger = logging.getLogger(__name__)
 
 # region: Update Firmware
-def check_for_device_update(device_version: VersionInfo):
+def check_for_device_update(device: hid.device, device_version: VersionInfo):
     try:
         result = requests.get(
             f"https://mutenix.de/api/v1/releases/macropad-{device_version.type.name}"
@@ -42,9 +42,9 @@ def check_for_device_update(device_version: VersionInfo):
         with tempfile.TemporaryDirectory() as tmpdirname:
             with tarfile.open(fileobj=io.BytesIO(result.content), mode="r:gz") as tar:
                 tar.extractall(path=tmpdirname)
-        files = list(filter(lambda x: x.endswith(".py"), os.listdir(tmpdirname)))
-        perform_hid_upgrade(files)
-        _logger.info("Successfully updated device firmware")
+            files = list(filter(lambda x: x.endswith(".py"), os.listdir(tmpdirname)))
+            perform_hid_upgrade(device, files)
+            _logger.info("Successfully updated device firmware")
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability", e)
 
@@ -57,16 +57,16 @@ STATE_CHANGE_SLEEP_TIME = 0.5
 
 class RequestChunk:
     def __init__(self, data: bytes):
-        self.parse(data)
         self.id = 0
         self.segment = 0
+        self.parse(data)
 
     def parse(self, data: bytes):
         self.identifier = data[:2].decode("utf-8")
         if self.identifier != "RQ":
             return
         self.id = int.from_bytes(data[2:4], "little")
-        self.package = int.from_bytes(data[4:6], "little")
+        self.segment = int.from_bytes(data[4:6], "little")
         _logger.info("Chunk request: %s", self)
 
     def is_valid(self):
@@ -74,7 +74,7 @@ class RequestChunk:
 
     def __str__(self):
         if self.is_valid():
-            return f"File: {self.id}, Package: {self.package}"
+            return f"File: {self.id}, Package: {self.segment}"
         return "Invalid Request"
 
 
@@ -188,10 +188,8 @@ class TransferFile:
         return len(self.packages_sent) == len(self._chunks)
 
 
-def perform_hid_upgrade(files: list[str]):
+def perform_hid_upgrade(device, files: list[str]):
     _logger.debug("Opening device for update")
-    device = hid.device()
-    device.open(0x2E8A, 0x2083)
     _logger.debug("Sending prepare update")
     device.write([1, 0xE0] + [0] * 7)
     time.sleep(STATE_CHANGE_SLEEP_TIME)
@@ -215,10 +213,7 @@ def perform_hid_upgrade(files: list[str]):
         if len(received) > 0:
             rc = RequestChunk(bytes(received))
             if rc.is_valid():
-                try:
-                    chunk_requests.append(rc)
-                except FileNotFoundError:
-                    print("File not found")
+                chunk_requests.append(rc)
 
         if len(chunk_requests) > 0:
             _logger.debug("Sending requested chunk")
@@ -227,7 +222,7 @@ def perform_hid_upgrade(files: list[str]):
             if not file:
                 print("File not found")
                 _logger.warning("File not found")
-                continue
+                raise FileNotFoundError("File not found")
             file_chunk = file.get_chunk(cr)
             device.write(bytearray((2,)) + file_chunk.packet())
             time.sleep(DATA_TRANSFER_SLEEP_TIME)
