@@ -139,7 +139,7 @@ class Macropad:
                 self._device.send_msg(m).add_done_callback(
                     lambda x: _logger.debug(f"Sent {x} bytes to device")
                 )
-                self._virtual_macropad.send_msg(m).add_done_callback(
+                await self._virtual_macropad.send_msg(m).add_done_callback(
                     lambda x: _logger.debug(f"Sent {x} bytes to virtual device")
                 )
             except Exception as e:

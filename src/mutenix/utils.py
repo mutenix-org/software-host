@@ -2,6 +2,9 @@ import os
 import platform
 import subprocess
 import logging
+import asyncio
+import time
+import functools
 
 _logger = logging.getLogger(__name__)
 
@@ -57,3 +60,52 @@ def bring_teams_to_foreground() -> None: # pragma: no cover
             _logger.error("Microsoft Teams window not found: %s", e)
     else:
         _logger.error("Platform not supported")
+
+
+def run_loop(func):
+    if asyncio.iscoroutinefunction(func):
+        async def wrapper(self, *args, **kwargs):
+            while self._run:
+                await func(self, *args, **kwargs)
+                await asyncio.sleep(0)
+
+    else:
+        raise Exception("only for async functions")
+    return wrapper
+
+
+def block_parallel(func):
+    func._already_running = False
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        _logger.error(f"block_parallel {func.__name__} {func._already_running}")
+        if func._already_running:
+            while func._already_running:
+                await asyncio.sleep(0.1)
+            return
+        func._already_running = True
+        print("block_parallel")
+        await func(self, *args, **kwargs)
+        func._already_running = False
+    return wrapper
+
+def run_till_some_loop(sleep_time: float = 0):
+    def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+            async def wrapper(self, *args, **kwargs):
+                while self._run:
+                    some = await func(self, *args, **kwargs)
+                    if some:
+                        break
+                    if sleep_time > 0:
+                        await asyncio.sleep(sleep_time)
+        else:
+            def wrapper(self, *args, **kwargs):
+                while self._run:
+                    some = func(self, *args, **kwargs)
+                    if some:
+                        break
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+        return wrapper
+    return decorator

@@ -165,3 +165,8 @@ class VirtualMacropad:
         await site.start()
         _logger.info(f"VirtualMacropad running at http://{self.host}:{self.port}")
         print(f"VirtualMacropad running at http://{self.host}:{self.port}")
+
+    async def stop(self):
+        await self.app.shutdown()
+        await self.app.cleanup()
+        _logger.info("VirtualMacropad stopped")

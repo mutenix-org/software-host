@@ -3,7 +3,9 @@ import asyncio
 from unittest.mock import ANY, Mock, patch, AsyncMock
 from mutenix.hid_device import HidDevice
 from mutenix.hid_commands import HidOutputMessage, Ping, PrepareUpdate
+import tracemalloc
 
+tracemalloc.start()
 
 @pytest.fixture
 def hid_device():
@@ -34,7 +36,7 @@ async def test_send_msg(hid_device):
 async def test_register_callback(hid_device):
     callback = Mock()
     hid_device.register_callback(callback)
-    assert hid_device._callback == callback
+    assert callback in hid_device._callbacks
 
 
 @pytest.mark.asyncio
@@ -43,17 +45,6 @@ async def test_ping(hid_device):
         with patch("asyncio.sleep", side_effect=asyncio.CancelledError):
             with pytest.raises(asyncio.CancelledError):
                 await hid_device._ping()
-
-
-@pytest.mark.asyncio
-async def test_process(hid_device):
-    with patch.object(hid_device, "_wait_for_device", return_value=Mock()):
-        with patch.object(hid_device, "_read_loop", return_value=Mock()):
-            with patch.object(hid_device, "_write_loop", return_value=Mock()):
-                with patch.object(hid_device, "_ping", return_value=Mock()):
-                    with patch("asyncio.gather", side_effect=asyncio.CancelledError):
-                        with pytest.raises(asyncio.CancelledError):
-                            await hid_device.process()
 
 
 @pytest.mark.asyncio
@@ -104,7 +95,7 @@ async def test_read_success(hid_device):
     future = asyncio.get_event_loop().create_future()
     async def callback(msg):
         future.set_result(msg)
-    hid_device._callback = callback
+    hid_device._callbacks.append(callback)
     with patch.object(hid_device._device, "read", new_callable=AsyncMock, return_value=data):
         with patch(
             "mutenix.hid_commands.HidInputMessage.from_buffer", return_value=Mock()

@@ -33,8 +33,9 @@ class TestVirtualMacropad(AioHTTPTestCase):
 
     async def test_send_msg(self):
         msg = SetLed(id=1, led_color=LedColor.RED)
-        self.macropad.send_msg(msg)
-        assert self.macropad._led_status[1] == "red"
+        await self.macropad.send_msg(msg)
+        async with self.macropad._led_status_lock:
+            assert self.macropad._led_status[1] == "red"
 
 
     async def test_process(self):
@@ -64,7 +65,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
         self.macropad._led_status[1] = "red"
         ws1 = await self.client.ws_connect("/ws")
         ws2 = await self.client.ws_connect("/ws")
-        self.macropad.send_msg(SetLed(id=2, led_color=LedColor.GREEN))
+        await self.macropad.send_msg(SetLed(id=2, led_color=LedColor.GREEN))
         msg1 = await ws1.receive_json()
         msg2 = await ws2.receive_json()
         assert msg1["button"] == 2
