@@ -5,20 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Module",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "mutenix"
+        },
+        {
             "name": "MacroPad Host SW",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/macropad.py",
             "console": "integratedTerminal"
-        }
-        ,
+        },
         {
             "name": "Python: pytest",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/.venv/bin/pytest",
             "args": [
-                "-k", "send_connection_exception"
+                "-k",
+                "send_connection_exception"
             ],
             "console": "integratedTerminal"
         }
