@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<body>
+<div id="mainDiv" style="background-color: black; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; align-items: center; width: 150px;">
+    <div style="display: flex; align-items: center;">
+        <button style="background-color: green; border-radius: 50%; margin: 5px; padding: 30px;" title="(Un)Mute" onclick="sendButtonPress(1)"></button>
+        <div id="indicator1" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <button style="background-color: yellow; border-radius: 50%; margin: 5px; padding: 30px;" title="Lower/Raise Hand" onclick="sendButtonPress(2)"></button>
+        <div id="indicator2" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <button style="background-color: black; color:white; border-radius: 50%; margin: 5px; padding: 30px;" title="Show Teams" onclick="sendButtonPress(3)"></button>
+        <div id="indicator3" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <button style="background-color: blue; border-radius: 50%; margin: 5px; padding: 30px;" title="Like" onclick="sendButtonPress(4)"></button>
+        <div id="indicator4" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <button style="background-color: red; border-radius: 50%; margin: 5px; padding: 30px;" title="Leave Call" onclick="sendButtonPress(5)"></button>
+        <div id="indicator5" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
+    </div>
+</div>
+<button onclick="openPopup()">Open in Popup</button>
+<script>
+function openPopup() {
+    const mainDiv = document.getElementById('mainDiv');
+    const width = mainDiv.offsetWidth;
+    const height = mainDiv.offsetHeight;
+    const popup = window.open('', 'popup', `width=${width+20},height=${height+20},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`);
+    popup.document.write(document.documentElement.outerHTML);
+    popup.document.close();
+    popup.focus();
+}
+</script>
+<script>
+const ws = new WebSocket('ws://' + window.location.host + '/ws');
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
+};
+async function sendButtonPress(button) {
+    ws.send(JSON.stringify({button: button}));
+}
+ws.onopen = function() {
+    ws.send(JSON.stringify({state_request: true}));
+};
+ws.onclose = function() {
+    console.log('WebSocket connection closed');
+};
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
+};
+async function sendButtonPress(button) {
+    ws.send(JSON.stringify({button: button}));
+}
+window.onblur = function() {
+    ws.send(JSON.stringify({state_request: true}));
+};
+window.onfocus = function() {
+    ws.send(JSON.stringify({state_request: true}));
+};
+</script>
+</body>
+</html>
