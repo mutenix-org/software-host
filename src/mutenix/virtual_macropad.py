@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import pathlib
 from typing import Callable
 
 import jinja2
@@ -33,6 +34,7 @@ class VirtualMacropad:
         self.port = port
         self._callbacks: list[Callable[[HidOutputMessage], asyncio.Future]] = []
         self.app = web.Application()
+        self.app.router.add_static('/static/', path=str(pathlib.Path(__file__).parent / 'static'), name='static')
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -81,6 +83,9 @@ class VirtualMacropad:
                     case _:
                         _logger.info("Unknown message: %s", data)
                         await ws.send_json({"error": "unknown command"})
+            else:
+                _logger.info("Unknown message: %s", msg)
+                await ws.send_json({"error": "unknown message"})
         self._websockets.remove(ws)
         return ws
 

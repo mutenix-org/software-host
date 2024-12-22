@@ -1,6 +1,6 @@
 const ws = new WebSocket('ws://' + window.location.host + '/ws');
 function requestState() {
-    ws.send(JSON.stringify({ command: "state_request"}));
+    //ws.send(JSON.stringify({ command: "state_request"}));
 }
 ws.onmessage = function (event) {
     const data = JSON.parse(event.data);
@@ -11,7 +11,7 @@ ws.onmessage = function (event) {
 };
 function sendButtonPress(button) {
     if (ws.readyState == WebSocket.OPEN) {
-        ws.send(JSON.stringify({ command: "button_press", button: button }));
+        ws.send(JSON.stringify({ command: "button", button: button }));
         console.log('sent button press' + button);
     } else {
         console.log('WebSocket not open');
@@ -23,9 +23,6 @@ ws.onopen = function () {
 ws.onclose = function () {
     console.log('WebSocket connection closed');
 };
-async function sendButtonPress(button) {
-    ws.send(JSON.stringify({ button: button }));
-}
 window.onblur = function () {
     requestState();
 };
