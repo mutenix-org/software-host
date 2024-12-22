@@ -116,14 +116,14 @@ class Macropad:
     async def _update_device_status(self):
         if self._current_state is None:
             return
-        msgs = []
+        msgs = {}
         msg = self._current_state
 
         def set_led(id, condition, true_color, false_color):
             if condition:
-                msgs.append(SetLed(id, true_color))
+                msgs[id] = SetLed(id, true_color)
             else:
-                msgs.append(SetLed(id, false_color))
+                msgs[id] = SetLed(id, false_color)
 
         if msg.meeting_update:
             if msg.meeting_update.meeting_state:
@@ -133,14 +133,14 @@ class Macropad:
                     set_led(2, state.is_hand_raised, LedColor.YELLOW, LedColor.WHITE)
                     set_led(3, state.is_video_on, LedColor.GREEN, LedColor.RED)
                 else:
-                    for i in range(5):
+                    for i in range(1, 6):
                         set_led(i, False, LedColor.BLACK, LedColor.BLACK)
 
             if msg.meeting_update.meeting_permissions:
                 permissions = msg.meeting_update.meeting_permissions
                 set_led(5, permissions.can_leave, LedColor.GREEN, LedColor.BLACK)
 
-        for m in msgs:
+        for m in msgs.values():
             try:
                 self._device.send_msg(m)
                 await self._virtual_macropad.send_msg(m)

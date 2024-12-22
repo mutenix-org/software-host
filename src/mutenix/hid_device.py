@@ -68,26 +68,10 @@ class HidDevice:
         return future
 
     def register_callback(self, callback):
-        """
-        Registers a callback function to be called when an event occurs.
-
-        Args:
-            callback (function): The callback function to register.
-
-        Returns:
-            None
-        """
         if callback not in self._callbacks:
             self._callbacks.append(callback)
 
     def unregister_callback(self, callback):
-        """
-        Unregisters a callback function from the list of callbacks.
-
-        Args:
-            callback (function): The callback function to be removed from the list of registered callbacks.
-
-        """
         if callback in self._callbacks:
             self._callbacks.remove(callback)
 
@@ -148,12 +132,12 @@ class HidDevice:
                 _logger.error("Failed to send ping: %s", e)
 
 
-    async def _process(self):
+    async def _process(self): # pragma: no cover
         await self._wait_for_device()
         await asyncio.gather(self._read_loop(), self._write_loop(), self._ping_loop())
 
 
-    async def process(self):
+    async def process(self): # pragma: no cover
         """
         Processes the HID device by running the internal process loop.
 
@@ -162,7 +146,7 @@ class HidDevice:
         """
         await self._process_loop()
 
-    async def stop(self):
+    async def stop(self): # pragma: no cover
         """
         Stops the HID device by setting the internal run flag to False.
 

@@ -1,4 +1,5 @@
-
+from unittest.mock import ANY, AsyncMock, patch
+import pytest
 
 from aiohttp.test_utils import AioHTTPTestCase
 from mutenix.virtual_macropad import VirtualMacropad
@@ -47,18 +48,28 @@ class TestVirtualMacropad(AioHTTPTestCase):
     async def test_websocket_handler_button_press(self):
         self.start_process()
         ws = await self.client.ws_connect("/ws")
-        await ws.send_json({"button": 1})
+        await ws.send_json({"command": "button", "button": 1})
         await ws.close()
 
     async def test_websocket_handler_state_request(self):
         self.start_process()
         self.macropad._led_status[1] = "red"
         ws = await self.client.ws_connect("/ws")
-        await ws.send_json({"state_request": True})
+        await ws.send_json({"command": "state_request"})
         msg = await ws.receive_json()
         assert "button" in msg
         assert "color" in msg
         await ws.close()
+
+    async def test_websocket_handler_unknown(self):
+        self.start_process()
+        self.macropad._led_status[1] = "red"
+        ws = await self.client.ws_connect("/ws")
+        await ws.send_json({"command": "something_else"})
+        msg = await ws.receive_json()
+        assert "error" in msg
+        await ws.close()
+
 
     async def test_websocket_handler_multiple_clients(self):
         self.start_process()
@@ -72,3 +83,22 @@ class TestVirtualMacropad(AioHTTPTestCase):
         assert msg2["button"] == 2
         await ws1.close()
         await ws2.close()
+
+    @pytest.mark.asyncio
+    async def test_send_json_safe_success(self):
+        ws = AsyncMock()
+        data = {"button": 1, "color": "red"}
+        await self.macropad._send_json_safe(ws, data)
+        ws.send_json.assert_called_once_with(data)
+
+    @pytest.mark.asyncio
+    async def test_send_json_safe_failure(self):
+        ws = AsyncMock()
+        ws.send_json.side_effect = Exception("Test exception")
+        data = {"button": 1, "color": "red"}
+        with patch("mutenix.virtual_macropad._logger.error") as mock_logger_error:
+            await self.macropad._send_json_safe(ws, data)
+            ws.send_json.assert_called_once_with(data)
+            mock_logger_error.assert_called_once_with(
+                "Error sending LED status: %s to websocket %s", ANY, ANY
+            )

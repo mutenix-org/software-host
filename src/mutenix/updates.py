@@ -42,13 +42,14 @@ def check_for_device_update(device: hid.device, device_version: VersionInfo):
         result.raise_for_status()
         perform_upgrade_with_file(device, io.BytesIO(result.content))
     except requests.RequestException as e:
-        _logger.error("Failed to check for device update availability", e)
+        _logger.error("Failed to check for device update availability %s", e)
 
 
 HEADER_SIZE = 8
 MAX_CHUNK_SIZE = 60 - HEADER_SIZE
 DATA_TRANSFER_SLEEP_TIME = 0.02
 STATE_CHANGE_SLEEP_TIME = 0.5
+WAIT_FOR_REQUESTS_SLEEP_TIME = STATE_CHANGE_SLEEP_TIME
 
 
 def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
@@ -95,7 +96,7 @@ class RequestChunk:
 
 class Chunk:
     @abstractmethod
-    def packet(self):
+    def packet(self): # pragma: no cover
         pass
 
 
@@ -196,8 +197,6 @@ class TransferFile:
         return len(self._chunks)
 
     def get_chunk(self, request: RequestChunk) -> Chunk:
-        if request.id != self.id:
-            raise FileNotFoundError("File not found")
         if request.segment < 0 or request.segment >= len(self._chunks):
             raise ValueError("Invalid request")
         return self._chunks[request.segment + 1]
@@ -216,7 +215,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 
     chunk_requests = []
     finished = False
-    finished_at = None
+    finished_at: float = float('inf')
 
     _logger.debug("Preparing to send %s files", len(transfer_files))
     file_progress_bars = {
@@ -248,21 +247,17 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
         try:
             file = next(filter(lambda x: not x.is_complete(), transfer_files))
             chunk = file.get_next_chunk()
-            if chunk:
-                _logger.debug("Sending chunk of file %s", file.filename)
-                cnk = bytes((2,)) + chunk.packet()
-                device.write(cnk)
-                file_progress_bars[file.id].update(1)
-                time.sleep(DATA_TRANSFER_SLEEP_TIME)
-            else:
-                print(f"File {file.filename} transfered")
+            _logger.debug("Sending chunk of file %s", file.filename)
+            cnk = bytes((2,)) + chunk.packet()
+            device.write(cnk)
+            file_progress_bars[file.id].update(1)
+            time.sleep(DATA_TRANSFER_SLEEP_TIME)
         except StopIteration:
-            if (finished_at and time.monotonic() - finished_at > 5) or (
-                not finished_at
-            ):
+            if finished and (time.monotonic() - finished_at) > WAIT_FOR_REQUESTS_SLEEP_TIME:
                 break
+            time.sleep(WAIT_FOR_REQUESTS_SLEEP_TIME/5)
             if not finished:
-                print("All files transfered")
+                print("All files transfered, waiting a bit for file requests")
                 finished = True
                 finished_at = time.monotonic()
     time.sleep(STATE_CHANGE_SLEEP_TIME)
@@ -276,7 +271,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 
 
 # region: Update Application
-def check_for_self_update(current_version: str, auto_update: bool = True):
+def check_for_self_update(current_version: str):
     try:
         result = requests.get("https://mutenix.de/api/v1/releases/software-python")
         if result.status_code != 200:
@@ -294,27 +289,13 @@ def check_for_self_update(current_version: str, auto_update: bool = True):
             _logger.info("Application is up to date")
             return
 
-        if not auto_update:
-            _logger.info("Application update available, but auto update is disabled")
-            print(
-                "Application update available, but auto update is disabled, please update manually"
-            )
-            return
-        print("Application update available, starting update, please be patient")
-        update_url = versions.get(latest_version).get("url")
-        result = requests.get(update_url)
-        result.raise_for_status()
-        if result.status_code == 200:
-            with tarfile.open(fileobj=io.BytesIO(result.content), mode="r:gz") as tar:
-                tar.extract("macropad.py", path=pathlib.Path(__file__).parent)
-                _logger.info("Successfully updated macropad.py")
-        else:
-            _logger.error(
-                "Failed to download the update, status code: %s", result.status_code
-            )
+        _logger.info("Application update available, but auto update is disabled")
+        print(
+            "Application update available, but auto update is disabled, please update manually"
+        )
 
     except requests.RequestException as e:
-        _logger.error("Failed to check for application update availability", e)
+        _logger.error("Failed to check for application update availability: %s", e)
 
 
 # endregion

@@ -64,6 +64,15 @@ def bring_teams_to_foreground() -> None: # pragma: no cover
         _logger.error("Platform not supported")
 
 
+def check_run(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._run:
+            return func(self, *args, **kwargs)
+        else:
+            _logger.debug("Not running, skip %s", func.__name__)
+    return wrapper
+
 def run_loop(func):
     if asyncio.iscoroutinefunction(func):
         async def wrapper(self, *args, **kwargs):
@@ -80,7 +89,7 @@ def block_parallel(func):
     func._already_running = False
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
-        _logger.debug(f"block_parallel {func.__name__} {func._already_running}")
+        _logger.debug("block_parallel %s %s", func.__name__, func._already_running)
         if func._already_running:
             while func._already_running:
                 await asyncio.sleep(0.1)

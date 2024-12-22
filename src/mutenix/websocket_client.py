@@ -4,6 +4,8 @@ import logging
 from mutenix.teams_messages import ServerMessage, ClientMessage
 from typing import Callable
 
+from mutenix.utils import block_parallel, run_loop
+
 _logger = logging.getLogger(__name__)
 
 
@@ -24,6 +26,8 @@ class Identifier:
 class WebSocketClient:
     """Handles the WebSocket connection to Teams."""
 
+    RETRY_INTERVAL = 0.25
+
     def __init__(self, uri: str, identifier: Identifier):
         self._uri = uri
         self._connection = None
@@ -43,24 +47,15 @@ class WebSocketClient:
         self._connecting = False
         self._run = True
 
+    @block_parallel
     async def _connect(self):
-        if not self._run:
-            _logger.debug("Not running, skip connecting")
-            return
-        if self._connecting:
-            _logger.debug("Other connection in progress, wait for completion")
-            while self._connecting:
-                await asyncio.sleep(0.1)
-            return
-        self._connecting = True
         while self._run:
             connection = await self._do_connect()
             if not connection:
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(self.RETRY_INTERVAL)
             else:
                 self._connection = connection
                 break
-        self._connecting = False
 
     async def _do_connect(self):
         try:
@@ -68,7 +63,9 @@ class WebSocketClient:
             _logger.info("Connected to WebSocket server at %s", self._uri)
             return connection
         except Exception as e:
-            _logger.info("Failed to connect to WebSocket server: %s: %s", type(e).__name__, e)
+            _logger.info(
+                "Failed to connect to WebSocket server: %s: %s", type(e).__name__, e
+            )
             return None
 
     def send_message(self, message: ClientMessage):
@@ -79,37 +76,30 @@ class WebSocketClient:
     def register_callback(self, callback: Callable[[ServerMessage], None]):
         self._callback = callback
 
-    async def _send_loop(self):
-        while self._run:
-            await self._send()
-        _logger.info("Send loop stopped")
-
     async def _send(self):
         try:
             queue_element = self._send_queue.get_nowait()
             message, future = queue_element
         except asyncio.QueueEmpty:
             _logger.debug("Send queue empty")
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0)
             return
         try:
             if isinstance(message, ClientMessage):
                 msg = message.model_dump_json(by_alias=True)
             else:
-                future.set_exception(TypeError("Expected message to be an instance of ClientMessage"))
+                future.set_exception(
+                    TypeError("Expected message to be an instance of ClientMessage")
+                )
                 return
             await self._connection.send(msg)
-            future.set_result(True)
+            if not future.done():
+                future.set_result(True)
         except Exception as e:
             future.set_exception(e)
             await self._connect()
         finally:
             self._send_queue.task_done()
-
-    async def _receive_loop(self):
-        while self._run:
-            await self._receive()
-        _logger.info("Receive loop stopped")
 
     async def _receive(self):
         try:
@@ -127,8 +117,7 @@ class WebSocketClient:
                         self._callback(message)
         except asyncio.TimeoutError:
             _logger.debug("Receive timed out stopped")
-            await asyncio.sleep(0.01)
-            pass
+            await asyncio.sleep(0)
         except Exception as e:
             _logger.error("Error receiving message: %s", e)
             await self._connect()
@@ -150,3 +139,6 @@ class WebSocketClient:
             _, future = self._send_queue.get_nowait()
             future.set_exception(RuntimeError("WebSocketClient is stopping"))
             self._send_queue.task_done()
+
+    _receive_loop = run_loop(_receive)
+    _send_loop = run_loop(_send)

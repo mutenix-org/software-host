@@ -96,7 +96,7 @@ async def test_read_success(hid_device):
     async def callback(msg):
         future.set_result(msg)
     hid_device._callbacks.append(callback)
-    with patch.object(hid_device._device, "read", new_callable=AsyncMock, return_value=data):
+    with patch.object(hid_device._device, "read", new_callable=Mock, return_value=data):
         with patch(
             "mutenix.hid_commands.HidInputMessage.from_buffer", return_value=Mock()
         ):
@@ -150,7 +150,7 @@ async def test_ping_resets_last_communication(hid_device):
     with patch("asyncio.get_event_loop", return_value=asyncio.get_event_loop()):
         with patch.object(hid_device, "send_msg"):
             await hid_device._ping()
-            assert hid_device._last_communication >= initial_time
+            assert hid_device._last_ping_time >= initial_time
 
 
 class RoundAboutMatcher:
@@ -160,9 +160,11 @@ class RoundAboutMatcher:
 
     def __eq__(self, other):
         return abs(other - self.expected_value) < self.offset
+
+
 @pytest.mark.asyncio
 async def test_ping_waits_before_sending(hid_device):
-    hid_device._last_communication =  asyncio.get_event_loop().time()
+    hid_device._last_ping_time =  asyncio.get_event_loop().time()
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
         with patch.object(hid_device, "send_msg"):
             await hid_device._ping()
@@ -193,3 +195,24 @@ async def test_send_report_exception(hid_device):
         with pytest.raises(OSError, match="Device error"):
             hid_device._send_report(msg)
         mock_write.assert_called_once_with(bytes([msg.REPORT_ID]) + msg.to_buffer())
+
+
+@pytest.mark.asyncio
+async def test_unregister_callback():
+    # Create a HidDevice instance
+    device = HidDevice(vid=0x1234, pid=0x5678)
+
+    # Create a mock callback
+    callback = Mock()
+
+    # Register the callback
+    device.register_callback(callback)
+    assert callback in device._callbacks
+
+    # Unregister the callback
+    device.unregister_callback(callback)
+    assert callback not in device._callbacks
+
+    # Try to unregister the callback again (should not raise an error)
+    device.unregister_callback(callback)
+    assert callback not in device._callbacks

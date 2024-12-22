@@ -38,7 +38,7 @@ class HidInputMessage:
                 return StatusRequest()
         raise NotImplementedError
 
-    def __repr__(self):
+    def __repr__(self): # pragma: no cover
         return self.__str__()
 
 class Status(HidInputMessage):
@@ -92,10 +92,7 @@ class VersionInfo(HidInputMessage):
         return HardwareTypes(self.buffer[3])
 
 class StatusRequest(HidInputMessage):
-    def __init__(self):
-        pass
-
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return "Status Request"
 
 class HidOutputMessage:
@@ -104,7 +101,7 @@ class HidOutputMessage:
 
 class HidCommand(HidOutputMessage, ABC):
     @abstractmethod
-    def to_buffer(self) -> bytes:
+    def to_buffer(self) -> bytes: # pragma: no cover
         raise NotImplementedError
 
 class LedColor(tuple, ReprEnum):

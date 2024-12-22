@@ -20,12 +20,10 @@ _logger = logging.getLogger(__name__)
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Mutenix Macropad Controller")
     parser.add_argument('--update-file', type=str, help='Path to the update tar.gz file')
-    parser.add_argument('--no-auto-update', action='store_false', help='Disable auto update', dest='auto_update')
-    parser.add_argument('--auto-update', action='store_true', help='Disable auto update', dest='auto_update')
     return parser.parse_args()
 
 async def main(args: argparse.Namespace):
-    check_for_self_update(__version__, args.auto_update)
+    check_for_self_update(__version__)
     macropad = Macropad(vid=0x2E8A, pid=0x2083)
 
     if args.update_file:
