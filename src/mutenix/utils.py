@@ -32,9 +32,11 @@ def bring_teams_to_foreground() -> None: # pragma: no cover
     Note: This function will not be coverable due to its OS dependencies.
     """
     if platform.system().lower() == "windows":
+        _logger.debug("Finding Microsoft Teams window")
         window_id = find_windows(title_re=".*Teams.*")
-        _logger.debug(window_id)
+        _logger.debug("Window ID: %s", window_id)
         for w in window_id:
+            _logger.debug("Minimizing and restoring window %s", w)
             win32gui.ShowWindow(w, win32con.SW_MINIMIZE)
             win32gui.ShowWindow(w, win32con.SW_RESTORE)
             win32gui.SetActiveWindow(w)
@@ -78,13 +80,12 @@ def block_parallel(func):
     func._already_running = False
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
-        _logger.error(f"block_parallel {func.__name__} {func._already_running}")
+        _logger.debug(f"block_parallel {func.__name__} {func._already_running}")
         if func._already_running:
             while func._already_running:
                 await asyncio.sleep(0.1)
             return
         func._already_running = True
-        print("block_parallel")
         await func(self, *args, **kwargs)
         func._already_running = False
     return wrapper
@@ -96,7 +97,7 @@ def run_till_some_loop(sleep_time: float = 0):
                 while self._run:
                     some = await func(self, *args, **kwargs)
                     if some:
-                        break
+                        return some
                     if sleep_time > 0:
                         await asyncio.sleep(sleep_time)
         else:
@@ -104,7 +105,7 @@ def run_till_some_loop(sleep_time: float = 0):
                 while self._run:
                     some = func(self, *args, **kwargs)
                     if some:
-                        break
+                        return some
                     if sleep_time > 0:
                         time.sleep(sleep_time)
         return wrapper

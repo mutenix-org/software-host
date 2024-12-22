@@ -1,13 +1,14 @@
 import asyncio
 import logging
 import pathlib
+import argparse  # Added import for argparse
 
 from mutenix.version import __version__
 from mutenix.updates import check_for_self_update
 from mutenix.macropad import Macropad
 
 # Configure logging to write to a file
-log_file_path = pathlib.Path(__file__).parent / "macropad.log"
+log_file_path = pathlib.Path.cwd() / "macropad.log"
 logging.basicConfig(
     level=logging.INFO,
     filename=log_file_path,
@@ -16,11 +17,25 @@ logging.basicConfig(
 )
 _logger = logging.getLogger(__name__)
 
-async def main():
-    check_for_self_update(__version__)
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Mutenix Macropad Controller")
+    parser.add_argument('--update-file', type=str, help='Path to the update tar.gz file')
+    parser.add_argument('--no-auto-update', action='store_false', help='Disable auto update', dest='auto_update')
+    parser.add_argument('--auto-update', action='store_true', help='Disable auto update', dest='auto_update')
+    return parser.parse_args()
+
+async def main(args: argparse.Namespace):
+    check_for_self_update(__version__, args.auto_update)
     macropad = Macropad(vid=0x2E8A, pid=0x2083)
+
+    if args.update_file:
+        _logger.info("Starting manual update with file: %s", args.update_file)
+        await macropad.manual_update(args.update_file)
+        return
+
     await macropad.process()
 
 if __name__ == "__main__":
+    args = parse_arguments()
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+    asyncio.run(main(args))

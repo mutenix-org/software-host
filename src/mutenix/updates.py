@@ -11,9 +11,10 @@ from abc import abstractmethod
 from tqdm import tqdm
 from mutenix.hid_commands import VersionInfo
 import logging
-from mutenix.version import __version__
+from typing import BinaryIO, Sequence
 
 _logger = logging.getLogger(__name__)
+
 
 # region: Update Firmware
 def check_for_device_update(device: hid.device, device_version: VersionInfo):
@@ -39,12 +40,7 @@ def check_for_device_update(device: hid.device, device_version: VersionInfo):
         update_url = releases.get(latest_version).get("url")
         result = requests.get(update_url)
         result.raise_for_status()
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            with tarfile.open(fileobj=io.BytesIO(result.content), mode="r:gz") as tar:
-                tar.extractall(path=tmpdirname)
-            files = list(filter(lambda x: x.endswith(".py"), os.listdir(tmpdirname)))
-            perform_hid_upgrade(device, files)
-            _logger.info("Successfully updated device firmware")
+        perform_upgrade_with_file(device, io.BytesIO(result.content))
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability", e)
 
@@ -53,6 +49,25 @@ HEADER_SIZE = 8
 MAX_CHUNK_SIZE = 60 - HEADER_SIZE
 DATA_TRANSFER_SLEEP_TIME = 0.02
 STATE_CHANGE_SLEEP_TIME = 0.5
+
+
+def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdir = pathlib.Path(tmpdirname)
+        with tarfile.open(fileobj=file_stream, mode="r:gz") as tar:
+            tar.extractall(path=tmpdirname)
+        files = list(
+            map(
+                lambda x: tmpdir / x,
+                filter(
+                    lambda x: x.endswith(".py") and not x.startswith("."),
+                    os.listdir(tmpdirname),
+                ),
+            )
+        )
+        _logger.debug("Updateing device with files: %s", files)
+        perform_hid_upgrade(device, files)
+        _logger.info("Successfully updated device firmware")
 
 
 class RequestChunk:
@@ -140,9 +155,12 @@ class FileEnd(Chunk):
 
 
 class TransferFile:
-    def __init__(self, id, filename: str):
+    def __init__(self, id, filename: str | pathlib.Path):
         self.id = id
-        file = pathlib.Path(filename)
+        if isinstance(filename, str):
+            file = pathlib.Path(filename)
+        else:
+            file = filename
         self.filename = file.name
         with open(file, "rb") as f:
             self.content = f.read()
@@ -188,7 +206,7 @@ class TransferFile:
         return len(self.packages_sent) == len(self._chunks)
 
 
-def perform_hid_upgrade(device, files: list[str]):
+def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path]):
     _logger.debug("Opening device for update")
     _logger.debug("Sending prepare update")
     device.write([1, 0xE0] + [0] * 7)
@@ -258,7 +276,7 @@ def perform_hid_upgrade(device, files: list[str]):
 
 
 # region: Update Application
-def check_for_self_update():
+def check_for_self_update(current_version: str, auto_update: bool = True):
     try:
         result = requests.get("https://mutenix.de/api/v1/releases/software-python")
         if result.status_code != 200:
@@ -272,10 +290,16 @@ def check_for_self_update():
         _logger.debug("Versions: %s", versions)
         latest_version = versions.get("latest", "0.0.0")
         _logger.debug("Latest version: %s", latest_version)
-        if semver.compare(__version__, latest_version) >= 0:
+        if semver.compare(current_version, latest_version) >= 0:
             _logger.info("Application is up to date")
             return
 
+        if not auto_update:
+            _logger.info("Application update available, but auto update is disabled")
+            print(
+                "Application update available, but auto update is disabled, please update manually"
+            )
+            return
         print("Application update available, starting update, please be patient")
         update_url = versions.get(latest_version).get("url")
         result = requests.get(update_url)

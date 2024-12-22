@@ -31,7 +31,7 @@ class VirtualMacropad:
                 web.get("/ws", self.websocket_handler),
             ]
         )
-        jinja2_setup(self.app, loader=jinja2.FileSystemLoader('/path/to/templates'))
+        jinja2_setup(self.app, loader=jinja2.PackageLoader('mutenix', 'templates'))
         self._websockets = set()
         self._led_status = {}
         self._led_status_lock = asyncio.Lock()

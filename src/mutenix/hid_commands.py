@@ -15,6 +15,7 @@ class HidInCommands(IntEnum):
     """Identifiers for incoming HID messages."""
     VERSION_INFO = 0x99
     STATUS = 0x1
+    STATUS_REQUEST = 0x2
 
 class HidOutCommands(IntEnum):
     """Identifiers for outgoing HID messages."""
@@ -28,10 +29,13 @@ class HidInputMessage:
 
     @staticmethod
     def from_buffer(buffer: bytes):
-        if buffer[1] == HidInCommands.VERSION_INFO.value:
-            return VersionInfo(buffer[2:8])
-        elif buffer[1] == HidInCommands.STATUS.value:
-            return Status(buffer[2:8])
+        match buffer[1]:
+            case HidInCommands.VERSION_INFO:
+                return VersionInfo(buffer[2:8])
+            case HidInCommands.STATUS:
+                return Status(buffer[2:8])
+            case HidInCommands.STATUS_REQUEST.value:
+                return StatusRequest()
         raise NotImplementedError
 
     def __repr__(self):
@@ -86,6 +90,13 @@ class VersionInfo(HidInputMessage):
     @property
     def type(self):
         return HardwareTypes(self.buffer[3])
+
+class StatusRequest(HidInputMessage):
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return "Status Request"
 
 class HidOutputMessage:
     REPORT_ID = 1

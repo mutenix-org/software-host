@@ -21,6 +21,7 @@ class HidDevice:
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
         self._send_buffer: asyncio.Queue = asyncio.Queue()
         self._last_communication = 0
+        self._last_ping_time = 0
         self._waiting_for_device = False
         self._run = True
 
@@ -32,7 +33,8 @@ class HidDevice:
         _logger.info(
             f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}"
         )
-        await self._search_for_device_loop()
+        self._device = await self._search_for_device_loop()
+        _logger.info("Device found")
 
     async def _search_for_device(self):
         try:
@@ -98,7 +100,7 @@ class HidDevice:
 
     async def _read(self):
         try:
-            buffer = await self._device.read(64, timeout_ms=100)
+            buffer = self._device.read(64, timeout_ms=100)
             if buffer and len(buffer):
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
@@ -133,13 +135,17 @@ class HidDevice:
         Sends a ping message to the HID device.
         """
         await asyncio.sleep(
-            self._last_communication + 4.5 - asyncio.get_event_loop().time()
+            self._last_ping_time + 4.5 - asyncio.get_event_loop().time()
         )
-        if asyncio.get_event_loop().time() - self._last_communication > 4.5:
+        if asyncio.get_event_loop().time() - self._last_ping_time > 4.5:
             _logger.debug("Sending ping")
             msg = Ping()
-            self.send_msg(msg)
-            self._last_communication = asyncio.get_event_loop().time()
+            future = self.send_msg(msg)
+            try:
+                self._last_ping_time = asyncio.get_event_loop().time()
+                await future
+            except Exception as e:
+                _logger.error("Failed to send ping: %s", e)
 
 
     async def _process(self):
@@ -170,3 +176,10 @@ class HidDevice:
     _ping_loop = run_loop(_ping)
     _process_loop = run_loop(_process)
     _search_for_device_loop = run_till_some_loop(sleep_time=1)(_search_for_device)
+
+    @property
+    def raw(self):
+        return self._device
+
+    async def wait_for_device(self):
+        await self._wait_for_device()

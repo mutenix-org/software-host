@@ -65,10 +65,10 @@ class WebSocketClient:
     async def _do_connect(self):
         try:
             connection = await websockets.connect(self._uri)
-            _logger.info(f"Connected to WebSocket server at {self._uri}")
+            _logger.info("Connected to WebSocket server at %s", self._uri)
             return connection
         except Exception as e:
-            _logger.info(f"Failed to connect to WebSocket server: {type(e).__name__}: {e}")
+            _logger.info("Failed to connect to WebSocket server: %s: %s", type(e).__name__, e)
             return None
 
     def send_message(self, message: ClientMessage):
@@ -116,10 +116,10 @@ class WebSocketClient:
             async with asyncio.timeout(0.01):
                 _logger.debug("Checking receive")
                 msg = await self._connection.recv()
-                _logger.debug(f"Received message: {msg}")
+                _logger.debug("Received message: %s", msg)
                 message = ServerMessage.model_validate_json(msg)
                 if message:
-                    _logger.debug(f"Decoded message: {message}")
+                    _logger.debug("Decoded message: %s", message)
                 if self._callback:
                     if asyncio.iscoroutinefunction(self._callback):
                         asyncio.create_task(self._callback(message))
@@ -130,7 +130,7 @@ class WebSocketClient:
             await asyncio.sleep(0.01)
             pass
         except Exception as e:
-            _logger.error(f"Error receiving message: {e}")
+            _logger.error("Error receiving message: %s", e)
             await self._connect()
 
     async def process(self):

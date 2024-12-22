@@ -5,7 +5,7 @@ from mutenix.virtual_macropad import VirtualMacropad
 from mutenix.utils import bring_teams_to_foreground
 from mutenix.hid_device import HidDevice
 from mutenix.websocket_client import WebSocketClient, Identifier
-from mutenix.updates import check_for_device_update
+from mutenix.updates import check_for_device_update, perform_upgrade_with_file
 
 
 from mutenix.hid_commands import (
@@ -58,43 +58,49 @@ class Macropad:
         self._device.register_callback(self._hid_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
 
+    async def _send_status(self, status: Status):
+        _logger.debug("Status: %s", status)
+        action = None
+        if status.button == 1 and status.triggered and status.released:
+            action = MeetingAction.ToggleMute
+        elif status.button == 2 and status.triggered and status.released:
+            action = MeetingAction.ToggleHand
+        elif status.button == 3 and status.triggered and status.released:
+            if status.doubletap:
+                action = MeetingAction.ToggleVideo
+            else:
+                bring_teams_to_foreground()
+        elif status.button == 4 and status.triggered and status.released:
+            action = MeetingAction.React
+            parameters = ClientMessageParameter(
+                type_=ClientMessageParameterType.ReactLike
+            )
+        elif status.button == 5 and status.triggered and status.released:
+            action = MeetingAction.LeaveCall
+        else:
+            return
+
+        if action is not None:
+            client_message = ClientMessage.create(action=action)
+            if status.button == 4:
+                client_message.parameters = parameters
+
+            await self._websocket.send_message(client_message)
+
+    async def _process_version_info(self, version_info: VersionInfo):
+        if self._version_seen != version_info.version:
+            _logger.info(version_info)
+            self._version_seen = version_info.version
+            check_for_device_update(self._device.raw, version_info)
+        else:
+            _logger.debug(version_info)
+        await self._update_device_status()
+
     async def _hid_callback(self, msg):
         if isinstance(msg, Status):
-            _logger.debug(f"Status: {msg}")
-            action = None
-            if msg.button == 1 and msg.triggered and msg.released:
-                action = MeetingAction.ToggleMute
-            elif msg.button == 2 and msg.triggered and msg.released:
-                action = MeetingAction.ToggleHand
-            elif msg.button == 3 and msg.triggered and msg.released:
-                if msg.doubletap:
-                    action = MeetingAction.ToggleVideo
-                else:
-                    bring_teams_to_foreground()
-            elif msg.button == 4 and msg.triggered and msg.released:
-                action = MeetingAction.React
-                parameters = ClientMessageParameter(
-                    type_=ClientMessageParameterType.ReactLike
-                )
-            elif msg.button == 5 and msg.triggered and msg.released:
-                action = MeetingAction.LeaveCall
-            else:
-                return
-
-            if action is not None:
-                client_message = ClientMessage.create(action=action)
-                if msg.button == 4:
-                    client_message.parameters = parameters
-
-                await self._websocket.send_message(client_message)
+            await self._send_status(msg)
         elif isinstance(msg, VersionInfo):
-            if self._version_seen != msg.version:
-                _logger.info(msg)
-                self._version_seen = msg.version
-                check_for_device_update(self._device, msg)
-            else:
-                _logger.debug(msg)
-            await self._update_device_status()
+            await self._process_version_info(msg)
 
     async def _teams_callback(self, msg: ServerMessage):
         _logger.debug("Teams message: %s", msg)
@@ -104,7 +110,7 @@ class Macropad:
                 with open("macropad-teams-token.txt", "w") as f:
                     f.write(msg.token_refresh)
             except IOError as e:
-                _logger.error(f"Failed to write token to file: {e}")
+                _logger.error("Failed to write token to file: %s", e)
         await self._update_device_status()
 
     async def _update_device_status(self):
@@ -136,12 +142,8 @@ class Macropad:
 
         for m in msgs:
             try:
-                self._device.send_msg(m).add_done_callback(
-                    lambda x: _logger.debug(f"Sent {x} bytes to device")
-                )
-                await self._virtual_macropad.send_msg(m).add_done_callback(
-                    lambda x: _logger.debug(f"Sent {x} bytes to virtual device")
-                )
+                self._device.send_msg(m)
+                await self._virtual_macropad.send_msg(m)
             except Exception as e:
                 print(e)
 
@@ -154,4 +156,10 @@ class Macropad:
                 self._virtual_macropad.process(),
             )
         except Exception as e:
-            _logger.error(f"Error in Macropad process: {e}")
+            _logger.error("Error in Macropad process: %s", e)
+
+    async def manual_update(self, update_file):
+        """Manually update the device with a given file."""
+        await self._device.wait_for_device()
+        with open(update_file, "rb") as f:
+            perform_upgrade_with_file(self._device.raw, f)
