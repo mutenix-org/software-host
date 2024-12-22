@@ -81,7 +81,7 @@ def run_loop(func):
                 await asyncio.sleep(0)
 
     else:
-        raise Exception("only for async functions")
+        raise Exception("only for async functions") # pragma: no cover
     return wrapper
 
 

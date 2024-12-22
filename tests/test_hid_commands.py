@@ -1,4 +1,4 @@
-from mutenix.hid_commands import Status, VersionInfo, LedColor, SetLed, HidOutCommands, HidInCommands, HidInputMessage, StatusRequest
+from mutenix.hid_commands import Status, VersionInfo, LedColor, SetLed, HidOutCommands, HidInCommands, HidInputMessage, StatusRequest, Reset
 import pytest
 
 def test_status():
@@ -15,6 +15,11 @@ def test_version_info():
     version_info = VersionInfo(buffer)
     assert version_info.version == "1.0.0"
     assert version_info.type.name == "FIVE_BUTTON_USB"
+
+def test_reset():
+    reset = Reset()
+    buffer = reset.to_buffer()
+    assert buffer == bytes([HidOutCommands.RESET, 0, 0, 0, 0, 0, 0, 0])
 
 def test_set_led():
     led = SetLed(1, LedColor.RED)

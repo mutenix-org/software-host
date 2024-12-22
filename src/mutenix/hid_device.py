@@ -31,10 +31,9 @@ class HidDevice:
     @block_parallel
     async def _wait_for_device(self):
         _logger.info(
-            f"Looking for device with VID: {self._vid:x} PID: {self._pid:x}"
+            "Looking for device with VID: %04x, PID: %04x", self._vid, self._pid
         )
         self._device = await self._search_for_device_loop()
-        _logger.info("Device found")
 
     async def _search_for_device(self):
         try:
@@ -95,7 +94,6 @@ class HidDevice:
         except Exception as e:
             _logger.error("Error reading message: %s", e)
 
-
     async def _write(self):
         try:
             msg, future = await self._send_buffer.get()
@@ -112,9 +110,6 @@ class HidDevice:
             _logger.error("Device disconnected: %s", e)
         except ValueError as e:
             _logger.error("Error sending message: %s", e)
-        except asyncio.CancelledError:
-            _logger.debug("Write loop cancelled")
-
 
     async def _ping(self):
         """
@@ -133,13 +128,11 @@ class HidDevice:
             except Exception as e:
                 _logger.error("Failed to send ping: %s", e)
 
-
-    async def _process(self): # pragma: no cover
+    async def _process(self):  # pragma: no cover
         await self._wait_for_device()
         await asyncio.gather(self._read_loop(), self._write_loop(), self._ping_loop())
 
-
-    async def process(self): # pragma: no cover
+    async def process(self):  # pragma: no cover
         """
         Processes the HID device by running the internal process loop.
 
@@ -148,7 +141,7 @@ class HidDevice:
         """
         await self._process_loop()
 
-    async def stop(self): # pragma: no cover
+    async def stop(self):  # pragma: no cover
         """
         Stops the HID device by setting the internal run flag to False.
 
@@ -164,8 +157,8 @@ class HidDevice:
     _search_for_device_loop = run_till_some_loop(sleep_time=1)(_search_for_device)
 
     @property
-    def raw(self):
+    def raw(self):  # pragma: no cover
         return self._device
 
-    async def wait_for_device(self):
+    async def wait_for_device(self): # pragma: no cover
         await self._wait_for_device()

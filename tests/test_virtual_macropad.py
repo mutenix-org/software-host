@@ -2,8 +2,8 @@ from unittest.mock import ANY, AsyncMock, patch
 import pytest
 
 from aiohttp.test_utils import AioHTTPTestCase
-from mutenix.virtual_macropad import VirtualMacropad
-from mutenix.hid_commands import LedColor, SetLed
+from mutenix.virtual_macropad import UnsupportedMessageTypeError, VirtualMacropad
+from mutenix.hid_commands import HidOutputMessage, LedColor, SetLed, Status
 import asyncio
 
 class TestVirtualMacropad(AioHTTPTestCase):
@@ -38,6 +38,12 @@ class TestVirtualMacropad(AioHTTPTestCase):
         async with self.macropad._led_status_lock:
             assert self.macropad._led_status[1] == "red"
 
+    async def test_send_msg_invalid(self):
+        class SomeMessage(HidOutputMessage):
+            pass
+        msg = SomeMessage()
+        with pytest.raises(UnsupportedMessageTypeError):
+            await self.macropad.send_msg(msg)
 
     async def test_process(self):
         await self.macropad.process()
@@ -102,3 +108,17 @@ class TestVirtualMacropad(AioHTTPTestCase):
             mock_logger_error.assert_called_once_with(
                 "Error sending LED status: %s to websocket %s", ANY, ANY
             )
+
+    async def test_register_callback(self):
+        callback = AsyncMock()
+        self.macropad.register_callback(callback)
+        await self.macropad._handle_msg(Status.trigger_button(1))
+        callback.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_stop(self):
+        self.macropad.app.shutdown = AsyncMock()
+        self.macropad.app.cleanup = AsyncMock()
+        await self.macropad.stop()
+        self.macropad.app.shutdown.assert_called_once()
+        self.macropad.app.cleanup.assert_called_once()

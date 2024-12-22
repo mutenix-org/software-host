@@ -246,3 +246,16 @@ async def test_manual_update_io_error(macropad):
             macropad._device.wait_for_device.assert_called_once()
             mock_file.assert_called_once_with(update_file, "rb")
             mock_perform_upgrade.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_stop():
+    macropad = Macropad()
+    macropad._device = AsyncMock()
+    macropad._websocket = AsyncMock()
+    macropad._virtual_macropad = AsyncMock()
+
+    await macropad.stop()
+
+    macropad._device.stop.assert_called_once()
+    macropad._websocket.stop.assert_called_once()
+    macropad._virtual_macropad.stop.assert_called_once()

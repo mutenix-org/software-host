@@ -216,3 +216,66 @@ async def test_unregister_callback():
     # Try to unregister the callback again (should not raise an error)
     device.unregister_callback(callback)
     assert callback not in device._callbacks
+
+@pytest.mark.asyncio
+async def test_search_for_device_success(hid_device):
+    with patch("hid.device") as MockHidDevice:
+        mock_device = MockHidDevice.return_value
+        mock_device.open.return_value = None
+        mock_device.set_nonblocking.return_value = None
+
+        device = await hid_device._search_for_device()
+
+        assert device is not None
+        mock_device.open.assert_called_once_with(hid_device._vid, hid_device._pid)
+        mock_device.set_nonblocking.assert_called_once_with(0)
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_failure(hid_device):
+    with patch("hid.device") as MockHidDevice:
+        mock_device = MockHidDevice.return_value
+        mock_device.open.side_effect = Exception("Device not found")
+
+        device = await hid_device._search_for_device()
+
+        assert device is None
+        mock_device.open.assert_called_once_with(hid_device._vid, hid_device._pid)
+
+@pytest.mark.asyncio
+async def test_invoke_callbacks_sync(hid_device):
+    callback = Mock()
+    hid_device.register_callback(callback)
+    msg = Mock()
+    hid_device._invoke_callbacks(msg)
+    callback.assert_called_once_with(msg)
+
+
+@pytest.mark.asyncio
+async def test_invoke_callbacks_async(hid_device):
+    async def async_callback(msg):
+        async_callback.called = True
+
+    async_callback.called = False
+    hid_device.register_callback(async_callback)
+    msg = Mock()
+    hid_device._invoke_callbacks(msg)
+    await asyncio.sleep(0)  # Allow the async callback to be called
+    assert async_callback.called
+
+
+@pytest.mark.asyncio
+async def test_invoke_callbacks_mixed(hid_device):
+    callback = Mock()
+
+    async def async_callback(msg):
+        async_callback.called = True
+
+    async_callback.called = False
+    hid_device.register_callback(callback)
+    hid_device.register_callback(async_callback)
+    msg = Mock()
+    hid_device._invoke_callbacks(msg)
+    callback.assert_called_once_with(msg)
+    await asyncio.sleep(0)  # Allow the async callback to be called
+    assert async_callback.called
