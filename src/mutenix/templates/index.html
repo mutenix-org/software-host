@@ -1,67 +1,72 @@
 <!DOCTYPE html>
 <html>
 <body>
-<div id="mainDiv" style="background-color: black; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; align-items: center; width: 150px;">
-    <div style="display: flex; align-items: center;">
-        <button style="background-color: green; border-radius: 50%; margin: 5px; padding: 30px;" title="(Un)Mute" onclick="sendButtonPress(1)"></button>
-        <div id="indicator1" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
-    </div>
-    <div style="display: flex; align-items: center;">
-        <button style="background-color: yellow; border-radius: 50%; margin: 5px; padding: 30px;" title="Lower/Raise Hand" onclick="sendButtonPress(2)"></button>
-        <div id="indicator2" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
-    </div>
-    <div style="display: flex; align-items: center;">
-        <button style="background-color: black; color:white; border-radius: 50%; margin: 5px; padding: 30px;" title="Show Teams" onclick="sendButtonPress(3)"></button>
-        <div id="indicator3" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
-    </div>
-    <div style="display: flex; align-items: center;">
-        <button style="background-color: blue; border-radius: 50%; margin: 5px; padding: 30px;" title="Like" onclick="sendButtonPress(4)"></button>
-        <div id="indicator4" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
-    </div>
-    <div style="display: flex; align-items: center;">
-        <button style="background-color: red; border-radius: 50%; margin: 5px; padding: 30px;" title="Leave Call" onclick="sendButtonPress(5)"></button>
-        <div id="indicator5" style="background-color: white; border-radius: 50%; width: 20px; height: 20px; margin-left: 10px;"></div>
-    </div>
-</div>
-<button onclick="openPopup()">Open in Popup</button>
+<nav>
+    <button id="toggleButton" onclick="toggleButtons()">Show 10 Buttons</button>
+</nav>
 <script>
-function openPopup() {
-    const mainDiv = document.getElementById('mainDiv');
-    const width = mainDiv.offsetWidth;
-    const height = mainDiv.offsetHeight;
-    const popup = window.open('', 'popup', `width=${width+20},height=${height+20},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`);
-    popup.document.write(document.documentElement.outerHTML);
-    popup.document.close();
-    popup.focus();
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('five_button').style.display = 'block';
+    document.getElementById('ten_button').style.display = 'none';
+});
+
+function toggleButtons() {
+    const fiveButtonDiv = document.getElementById('five_button');
+    const tenButtonDiv = document.getElementById('ten_button');
+    const toggleButton = document.getElementById('toggleButton');
+
+    if (fiveButtonDiv.style.display === 'none') {
+        fiveButtonDiv.style.display = 'block';
+        tenButtonDiv.style.display = 'none';
+        toggleButton.textContent = 'Show 10 Buttons';
+    } else {
+        fiveButtonDiv.style.display = 'none';
+        tenButtonDiv.style.display = 'block';
+        toggleButton.textContent = 'Show 5 Buttons';
+    }
+    requestState();
 }
 </script>
+<div id="ten_button">
+{% include 'ten_button.html' %}
+</div>
+<div id="five_button">
+{% include 'five_button.html' %}
+</div>
 <script>
 const ws = new WebSocket('ws://' + window.location.host + '/ws');
+function requestState(){
+    ws.send(JSON.stringify({state_request: true}));
+}
 ws.onmessage = function(event) {
     const data = JSON.parse(event.data);
-    document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
+    const indicators = document.getElementsByClassName('indicator' + data.button);
+    for (let i = 0; i < indicators.length; i++) {
+        indicators[i].style.backgroundColor = data.color;
+    }
 };
-async function sendButtonPress(button) {
-    ws.send(JSON.stringify({button: button}));
+function sendButtonPress(button) {
+    if (ws.readyState == WebSocket.OPEN) {
+        ws.send(JSON.stringify({button: button}));
+        console.log('sent button press' + button);
+    }else{
+        console.log('WebSocket not open');
+    }
 }
 ws.onopen = function() {
-    ws.send(JSON.stringify({state_request: true}));
+    requestState();
 };
 ws.onclose = function() {
     console.log('WebSocket connection closed');
-};
-ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    document.getElementById('indicator' + data.button).style.backgroundColor = data.color;
 };
 async function sendButtonPress(button) {
     ws.send(JSON.stringify({button: button}));
 }
 window.onblur = function() {
-    ws.send(JSON.stringify({state_request: true}));
+    requestState();
 };
 window.onfocus = function() {
-    ws.send(JSON.stringify({state_request: true}));
+    requestState();
 };
 </script>
 </body>
