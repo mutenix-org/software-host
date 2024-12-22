@@ -6,6 +6,7 @@ import argparse  # Added import for argparse
 from mutenix.version import __version__
 from mutenix.updates import check_for_self_update
 from mutenix.macropad import Macropad
+import signal
 
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "macropad.log"
@@ -24,6 +25,12 @@ def parse_arguments():
 
 async def main(args: argparse.Namespace):
     check_for_self_update(__version__)
+    def signal_handler(signal, frame):
+        print("Shuting down...")
+        _logger.info("SIGINT received, shutting down...")
+        asyncio.create_task(macropad.stop())
+
+    signal.signal(signal.SIGINT, signal_handler)
     macropad = Macropad(vid=0x2E8A, pid=0x2083)
 
     if args.update_file:
@@ -32,6 +39,7 @@ async def main(args: argparse.Namespace):
         return
 
     await macropad.process()
+
 
 if __name__ == "__main__":
     args = parse_arguments()

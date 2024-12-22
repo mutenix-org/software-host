@@ -112,6 +112,8 @@ class HidDevice:
             _logger.error("Device disconnected: %s", e)
         except ValueError as e:
             _logger.error("Error sending message: %s", e)
+        except asyncio.CancelledError:
+            _logger.debug("Write loop cancelled")
 
 
     async def _ping(self):

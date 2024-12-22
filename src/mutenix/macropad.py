@@ -163,3 +163,12 @@ class Macropad:
         await self._device.wait_for_device()
         with open(update_file, "rb") as f:
             perform_upgrade_with_file(self._device.raw, f)
+
+    async def stop(self):
+        """Stops the device and WebSocket connection."""
+        await self._device.stop()
+        _logger.info("Device stopped")
+        await self._websocket.stop()
+        _logger.info("Websocket stopped")
+        await self._virtual_macropad.stop()
+        _logger.info("Virtual Device stopped")
