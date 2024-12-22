@@ -50,6 +50,7 @@ class WebSocketClient:
         self._uri += params
         self._connecting = False
         self._run = True
+        self._sent_something = True
 
     @block_parallel
     async def _connect(self):
@@ -85,12 +86,15 @@ class WebSocketClient:
             queue_element = self._send_queue.get_nowait()
             message, future = queue_element
         except asyncio.QueueEmpty:
-            _logger.debug("Send queue empty")
+            if self._sent_something:
+                self._sent_something = False
+                _logger.debug("Send queue empty")
             await asyncio.sleep(0)
             return
         try:
             if isinstance(message, ClientMessage):
                 msg = message.model_dump_json(by_alias=True)
+                self._sent_something = True
             else:
                 future.set_exception(
                     TypeError("Expected message to be an instance of ClientMessage"),
@@ -107,7 +111,7 @@ class WebSocketClient:
 
     async def _receive(self):
         try:
-            async with asyncio.timeout(0.01):
+            async with asyncio.timeout(1):
                 _logger.debug("Checking receive")
                 msg = await self._connection.recv()
                 _logger.debug("Received message: %s", msg)
@@ -128,6 +132,7 @@ class WebSocketClient:
 
     async def process(self):
         while self._run:
+            asyncio.current_task().set_name("WebSocketClient.process")
             try:
                 await self._connect()
                 await asyncio.gather(self._send_loop(), self._receive_loop())
