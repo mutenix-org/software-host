@@ -1,12 +1,14 @@
+from __future__ import annotations
+
+import argparse  # Added import for argparse
 import asyncio
 import logging
 import pathlib
-import argparse  # Added import for argparse
-
-from mutenix.version import __version__
-from mutenix.updates import check_for_self_update
-from mutenix.macropad import Macropad
 import signal
+
+from mutenix.macropad import Macropad
+from mutenix.updates import check_for_self_update
+from mutenix.version import __version__
 
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "macropad.log"

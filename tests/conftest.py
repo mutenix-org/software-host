@@ -1,5 +1,8 @@
-import pytest
+from __future__ import annotations
+
 import logging
+
+import pytest
 
 @pytest.fixture(scope="session",autouse=True)
 def loggingconfig():

@@ -1,6 +1,11 @@
-from pydantic import BaseModel, Field
-from typing import Optional, ClassVar
+from __future__ import annotations
+
 from enum import Enum
+from typing import ClassVar
+from typing import Optional
+
+from pydantic import BaseModel
+from pydantic import Field
 
 
 class MeetingPermissions(BaseModel):
@@ -33,7 +38,7 @@ class MeetingState(BaseModel):
 
 class MeetingUpdate(BaseModel):
     meeting_permissions: Optional[MeetingPermissions] = Field(
-        None, alias="meetingPermissions"
+        None, alias="meetingPermissions",
     )
     meeting_state: Optional[MeetingState] = Field(None, alias="meetingState")
 

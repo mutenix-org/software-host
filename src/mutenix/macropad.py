@@ -1,27 +1,24 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 
-from mutenix.virtual_macropad import VirtualMacropad
-from mutenix.utils import bring_teams_to_foreground
+from mutenix.hid_commands import LedColor
+from mutenix.hid_commands import SetLed
+from mutenix.hid_commands import Status
+from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
-from mutenix.websocket_client import WebSocketClient, Identifier
-from mutenix.updates import check_for_device_update, perform_upgrade_with_file
-
-
-from mutenix.hid_commands import (
-    Status,
-    VersionInfo,
-    LedColor,
-    SetLed,
-)
-
-from mutenix.teams_messages import (
-    ServerMessage,
-    ClientMessageParameterType,
-    ClientMessageParameter,
-    MeetingAction,
-    ClientMessage,
-)
+from mutenix.teams_messages import ClientMessage
+from mutenix.teams_messages import ClientMessageParameter
+from mutenix.teams_messages import ClientMessageParameterType
+from mutenix.teams_messages import MeetingAction
+from mutenix.teams_messages import ServerMessage
+from mutenix.updates import check_for_device_update
+from mutenix.updates import perform_upgrade_with_file
+from mutenix.utils import bring_teams_to_foreground
+from mutenix.virtual_macropad import VirtualMacropad
+from mutenix.websocket_client import Identifier
+from mutenix.websocket_client import WebSocketClient
 
 # endregion
 
@@ -73,7 +70,7 @@ class Macropad:
         elif status.button == 4 and status.triggered and status.released:
             action = MeetingAction.React
             parameters = ClientMessageParameter(
-                type_=ClientMessageParameterType.ReactLike
+                type_=ClientMessageParameterType.ReactLike,
             )
         elif status.button == 5 and status.triggered and status.released:
             action = MeetingAction.LeaveCall

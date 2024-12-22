@@ -6,10 +6,14 @@
 # ]
 # ///
 # https://gist.github.com/yhoiseth/c80c1e44a7036307e424fce616eed25e
-from typing import Any
-from re import match, Match
-import toml
+from __future__ import annotations
+
 import subprocess
+from re import Match
+from re import match
+from typing import Any
+
+import toml
 
 
 def main() -> None:

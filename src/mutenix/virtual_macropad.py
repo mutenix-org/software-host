@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import json
-from aiohttp import web
-from mutenix.hid_commands import Status, HidOutputMessage, SetLed
 import logging
-from aiohttp_jinja2 import setup as jinja2_setup, render_template
-import jinja2
 from typing import Callable
+
+import jinja2
+from aiohttp import web
+from aiohttp_jinja2 import render_template
+from aiohttp_jinja2 import setup as jinja2_setup
+from mutenix.hid_commands import HidOutputMessage
+from mutenix.hid_commands import SetLed
+from mutenix.hid_commands import Status
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8080
@@ -32,7 +38,7 @@ class VirtualMacropad:
                 web.get("/", self.index),
                 web.post("/button", self.button_handler),
                 web.get("/ws", self.websocket_handler),
-            ]
+            ],
         )
         jinja2_setup(self.app, loader=jinja2.PackageLoader("mutenix", "templates"))
         self._websockets: set[web.WebSocketResponse] = set()

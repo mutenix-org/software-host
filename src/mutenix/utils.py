@@ -1,10 +1,12 @@
+from __future__ import annotations
+
+import asyncio
+import functools
+import logging
 import os
 import platform
 import subprocess
-import logging
-import asyncio
 import time
-import functools
 
 _logger = logging.getLogger(__name__)
 
@@ -44,14 +46,14 @@ def bring_teams_to_foreground() -> None: # pragma: no cover
     elif platform.system().lower() == "darwin":
         os.system("osascript -e 'tell application \"Microsoft Teams\" to activate'")
         os.system(
-            'osascript -e \'tell application "System Events" to tell process "Microsoft Teams" to set frontmost to true\''
+            'osascript -e \'tell application "System Events" to tell process "Microsoft Teams" to set frontmost to true\'',
         )
     elif platform.system().lower() == "linux":
         try:
             # Get the window ID of Microsoft Teams
             window_id = (
                 subprocess.check_output(
-                    "xdotool search --name 'Microsoft Teams'", shell=True
+                    "xdotool search --name 'Microsoft Teams'", shell=True,
                 )
                 .strip()
                 .decode()

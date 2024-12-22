@@ -1,10 +1,17 @@
-import asyncio
-from typing import Callable
-import hid
-import logging
+from __future__ import annotations
 
-from mutenix.hid_commands import HidCommand, HidOutputMessage, HidInputMessage, Ping
-from mutenix.utils import run_loop, block_parallel, run_till_some_loop
+import asyncio
+import logging
+from typing import Callable
+
+import hid
+from mutenix.hid_commands import HidCommand
+from mutenix.hid_commands import HidInputMessage
+from mutenix.hid_commands import HidOutputMessage
+from mutenix.hid_commands import Ping
+from mutenix.utils import block_parallel
+from mutenix.utils import run_loop
+from mutenix.utils import run_till_some_loop
 
 _logger = logging.getLogger(__name__)
 
@@ -31,7 +38,7 @@ class HidDevice:
     @block_parallel
     async def _wait_for_device(self):
         _logger.info(
-            "Looking for device with VID: %04x, PID: %04x", self._vid, self._pid
+            "Looking for device with VID: %04x, PID: %04x", self._vid, self._pid,
         )
         self._device = await self._search_for_device_loop()
 
@@ -116,7 +123,7 @@ class HidDevice:
         Sends a ping message to the HID device.
         """
         await asyncio.sleep(
-            self._last_ping_time + 4.5 - asyncio.get_event_loop().time()
+            self._last_ping_time + 4.5 - asyncio.get_event_loop().time(),
         )
         if asyncio.get_event_loop().time() - self._last_ping_time > 4.5:
             _logger.debug("Sending ping")

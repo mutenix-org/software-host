@@ -1,9 +1,16 @@
+from __future__ import annotations
+
+import asyncio
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
 import pytest
 import pytest_asyncio
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from mutenix.websocket_client import WebSocketClient, Identifier
-from mutenix.teams_messages import ClientMessage, MeetingAction
+from mutenix.teams_messages import ClientMessage
+from mutenix.teams_messages import MeetingAction
+from mutenix.websocket_client import Identifier
+from mutenix.websocket_client import WebSocketClient
 
 
 @pytest_asyncio.fixture(autouse=True)

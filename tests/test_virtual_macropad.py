@@ -1,10 +1,18 @@
-from unittest.mock import ANY, AsyncMock, patch
-import pytest
+from __future__ import annotations
 
-from aiohttp.test_utils import AioHTTPTestCase
-from mutenix.virtual_macropad import UnsupportedMessageTypeError, VirtualMacropad
-from mutenix.hid_commands import HidOutputMessage, LedColor, SetLed, Status
 import asyncio
+from unittest.mock import ANY
+from unittest.mock import AsyncMock
+from unittest.mock import patch
+
+import pytest
+from aiohttp.test_utils import AioHTTPTestCase
+from mutenix.hid_commands import HidOutputMessage
+from mutenix.hid_commands import LedColor
+from mutenix.hid_commands import SetLed
+from mutenix.hid_commands import Status
+from mutenix.virtual_macropad import UnsupportedMessageTypeError
+from mutenix.virtual_macropad import VirtualMacropad
 
 class TestVirtualMacropad(AioHTTPTestCase):
     async def get_application(self):
@@ -106,7 +114,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
             await self.macropad._send_json_safe(ws, data)
             ws.send_json.assert_called_once_with(data)
             mock_logger_error.assert_called_once_with(
-                "Error sending LED status: %s to websocket %s", ANY, ANY
+                "Error sending LED status: %s to websocket %s", ANY, ANY,
             )
 
     async def test_register_callback(self):

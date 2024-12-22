@@ -1,5 +1,15 @@
-from mutenix.hid_commands import Status, VersionInfo, LedColor, SetLed, HidOutCommands, HidInCommands, HidInputMessage, StatusRequest, Reset
+from __future__ import annotations
+
 import pytest
+from mutenix.hid_commands import HidInCommands
+from mutenix.hid_commands import HidInputMessage
+from mutenix.hid_commands import HidOutCommands
+from mutenix.hid_commands import LedColor
+from mutenix.hid_commands import Reset
+from mutenix.hid_commands import SetLed
+from mutenix.hid_commands import Status
+from mutenix.hid_commands import StatusRequest
+from mutenix.hid_commands import VersionInfo
 
 def test_status():
     buffer = bytes([1, 1, 0, 0, 1])

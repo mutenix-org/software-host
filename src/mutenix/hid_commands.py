@@ -1,5 +1,9 @@
-from abc import ABC, abstractmethod
-from enum import IntEnum, ReprEnum
+from __future__ import annotations
+
+from abc import ABC
+from abc import abstractmethod
+from enum import IntEnum
+from enum import ReprEnum
 from typing import override
 
 class HardwareTypes(IntEnum):
@@ -135,7 +139,7 @@ class SetLed(HidCommand):
                 color[3],
                 0,
                 0,
-            ]
+            ],
         )
 
 class SimpleHidCommand(HidCommand):

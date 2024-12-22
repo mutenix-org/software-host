@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import asyncio
-import websockets
 import logging
-from mutenix.teams_messages import ServerMessage, ClientMessage
 from typing import Callable
 
-from mutenix.utils import block_parallel, run_loop
+import websockets
+from mutenix.teams_messages import ClientMessage
+from mutenix.teams_messages import ServerMessage
+from mutenix.utils import block_parallel
+from mutenix.utils import run_loop
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +68,7 @@ class WebSocketClient:
             return connection
         except Exception as e:
             _logger.info(
-                "Failed to connect to WebSocket server: %s: %s", type(e).__name__, e
+                "Failed to connect to WebSocket server: %s: %s", type(e).__name__, e,
             )
             return None
 
@@ -89,7 +93,7 @@ class WebSocketClient:
                 msg = message.model_dump_json(by_alias=True)
             else:
                 future.set_exception(
-                    TypeError("Expected message to be an instance of ClientMessage")
+                    TypeError("Expected message to be an instance of ClientMessage"),
                 )
                 return
             await self._connection.send(msg)

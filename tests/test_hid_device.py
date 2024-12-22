@@ -1,9 +1,17 @@
-import pytest
+from __future__ import annotations
+
 import asyncio
-from unittest.mock import ANY, Mock, patch, AsyncMock
-from mutenix.hid_device import HidDevice
-from mutenix.hid_commands import HidOutputMessage, Ping, PrepareUpdate
 import tracemalloc
+from unittest.mock import ANY
+from unittest.mock import AsyncMock
+from unittest.mock import Mock
+from unittest.mock import patch
+
+import pytest
+from mutenix.hid_commands import HidOutputMessage
+from mutenix.hid_commands import Ping
+from mutenix.hid_commands import PrepareUpdate
+from mutenix.hid_device import HidDevice
 
 tracemalloc.start()
 
@@ -17,7 +25,7 @@ def hid_device():
 @pytest.mark.asyncio
 async def test_wait_for_device(hid_device):
     with patch.object(
-        hid_device._device, "open", side_effect=Exception("Device not found")
+        hid_device._device, "open", side_effect=Exception("Device not found"),
     ):
         with patch("asyncio.sleep", side_effect=asyncio.CancelledError):
             with pytest.raises(asyncio.CancelledError):
@@ -72,7 +80,7 @@ async def test_write_device_disconnected(hid_device):
     msg = HidOutputMessage()
     future = hid_device.send_msg(msg)
     with patch.object(
-        hid_device, "_send_report", side_effect=OSError("Device disconnected")
+        hid_device, "_send_report", side_effect=OSError("Device disconnected"),
     ):
         await hid_device._write()
     assert not future.done()
@@ -83,7 +91,7 @@ async def test_write_value_error(hid_device):
     msg = HidOutputMessage()
     future = hid_device.send_msg(msg)
     with patch.object(
-        hid_device, "_send_report", side_effect=ValueError("Invalid message")
+        hid_device, "_send_report", side_effect=ValueError("Invalid message"),
     ):
         await hid_device._write()
     assert not future.done()
@@ -98,7 +106,7 @@ async def test_read_success(hid_device):
     hid_device._callbacks.append(callback)
     with patch.object(hid_device._device, "read", new_callable=Mock, return_value=data):
         with patch(
-            "mutenix.hid_commands.HidInputMessage.from_buffer", return_value=Mock()
+            "mutenix.hid_commands.HidInputMessage.from_buffer", return_value=Mock(),
         ):
             await hid_device._read()
     await future
@@ -109,7 +117,7 @@ async def test_read_success(hid_device):
 async def test_read_device_disconnected(hid_device):
     hid_device._wait_for_device = AsyncMock()
     with patch.object(
-        hid_device._device, "read", side_effect=OSError("Device disconnected")
+        hid_device._device, "read", side_effect=OSError("Device disconnected"),
     ):
         with patch("mutenix.hid_device._logger.error") as mock_logger:
             await hid_device._read()
@@ -121,12 +129,12 @@ async def test_read_device_disconnected(hid_device):
 @pytest.mark.asyncio
 async def test_read_value_error(hid_device):
     with patch.object(
-        hid_device._device, "read", side_effect=ValueError("Invalid message")
+        hid_device._device, "read", side_effect=ValueError("Invalid message"),
     ):
         with patch("mutenix.hid_device._logger.error") as mock_logger:
             await hid_device._read()
             mock_logger.assert_called_with(
-                "Error reading message: %s", ANY
+                "Error reading message: %s", ANY,
             )
 
 class TypeMatcher:

@@ -1,17 +1,21 @@
+from __future__ import annotations
+
+import io
+import logging
+import os
+import pathlib
+import tarfile
+import tempfile
+import time
+from abc import abstractmethod
+from collections.abc import Sequence
+from typing import BinaryIO
+
+import hid
 import requests
 import semver
-import tarfile
-import io
-import tempfile
-import pathlib
-import time
-import os
-import hid
-from abc import abstractmethod
-from tqdm import tqdm
 from mutenix.hid_commands import VersionInfo
-import logging
-from typing import BinaryIO, Sequence
+from tqdm import tqdm
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ _logger = logging.getLogger(__name__)
 def check_for_device_update(device: hid.device, device_version: VersionInfo):
     try:
         result = requests.get(
-            f"https://mutenix.de/api/v1/releases/macropad-{device_version.type.name}"
+            f"https://mutenix.de/api/v1/releases/macropad-{device_version.type.name}",
         )
         if result.status_code != 200:
             _logger.error(
@@ -64,7 +68,7 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
                     lambda x: x.endswith(".py") and not x.startswith("."),
                     os.listdir(tmpdirname),
                 ),
-            )
+            ),
         )
         _logger.debug("Updateing device with files: %s", files)
         perform_hid_upgrade(device, files)
@@ -120,7 +124,7 @@ class FileChunk(Chunk):
 
 class FileStart(Chunk):
     def __init__(
-        self, id: int, package: int, total_packages: int, filename: str, filesize: int
+        self, id: int, package: int, total_packages: int, filename: str, filesize: int,
     ):
         self.id = id
         self.package = package
@@ -174,7 +178,7 @@ class TransferFile:
     def make_chunks(self):
         total_packages = self.size // MAX_CHUNK_SIZE
         self._chunks.append(
-            FileStart(self.id, 0, total_packages, self.filename, self.size)
+            FileStart(self.id, 0, total_packages, self.filename, self.size),
         )
         for i in range(0, self.size, MAX_CHUNK_SIZE):
             self._chunks.append(
@@ -183,7 +187,7 @@ class TransferFile:
                     i // MAX_CHUNK_SIZE,
                     total_packages,
                     self.content[i : i + MAX_CHUNK_SIZE],
-                )
+                ),
             )
         self._chunks.append(FileEnd(self.id))
 
@@ -220,7 +224,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     _logger.debug("Preparing to send %s files", len(transfer_files))
     file_progress_bars = {
         file.id: tqdm(
-            total=file.chunks, desc=f"{file.id}/{len(transfer_files)} {file.filename}"
+            total=file.chunks, desc=f"{file.id}/{len(transfer_files)} {file.filename}",
         )
         for file in transfer_files
     }
@@ -291,7 +295,7 @@ def check_for_self_update(current_version: str):
 
         _logger.info("Application update available, but auto update is disabled")
         print(
-            "Application update available, but auto update is disabled, please update manually"
+            "Application update available, but auto update is disabled, please update manually",
         )
 
     except requests.RequestException as e:

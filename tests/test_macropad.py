@@ -1,9 +1,24 @@
-import pytest
+from __future__ import annotations
+
 import asyncio
-from unittest.mock import ANY, AsyncMock, Mock, patch, mock_open
+from unittest.mock import ANY
+from unittest.mock import AsyncMock
+from unittest.mock import Mock
+from unittest.mock import mock_open
+from unittest.mock import patch
+
+import pytest
+from mutenix.hid_commands import SetLed
+from mutenix.hid_commands import Status
+from mutenix.hid_commands import VersionInfo
 from mutenix.macropad import Macropad
-from mutenix.hid_commands import SetLed, Status, VersionInfo
-from mutenix.teams_messages import ClientMessageParameter, ClientMessageParameterType, MeetingAction, MeetingPermissions, MeetingState, MeetingUpdate, ServerMessage
+from mutenix.teams_messages import ClientMessageParameter
+from mutenix.teams_messages import ClientMessageParameterType
+from mutenix.teams_messages import MeetingAction
+from mutenix.teams_messages import MeetingPermissions
+from mutenix.teams_messages import MeetingState
+from mutenix.teams_messages import MeetingUpdate
+from mutenix.teams_messages import ServerMessage
 
 @pytest.fixture
 def macropad():
@@ -68,8 +83,8 @@ async def test_update_device_status(macropad):
     macropad._current_state = ServerMessage(
         meetingUpdate=MeetingUpdate(
             meetingState=MeetingState(isInMeeting=True, isMuted=True, isHandRaised=False, isVideoOn=True),
-            meetingPermissions=MeetingPermissions(canLeave=True)
-        )
+            meetingPermissions=MeetingPermissions(canLeave=True),
+        ),
     )
     def send_msg(msg):
         future = asyncio.get_event_loop().create_future()
@@ -89,8 +104,8 @@ async def test_update_device_status_not_in_meeting(macropad):
     macropad._current_state = ServerMessage(
         meetingUpdate=MeetingUpdate(
             meetingState=MeetingState(isInMeeting=False, isMuted=False, isHandRaised=False, isVideoOn=False),
-            meetingPermissions=MeetingPermissions(canLeave=False)
-        )
+            meetingPermissions=MeetingPermissions(canLeave=False),
+        ),
     )
     def send_msg(msg):
         future = asyncio.get_event_loop().create_future()
@@ -107,20 +122,22 @@ async def test_update_device_status_not_in_meeting(macropad):
 
 
 
-@pytest.mark.parametrize("msg_bytes, expected_action, should_call", [
-    (bytes([1, 1, 0, 0, 1]), MeetingAction.ToggleMute, True),
-    (bytes([2, 1, 0, 0, 1]), MeetingAction.ToggleHand, True),
-    (bytes([4, 1, 0, 0, 1]), MeetingAction.React, True),
-    (bytes([5, 1, 0, 0, 1]), MeetingAction.LeaveCall, True),
-    (bytes([1, 0, 0, 0, 1]), None, False),
-    (bytes([2, 0, 0, 0, 1]), None, False),
-    (bytes([4, 0, 0, 0, 1]), None, False),
-    (bytes([5, 0, 0, 0, 1]), None, False),
-    (bytes([1, 1, 0, 0, 0]), None, False),
-    (bytes([2, 1, 0, 0, 0]), None, False),
-    (bytes([4, 1, 0, 0, 0]), None, False),
-    (bytes([5, 1, 0, 0, 0]), None, False),
-])
+@pytest.mark.parametrize(
+    "msg_bytes, expected_action, should_call", [
+        (bytes([1, 1, 0, 0, 1]), MeetingAction.ToggleMute, True),
+        (bytes([2, 1, 0, 0, 1]), MeetingAction.ToggleHand, True),
+        (bytes([4, 1, 0, 0, 1]), MeetingAction.React, True),
+        (bytes([5, 1, 0, 0, 1]), MeetingAction.LeaveCall, True),
+        (bytes([1, 0, 0, 0, 1]), None, False),
+        (bytes([2, 0, 0, 0, 1]), None, False),
+        (bytes([4, 0, 0, 0, 1]), None, False),
+        (bytes([5, 0, 0, 0, 1]), None, False),
+        (bytes([1, 1, 0, 0, 0]), None, False),
+        (bytes([2, 1, 0, 0, 0]), None, False),
+        (bytes([4, 1, 0, 0, 0]), None, False),
+        (bytes([5, 1, 0, 0, 0]), None, False),
+    ],
+)
 @pytest.mark.asyncio
 async def test_hid_callback_parametrized(macropad, msg_bytes, expected_action: MeetingAction, should_call):
     msg = Status(msg_bytes)
@@ -158,15 +175,17 @@ async def test_setup_without_existing_token():
                     macropad._setup()
                     MockWebSocketClient.assert_called_with(ANY, IdentifierWithoutToken())
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status, expected_action, expected_parameters", [
-    (Status(bytes([1, 1, 0, 0, 1])), MeetingAction.ToggleMute, None),
-    (Status(bytes([2, 1, 0, 0, 1])), MeetingAction.ToggleHand, None),
-    (Status(bytes([3, 1, 0, 0, 1])), None, None),  # bring_teams_to_foreground
-    (Status(bytes([3, 1, 1, 0, 1])), MeetingAction.ToggleVideo, None),  # doubletap
-    (Status(bytes([4, 1, 0, 0, 1])), MeetingAction.React, ClientMessageParameter(type_=ClientMessageParameterType.ReactLike)),
-    (Status(bytes([5, 1, 0, 0, 1])), MeetingAction.LeaveCall, None),
-    (Status(bytes([1, 0, 0, 0, 1])), None, None),
-])
+@pytest.mark.parametrize(
+    "status, expected_action, expected_parameters", [
+        (Status(bytes([1, 1, 0, 0, 1])), MeetingAction.ToggleMute, None),
+        (Status(bytes([2, 1, 0, 0, 1])), MeetingAction.ToggleHand, None),
+        (Status(bytes([3, 1, 0, 0, 1])), None, None),  # bring_teams_to_foreground
+        (Status(bytes([3, 1, 1, 0, 1])), MeetingAction.ToggleVideo, None),  # doubletap
+        (Status(bytes([4, 1, 0, 0, 1])), MeetingAction.React, ClientMessageParameter(type_=ClientMessageParameterType.ReactLike)),
+        (Status(bytes([5, 1, 0, 0, 1])), MeetingAction.LeaveCall, None),
+        (Status(bytes([1, 0, 0, 0, 1])), None, None),
+    ],
+)
 async def test_send_status(macropad, status, expected_action, expected_parameters):
     macropad._websocket.send_message = AsyncMock()
     with patch("mutenix.macropad.bring_teams_to_foreground") as mock_bring_teams_to_foreground:
