@@ -46,7 +46,7 @@ class HidDevice:
         try:
             device = hid.device()
             device.open(self._vid, self._pid)
-            device.set_nonblocking(0)
+            device.set_nonblocking(1)
             _logger.info("Device found %s", device)
             return device
         except Exception as e:
@@ -90,7 +90,7 @@ class HidDevice:
 
     async def _read(self):
         try:
-            buffer = self._device.read(64, timeout_ms=100)
+            buffer = self._device.read(64)
             if buffer and len(buffer):
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
@@ -104,6 +104,7 @@ class HidDevice:
     async def _write(self):
         try:
             msg, future = await self._send_buffer.get()
+            _logger.debug("Sending message: %s", msg)
             result = self._send_report(msg)
             if result < 0:
                 _logger.error("Failed to send message: %s", msg)
