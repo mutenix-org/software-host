@@ -236,7 +236,7 @@ async def test_search_for_device_success(hid_device):
 
         assert device is not None
         mock_device.open.assert_called_once_with(hid_device._vid, hid_device._pid)
-        mock_device.set_nonblocking.assert_called_once_with(0)
+        mock_device.set_nonblocking.assert_called_once_with(1)
 
 
 @pytest.mark.asyncio
