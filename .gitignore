@@ -7,3 +7,4 @@ macropad.log
 tests/
 .coverage
 .coverage.*
+__pycache__
