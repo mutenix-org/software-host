@@ -127,7 +127,10 @@ class Macropad:
                 state = msg.meeting_update.meeting_state
                 if state.is_in_meeting:
                     set_led(1, state.is_muted, LedColor.RED, LedColor.GREEN)
-                    set_led(2, state.is_hand_raised, LedColor.YELLOW, LedColor.WHITE)
+                    set_led(
+                        2, state.is_hand_raised,
+                        LedColor.YELLOW, LedColor.WHITE,
+                    )
                     set_led(3, state.is_video_on, LedColor.GREEN, LedColor.RED)
                 else:
                     for i in range(1, 6):
@@ -135,7 +138,10 @@ class Macropad:
 
             if msg.meeting_update.meeting_permissions:
                 permissions = msg.meeting_update.meeting_permissions
-                set_led(5, permissions.can_leave, LedColor.GREEN, LedColor.BLACK)
+                set_led(
+                    5, permissions.can_leave,
+                    LedColor.GREEN, LedColor.BLACK,
+                )
 
         for m in msgs.values():
             try:
@@ -149,7 +155,7 @@ class Macropad:
         try:
             await asyncio.gather(
                 self._device.process(),
-                #self._websocket.process(),
+                self._websocket.process(),
                 self._virtual_macropad.process(),
             )
         except Exception as e:
