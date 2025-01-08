@@ -21,7 +21,7 @@ EOF
 
 # Check if the working directory is clean
 if ! git diff-index --quiet HEAD --; then
-    git add src/mutenix_firmware/version.py
+    git add src/mutenix/version.py
     git commit -am "chore: Update version.py to $VERSION"
 fi
 
