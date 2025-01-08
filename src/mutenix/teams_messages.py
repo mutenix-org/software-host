@@ -89,6 +89,9 @@ class MeetingAction(str, Enum):
     ToggleUI = "toggle-ui"
     StopSharing = "stop-sharing"
 
+    def __str__(self):
+        return self.value
+
 
 class ClientMessage(BaseModel):
     """Message sent to the Teams WebSocket server."""

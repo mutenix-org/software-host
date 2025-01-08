@@ -15,7 +15,7 @@ from mutenix.version import MINOR
 from mutenix.version import PATCH
 
 # Configure logging to write to a file
-log_file_path = pathlib.Path.cwd() / "macropad.log"
+log_file_path = pathlib.Path.cwd() / "mutenix.log"
 logging.basicConfig(
     level=logging.INFO,
     filename=log_file_path,

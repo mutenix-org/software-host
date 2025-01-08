@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from typing import Callable
 
+from mutenix.config import ActionEnum
+from mutenix.config import ButtonAction
+from mutenix.config import load_config
+from mutenix.config import save_config
 from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
@@ -10,7 +16,6 @@ from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
 from mutenix.teams_messages import ClientMessage
 from mutenix.teams_messages import ClientMessageParameter
-from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
 from mutenix.teams_messages import ServerMessage
 from mutenix.updates import check_for_device_update
@@ -20,8 +25,6 @@ from mutenix.virtual_macropad import VirtualMacropad
 from mutenix.websocket_client import Identifier
 from mutenix.websocket_client import WebSocketClient
 
-# endregion
-
 _logger = logging.getLogger(__name__)
 
 
@@ -30,16 +33,14 @@ class Macropad:
 
     def __init__(self, vid=0x2E8A, pid=0x2083):
         self._version_seen = None
+        self._config = load_config()
         self._setup(vid, pid)
         self._current_state = None
+        self._setup_buttons()
 
     def _setup(self, vid=0x2E8A, pid=0x2083):
         self._device = HidDevice(vid, pid)
-        try:
-            with open("macropad-teams-token.txt", "r") as f:
-                token = f.read()
-        except FileNotFoundError:
-            token = ""
+        token = self._config.teams_token
         self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",
             Identifier(
@@ -55,34 +56,48 @@ class Macropad:
         self._device.register_callback(self._hid_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
 
+    def _setup_buttons(self):
+        self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
+        self._double_tap_actions = {entry.button_id: entry for entry in self._config.double_tap_action}
+
     async def _send_status(self, status: Status):
         _logger.debug("Status: %s", status)
-        action = None
-        if status.button == 1 and status.triggered and status.released:
-            action = MeetingAction.ToggleMute
-        elif status.button == 2 and status.triggered and status.released:
-            action = MeetingAction.ToggleHand
-        elif status.button == 3 and status.triggered and status.released:
-            if status.doubletap:
-                action = MeetingAction.ToggleVideo
+        action: None | ButtonAction = None
+        mapped_action: Callable | None | MeetingAction = None
+        action_map: dict[ActionEnum, Callable] = {
+            ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
+            ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
+        }
+
+        if status.triggered:
+            if not status.released:
+                return
+            if status.button in self._tap_actions:
+                action = self._tap_actions.get(status.button, None)
+            elif status.button in self._double_tap_actions:
+                action = self._double_tap_actions.get(status.button, None)
+            if not action:
+                return
+            if isinstance(action.action, MeetingAction):
+                mapped_action = action.action
             else:
-                bring_teams_to_foreground()
-        elif status.button == 4 and status.triggered and status.released:
-            action = MeetingAction.React
-            parameters = ClientMessageParameter(
-                type_=ClientMessageParameterType.ReactLike,
-            )
-        elif status.button == 5 and status.triggered and status.released:
-            action = MeetingAction.LeaveCall
-        else:
-            return
-
-        if action is not None:
-            client_message = ClientMessage.create(action=action)
-            if status.button == 4:
-                client_message.parameters = parameters
-
-            await self._websocket.send_message(client_message)
+                mapped_action = action_map.get(action.action, None)
+            if mapped_action:
+                if callable(mapped_action):
+                    if action.action == ActionEnum.CMD:
+                        mapped_action(action.extra)
+                    else:
+                        mapped_action()
+                else:
+                    if action.action == MeetingAction.React:
+                        client_message = ClientMessage.create(action=MeetingAction.React)
+                        client_message.parameters = ClientMessageParameter(
+                            type_=action.extra,
+                        )
+                        await self._websocket.send_message(client_message)
+                    else:
+                        client_message = ClientMessage.create(action=mapped_action)
+                        await self._websocket.send_message(client_message)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:
@@ -103,9 +118,9 @@ class Macropad:
         _logger.debug("Teams message: %s", msg)
         self._current_state = msg
         if msg.token_refresh:
+            self._config.teams_token = msg.token_refresh
             try:
-                with open("macropad-teams-token.txt", "w") as f:
-                    f.write(msg.token_refresh)
+                save_config(self._config)
             except IOError as e:
                 _logger.error("Failed to write token to file: %s", e)
         await self._update_device_status()
