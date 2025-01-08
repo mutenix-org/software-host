@@ -30,6 +30,14 @@ def run_trayicon(macropad):
                 open_macropad,
             ),
             item(
+                'Help',
+                lambda: webbrowser.open(f"http://{HOST}:{PORT}/help"),
+            ),
+            item(
+                'About',
+                lambda: webbrowser.open(f"http://{HOST}:{PORT}/about")
+            ),
+            item(
                 'Quit',
                 quit_macropad,
             ),

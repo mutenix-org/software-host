@@ -60,6 +60,8 @@ class VirtualMacropad:
         self.app.router.add_route("GET", "/favicon/{filename}", self.favicon)
         self.app.router.add_route("GET", "/favicon.svg", self.favicon_svg)
         self.app.router.add_route("GET", "/site.webmanifest", self.serve_manifest)
+        self.app.router.add_route("GET", "/help", self.help)
+        self.app.router.add_route("GET", "/about", self.about)
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -116,6 +118,13 @@ class VirtualMacropad:
             "display": "standalone",
         }
         return web.json_response(manifest)
+
+    async def help(self, request: web.Request):
+        return render_template("help.html", request, {})
+    
+    async def about(self, request: web.Request):
+        return render_template("about.html", request, {})
+
 
     async def _handle_msg(self, msg: HidOutputMessage):
         for callback in self._callbacks:

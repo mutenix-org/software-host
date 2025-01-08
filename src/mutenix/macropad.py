@@ -149,7 +149,7 @@ class Macropad:
         try:
             await asyncio.gather(
                 self._device.process(),
-                self._websocket.process(),
+                #self._websocket.process(),
                 self._virtual_macropad.process(),
             )
         except Exception as e:

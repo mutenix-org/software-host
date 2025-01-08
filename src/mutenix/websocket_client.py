@@ -91,7 +91,7 @@ class WebSocketClient:
             if self._sent_something:
                 self._sent_something = False
                 _logger.debug("Send queue empty")
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.2)
             return
         try:
             if isinstance(message, ClientMessage):
@@ -127,7 +127,7 @@ class WebSocketClient:
                         self._callback(message)
         except asyncio.TimeoutError:
             _logger.debug("Receive timed out stopped")
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.2)
         except Exception as e:
             _logger.error("Error receiving message: %s", e)
             await self._connect()
