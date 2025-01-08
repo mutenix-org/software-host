@@ -22,11 +22,18 @@ jobs:
       run: |
         uv venv
         uv sync
-    - name: Set OS name
-      run: echo "OS_NAME=$(echo ${{ matrix.os }} | sed -e 's/ubuntu-latest/x86_64-linux/' -e 's/windows-latest/x86_64-windows.zip/' -e 's/macos-13/x86_64-darwin/' -e 's/macos-latest/aarch64-darwin.tar.gz/')" >> $GITHUB_ENV
+
     - name: build release
+      if: runner.os != 'Windows'
       run: |
+        OS_NAME=$(echo ${{ matrix.os }} | sed -e 's/ubuntu-latest/x86_64-linux/' -e 's/macos-13/x86_64-darwin/' -e 's/macos-latest/aarch64-darwin/')
         uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix $OS_NAME
+
+    - name: build release (windows)
+      if: runner.os == 'Windows'
+      run: |
+        uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix win64
+
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
