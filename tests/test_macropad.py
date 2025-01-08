@@ -61,8 +61,8 @@ async def test_teams_callback_token_refresh(macropad):
     macropad._current_state = None
     with patch("builtins.open", mock_open()) as mock_file:
         await macropad._teams_callback(msg)
-        mock_file.assert_called_once_with("macropad-teams-token.txt", "w")
-        mock_file().write.assert_called_once_with("new_token")
+        mock_file.assert_called_once_with("mutenix.yaml", "w")
+        mock_file().write.assert_any_call("new_token")
 
 
 @pytest.mark.asyncio
@@ -73,8 +73,7 @@ async def test_teams_callback_token_refresh_save_failed(macropad):
          patch("mutenix.macropad._logger.error"):
         mock_file().write.side_effect = IOError
         await macropad._teams_callback(msg)
-        mock_file.assert_called_with("macropad-teams-token.txt", "w")
-        mock_file().write.assert_called_once_with("new_token")
+        mock_file.assert_called_with("mutenix.yaml", "w")
         #mock_logger_error.assert_called_once()
 
 
@@ -174,6 +173,8 @@ async def test_setup_without_existing_token():
                     macropad = Macropad()
                     macropad._setup()
                     MockWebSocketClient.assert_called_with(ANY, IdentifierWithoutToken())
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "status, expected_action, expected_parameters", [

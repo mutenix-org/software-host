@@ -72,9 +72,9 @@ class Macropad:
         if status.triggered:
             if not status.released:
                 return
-            if status.button in self._tap_actions:
+            if not status.doubletap and status.button in self._tap_actions:
                 action = self._tap_actions.get(status.button, None)
-            elif status.button in self._double_tap_actions:
+            elif status.doubletap and status.button in self._double_tap_actions:
                 action = self._double_tap_actions.get(status.button, None)
             if not action:
                 return
@@ -94,10 +94,9 @@ class Macropad:
                         client_message.parameters = ClientMessageParameter(
                             type_=action.extra,
                         )
-                        await self._websocket.send_message(client_message)
                     else:
                         client_message = ClientMessage.create(action=mapped_action)
-                        await self._websocket.send_message(client_message)
+                    await self._websocket.send_message(client_message)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from pathlib import Path
 from typing import List
@@ -7,6 +8,8 @@ from typing import List
 import yaml
 from mutenix.teams_messages import MeetingAction
 from pydantic import BaseModel
+
+_logger = logging.getLogger(__name__)
 
 
 class ActionEnum(str, Enum):
@@ -64,5 +67,8 @@ def save_config(config: Config, file_path: Path | str | None = None):
             raise ValueError("No file path provided")
         file_path = config.file_path
     config.file_path = None
-    with open(file_path, "w") as file:
-        yaml.dump(config.model_dump(), file)
+    try:
+        with open(file_path, "w") as file:
+            yaml.dump(config.model_dump(), file)
+    except (FileNotFoundError, yaml.YAMLError, IOError):
+        _logger.error("Failed to write config to file: %s", file_path)

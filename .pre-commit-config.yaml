@@ -36,3 +36,12 @@ repos:
     rev: v3.1.0
     hooks:
     -   id: add-trailing-comma
+  - repo: local
+    hooks:
+    - id: pytest
+      name: pytest
+      entry: ./.venv/bin/pytest tests
+      language: system
+      types: [python]
+      pass_filenames: false
+      always_run: true
