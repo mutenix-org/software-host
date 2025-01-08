@@ -7,15 +7,13 @@ from pathlib import Path
 from mutenix.virtual_macropad import HOST
 from mutenix.virtual_macropad import PORT
 from PIL import Image
-from pystray import Icon as icon
-from pystray import Menu as menu
-from pystray import MenuItem as item
 
 def load_image(file_name):
     file_path = Path(__file__).parent / 'assets' / file_name
     return Image.open(file_path)
 
 def run_trayicon(macropad):
+    from pystray import Icon as icon, Menu as menu, MenuItem as item
     def open_macropad(icon, item):
         webbrowser.open(f"http://{HOST}:{PORT}")
 
@@ -35,7 +33,7 @@ def run_trayicon(macropad):
             ),
             item(
                 'About',
-                lambda: webbrowser.open(f"http://{HOST}:{PORT}/about")
+                lambda: webbrowser.open(f"http://{HOST}:{PORT}/about"),
             ),
             item(
                 'Quit',
