@@ -1,6 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--os-suffix", type=str)
+options = parser.parse_args()
+
 a = Analysis(
     ['src/mutenix/package.py'],
     pathex=['src'],
@@ -22,13 +27,13 @@ if onefile:
           a.binaries,
           a.zipfiles,
           a.datas,
-          name='Mutenix',
+          name=f'Mutenix-{options.os_suffix}',
           debug=False,
           strip=False,
           upx=True,
           runtime_tmpdir=None,
           console=False,
-          icon="src/mutenix/assets/mutenix.ico",
+          icon="./icon_all_red_apple_touch.ico",
         disable_windowed_traceback=False,
         argv_emulation=False,
         target_arch=None,
