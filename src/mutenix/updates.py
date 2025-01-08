@@ -20,7 +20,6 @@ from tqdm import tqdm
 _logger = logging.getLogger(__name__)
 
 
-# region: Update Firmware
 def check_for_device_update(device: hid.device, device_version: VersionInfo):
     try:
         result = requests.get(
@@ -100,7 +99,7 @@ class RequestChunk:
 
 class Chunk:
     @abstractmethod
-    def packet(self): # pragma: no cover
+    def packet(self):  # pragma: no cover
         pass
 
 
@@ -124,7 +123,12 @@ class FileChunk(Chunk):
 
 class FileStart(Chunk):
     def __init__(
-        self, id: int, package: int, total_packages: int, filename: str, filesize: int,
+        self,
+        id: int,
+        package: int,
+        total_packages: int,
+        filename: str,
+        filesize: int,
     ):
         self.id = id
         self.package = package
@@ -219,12 +223,13 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 
     chunk_requests = []
     finished = False
-    finished_at: float = float('inf')
+    finished_at: float = float("inf")
 
     _logger.debug("Preparing to send %s files", len(transfer_files))
     file_progress_bars = {
         file.id: tqdm(
-            total=file.chunks, desc=f"{file.id}/{len(transfer_files)} {file.filename}",
+            total=file.chunks,
+            desc=f"{file.id}/{len(transfer_files)} {file.filename}",
         )
         for file in transfer_files
     }
@@ -257,9 +262,12 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
             file_progress_bars[file.id].update(1)
             time.sleep(DATA_TRANSFER_SLEEP_TIME)
         except StopIteration:
-            if finished and (time.monotonic() - finished_at) > WAIT_FOR_REQUESTS_SLEEP_TIME:
+            if (
+                finished
+                and (time.monotonic() - finished_at) > WAIT_FOR_REQUESTS_SLEEP_TIME
+            ):
                 break
-            time.sleep(WAIT_FOR_REQUESTS_SLEEP_TIME/5)
+            time.sleep(WAIT_FOR_REQUESTS_SLEEP_TIME / 5)
             if not finished:
                 print("All files transfered, waiting a bit for file requests")
                 finished = True
@@ -271,11 +279,9 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     device.write([1, 0xE1] + [0] * 7)
 
 
-# endregion
-
-
 # region: Update Application
-def check_for_self_update(current_version: str):
+def check_for_self_update(major: int, minor: int, patch: int):
+    current_version = f"{major}.{minor}.{patch}"
     try:
         result = requests.get("https://mutenix.de/api/v1/releases/software-python")
         if result.status_code != 200:

@@ -69,7 +69,9 @@ class WebSocketClient:
             return connection
         except Exception as e:
             _logger.info(
-                "Failed to connect to WebSocket server: %s: %s", type(e).__name__, e,
+                "Failed to connect to WebSocket server: %s: %s",
+                type(e).__name__,
+                e,
             )
             return None
 

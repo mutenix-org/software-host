@@ -5,10 +5,14 @@ import asyncio
 import logging
 import pathlib
 import signal
+import threading
 
 from mutenix.macropad import Macropad
+from mutenix.tray_icon import run_trayicon
 from mutenix.updates import check_for_self_update
-from mutenix.version import __version__
+from mutenix.version import MAJOR
+from mutenix.version import MINOR
+from mutenix.version import PATCH
 
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "macropad.log"
@@ -25,8 +29,9 @@ def parse_arguments():
     parser.add_argument('--update-file', type=str, help='Path to the update tar.gz file')
     return parser.parse_args()
 
-async def main(args: argparse.Namespace):
-    check_for_self_update(__version__)
+def main(args: argparse.Namespace):
+    check_for_self_update(MAJOR, MINOR, PATCH)
+
     def signal_handler(signal, frame):
         print("Shuting down...")
         _logger.info("SIGINT received, shutting down...")
@@ -37,13 +42,24 @@ async def main(args: argparse.Namespace):
 
     if args.update_file:
         _logger.info("Starting manual update with file: %s", args.update_file)
-        await macropad.manual_update(args.update_file)
+        asyncio.run(macropad.manual_update(args.update_file))
         return
 
-    await macropad.process()
+    def run_asyncio_loop():
+        asyncio.run(macropad.process())
+
+    loop_thread = threading.Thread(target=run_asyncio_loop)
+    loop_thread.start()
+
+    run_trayicon(macropad)
+
+    loop_thread.join()
+
+def runmain():
+    args = parse_arguments()
+    logging.basicConfig(level=logging.INFO)
+    main(args)
 
 
 if __name__ == "__main__":
-    args = parse_arguments()
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main(args))
+    runmain()

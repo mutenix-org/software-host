@@ -1,39 +1,51 @@
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en-US">
+
+<head profile="http://www.w3.org/2005/10/profile">
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon/64">
+    <link rel="shortcut icon" type="image/png" href="/favicon/svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/32">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/16">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple_touch">
+    <link rel="manifest" href="/site.webmanifest">
+    <title>🔇 Mutenix Virtual Macropad</title>
+</head>
+
 <body>
-<nav>
-    <button id="toggleButton" onclick="toggleButtons()">Show 10 Buttons</button>
-</nav>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('five_button').style.display = 'block';
-    document.getElementById('ten_button').style.display = 'none';
-});
+    <nav>
+        <button id="toggleButton" onclick="toggleButtons()">Show 10 Buttons</button>
+    </nav>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('five_button').style.display = 'block';
+            document.getElementById('ten_button').style.display = 'none';
+        });
 
-function toggleButtons() {
-    const fiveButtonDiv = document.getElementById('five_button');
-    const tenButtonDiv = document.getElementById('ten_button');
-    const toggleButton = document.getElementById('toggleButton');
+        function toggleButtons() {
+            const fiveButtonDiv = document.getElementById('five_button');
+            const tenButtonDiv = document.getElementById('ten_button');
+            const toggleButton = document.getElementById('toggleButton');
 
-    if (fiveButtonDiv.style.display === 'none') {
-        fiveButtonDiv.style.display = 'block';
-        tenButtonDiv.style.display = 'none';
-        toggleButton.textContent = 'Show 10 Buttons';
-    } else {
-        fiveButtonDiv.style.display = 'none';
-        tenButtonDiv.style.display = 'block';
-        toggleButton.textContent = 'Show 5 Buttons';
-    }
-    requestState();
-}
-</script>
-<div id="ten_button">
-{% include 'ten_button.html' %}
-</div>
-<div id="five_button">
-{% include 'five_button.html' %}
-</div>
-<script src="/static/js/script.js">
-</script>
+            if (fiveButtonDiv.style.display === 'none') {
+                fiveButtonDiv.style.display = 'block';
+                tenButtonDiv.style.display = 'none';
+                toggleButton.textContent = 'Show 10 Buttons';
+            } else {
+                fiveButtonDiv.style.display = 'none';
+                tenButtonDiv.style.display = 'block';
+                toggleButton.textContent = 'Show 5 Buttons';
+            }
+            requestState();
+        }
+    </script>
+    <div id="ten_button">
+        {% include 'ten_button.html' %}
+    </div>
+    <div id="five_button">
+        {% include 'five_button.html' %}
+    </div>
+    <script src="/static/js/script.js">
+    </script>
 </body>
+
 </html>

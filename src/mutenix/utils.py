@@ -88,6 +88,7 @@ def run_loop(func):
 
 
 def block_parallel(func):
+    """Blocks parallel calls to the function."""
     func._already_running = False
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):

@@ -1,2 +1,4 @@
 from __future__ import annotations
-__version__ = "0.1.0"
+MAJOR = 0
+MINOR = 2
+PATCH = 3

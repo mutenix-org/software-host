@@ -14,8 +14,8 @@ from mutenix.hid_commands import HidOutputMessage
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8080
+HOST = "127.0.0.1"
+PORT = 12909
 
 _logger = logging.getLogger(__name__)
 
@@ -29,12 +29,37 @@ class UnsupportedMessageTypeError(Exception):
 class VirtualMacropad:
     """A virtual representation of the Macropad for testing or playing around."""
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
+    icons: list[dict[str, str]] = [
+        {
+            "src": "/favicon/32",
+            "sizes": "32x32",
+            "type": "image/png",
+        },
+        {
+            "src": "/favicon/16",
+            "sizes": "16x16",
+            "type": "image/png",
+        },
+        {
+            "src": "/favicon/apple_touch",
+            "sizes": "180x180",
+            "type": "image/png",
+        },
+    ]
+
+    def __init__(self, host: str = HOST, port: int = PORT):
         self.host = host
         self.port = port
         self._callbacks: list[Callable[[HidOutputMessage], asyncio.Future]] = []
         self.app = web.Application()
-        self.app.router.add_static('/static/', path=str(pathlib.Path(__file__).parent / 'static'), name='static')
+        self.app.router.add_static(
+            "/static/",
+            path=str(pathlib.Path(__file__).parent / "static"),
+            name="static",
+        )
+        self.app.router.add_route("GET", "/favicon/{filename}", self.favicon)
+        self.app.router.add_route("GET", "/favicon.svg", self.favicon_svg)
+        self.app.router.add_route("GET", "/site.webmanifest", self.serve_manifest)
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -58,6 +83,40 @@ class VirtualMacropad:
         await self._handle_msg(Status.trigger_button(data.get("button")))
         return web.Response(status=200)
 
+    async def favicon(self, request: web.Request):
+        filename = request.match_info["filename"]
+        for icon in self.icons:
+            if icon["src"].endswith(filename):
+                icon_path = (
+                    pathlib.Path(__file__).parent
+                    / "assets"
+                    / f"icon_active_{filename}.png"
+                )
+                break
+        else:
+            raise web.HTTPNotFound()
+        if icon_path.exists():
+            return web.FileResponse(icon_path)
+        else:
+            raise web.HTTPNotFound()
+
+    async def favicon_svg(self, request: web.Request):
+        return web.FileResponse(
+            pathlib.Path(__file__).parent
+            / "assets"
+            / "mutenix_logo_finalicon_active.svg",
+        )
+
+    async def serve_manifest(self, request: web.Request):
+        manifest = {
+            "name": "Mutenix Virtual Macropad",
+            "short_name": "Mutenix",
+            "icons": self.icons,
+            "start_url": "/",
+            "display": "standalone",
+        }
+        return web.json_response(manifest)
+
     async def _handle_msg(self, msg: HidOutputMessage):
         for callback in self._callbacks:
             await callback(msg)
@@ -75,10 +134,12 @@ class VirtualMacropad:
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
                 data = json.loads(msg.data)
-                match data['command']:
-                    case 'button':
-                        await self._handle_msg(Status.trigger_button(data.get("button")))
-                    case 'state_request':
+                match data["command"]:
+                    case "button":
+                        await self._handle_msg(
+                            Status.trigger_button(data.get("button")),
+                        )
+                    case "state_request":
                         await self.handle_state_request(ws)
                     case _:
                         _logger.info("Unknown message: %s", data)
@@ -98,7 +159,9 @@ class VirtualMacropad:
 
     def _send_led_status(self, button: int, color: str):
         for ws in self._websockets:
-            asyncio.create_task(self._send_json_safe(ws, {"button": button, "color": color}))
+            asyncio.create_task(
+                self._send_json_safe(ws, {"button": button, "color": color}),
+            )
 
     async def send_msg(self, msg: HidOutputMessage):
         if isinstance(msg, SetLed):
@@ -116,7 +179,6 @@ class VirtualMacropad:
         site = web.TCPSite(runner, self.host, self.port)
         await site.start()
         _logger.info("VirtualMacropad running at http://%s:%s", self.host, self.port)
-        print(f"VirtualMacropad running at http://{self.host}:{self.port}")
 
     async def stop(self):
         await self.app.shutdown()

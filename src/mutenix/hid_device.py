@@ -38,7 +38,9 @@ class HidDevice:
     @block_parallel
     async def _wait_for_device(self):
         _logger.info(
-            "Looking for device with VID: %04x, PID: %04x", self._vid, self._pid,
+            "Looking for device with VID: %04x, PID: %04x",
+            self._vid,
+            self._pid,
         )
         self._device = await self._search_for_device_loop()
 
@@ -168,5 +170,5 @@ class HidDevice:
     def raw(self):  # pragma: no cover
         return self._device
 
-    async def wait_for_device(self): # pragma: no cover
+    async def wait_for_device(self):  # pragma: no cover
         await self._wait_for_device()
