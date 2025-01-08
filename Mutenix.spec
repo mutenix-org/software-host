@@ -3,8 +3,10 @@
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("--os-suffix", type=str)
+parser.add_argument("--os-suffix", type=str, default='')
 options = parser.parse_args()
+
+suffix = f".{options.os_suffix}" if options.os_suffix != '' else ''
 
 a = Analysis(
     ['src/mutenix/package.py'],
@@ -27,7 +29,7 @@ if onefile:
           a.binaries,
           a.zipfiles,
           a.datas,
-          name=f'Mutenix-{options.os_suffix}',
+          name=f'Mutenix{suffix}',
           debug=False,
           strip=False,
           upx=True,
