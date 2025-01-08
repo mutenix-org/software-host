@@ -31,7 +31,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
         request = await self.client.request("GET", "/")
         assert request.status == 200
         text = await request.text()
-        assert "<html>" in text
+        assert "<!DOCTYPE html PUBLIC" in text
 
 
     async def test_button_handler(self):
@@ -56,7 +56,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
     async def test_process(self):
         await self.macropad.process()
         assert self.macropad.host == "127.0.0.1"
-        assert self.macropad.port == 8080
+        assert self.macropad.port == 12909
 
 
     async def test_websocket_handler_button_press(self):

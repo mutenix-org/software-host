@@ -115,7 +115,7 @@ class TestUpdates(unittest.TestCase):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"latest": "1.0.0"}
 
-        check_for_self_update("1.0.0")
+        check_for_self_update(1, 0, 0)
 
         mock_get.assert_called_once()
         mock_compare.assert_called_once_with("1.0.0", "1.0.0")
@@ -137,7 +137,7 @@ class TestUpdates(unittest.TestCase):
 
         with patch("tarfile.open") as mock_tarfile:
             mock_tarfile.return_value.__enter__.return_value.extract = MagicMock()
-            check_for_self_update("1.0.0")
+            check_for_self_update(1, 0, 0)
 
         mock_get.assert_called()
         mock_compare.assert_called_once_with("1.0.0", "2.0.0")
@@ -234,7 +234,7 @@ class TestUpdates(unittest.TestCase):
         mock_get.side_effect = requests.RequestException("Network error")
 
         with self.assertLogs("mutenix.updates", level="ERROR") as log:
-            check_for_self_update("1.0.0")
+            check_for_self_update(1, 0, 0)
 
         self.assertIn("Failed to check for application update availability", log.output[0])
 
@@ -243,7 +243,7 @@ class TestUpdates(unittest.TestCase):
         mock_get.return_value.status_code = 500
 
         with self.assertLogs("mutenix.updates", level="ERROR") as log:
-            check_for_self_update("1.0.0")
+            check_for_self_update(1, 0, 0)
 
         self.assertIn("Failed to download the release info, status code: 500", log.output[0])
 class TestRequestChunk(unittest.TestCase):
