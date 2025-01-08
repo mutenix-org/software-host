@@ -25,9 +25,8 @@ jobs:
     - name: build release
       run: |
         uv run pyinstaller --noconfirm Mutenix.spec
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
       
-    - name: GitHub Releases
-      uses: fnkr/github-action-ghr@v1.3
-      env:
-          GHR_PATH: dist/
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
