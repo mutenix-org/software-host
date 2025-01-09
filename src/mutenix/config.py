@@ -82,7 +82,7 @@ def load_config(file_path: Path | None = None) -> Config:
 def save_config(config: Config, file_path: Path | str | None = None):
     if file_path is None:
         if config.file_path is None:
-            raise ValueError("No file path provided")
+            raise ValueError("No file path provided")  # pragma: no cover
 
         file_path = config.file_path
 

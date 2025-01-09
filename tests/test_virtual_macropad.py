@@ -179,3 +179,12 @@ class TestVirtualMacropad(AioHTTPTestCase):
         assert request.status == 200
         text = await request.text()
         assert "About" in text
+
+    async def test_websocket_handler_non_text_message(self):
+        self.start_process()
+        ws = await self.client.ws_connect("/ws")
+        await ws.send_bytes(b"binary data")
+        msg = await ws.receive_json()
+        assert "error" in msg
+        assert msg["error"] == "unknown message"
+        await ws.close()

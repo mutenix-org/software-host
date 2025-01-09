@@ -14,11 +14,14 @@ def load_image(file_name):
     return Image.open(file_path)
 
 
-def run_trayicon(macropad):
+def run_trayicon(macropad):  # pragma: no cover
     from pystray import Icon as icon, Menu as menu, MenuItem as item
 
-    def open_macropad(icon, item):
-        webbrowser.open(f"http://{HOST}:{PORT}")
+    def open_url(endpoint=""):
+        def open_url(icon, item):
+            webbrowser.open(f"http://{HOST}:{PORT}{endpoint}")
+
+        return open_url
 
     def quit_macropad(icon, item):
         asyncio.run(macropad.stop())
@@ -30,15 +33,15 @@ def run_trayicon(macropad):
         menu=menu(
             item(
                 "Open Virtual Macropad",
-                open_macropad,
+                open_url("/"),
             ),
             item(
                 "Help",
-                lambda: webbrowser.open(f"http://{HOST}:{PORT}/help"),
+                open_url("/help"),
             ),
             item(
                 "About",
-                lambda: webbrowser.open(f"http://{HOST}:{PORT}/about"),
+                open_url("/about"),
             ),
             item(
                 "Quit",

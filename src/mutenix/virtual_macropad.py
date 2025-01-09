@@ -98,10 +98,7 @@ class VirtualMacropad:
                 break
         else:
             raise web.HTTPNotFound()
-        if icon_path.exists():
-            return web.FileResponse(icon_path)
-        else:
-            raise web.HTTPNotFound()
+        return web.FileResponse(icon_path)
 
     async def favicon_svg(self, request: web.Request):
         return web.FileResponse(

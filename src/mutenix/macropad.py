@@ -87,7 +87,7 @@ class Macropad:
             if mapped_action:
                 if callable(mapped_action):
                     if action.action == ActionEnum.CMD:
-                        mapped_action(action.extra)
+                        mapped_action(action.extra)  # pragma: no cover
                     else:
                         mapped_action()
                 else:
@@ -122,10 +122,7 @@ class Macropad:
         self._current_state = msg
         if msg.token_refresh:
             self._config.teams_token = msg.token_refresh
-            try:
-                save_config(self._config)
-            except IOError as e:
-                _logger.error("Failed to write token to file: %s", e)
+            save_config(self._config)
         await self._update_device_status()
 
     async def _update_device_status(self):

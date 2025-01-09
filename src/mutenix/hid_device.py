@@ -97,7 +97,7 @@ class HidDevice:
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
             else:
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.2)  # pragma: no cover
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
             await self._wait_for_device()

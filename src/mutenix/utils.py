@@ -93,8 +93,9 @@ def block_parallel(func):
                 await asyncio.sleep(0.1)
             return
         func._already_running = True
-        await func(self, *args, **kwargs)
+        result = await func(self, *args, **kwargs)
         func._already_running = False
+        return result
 
     return wrapper
 
