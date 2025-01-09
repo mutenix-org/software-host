@@ -1,7 +1,7 @@
 [project]
 name = "mutenix"
-version = "0.2.5"
-description = "Add your description here"
+version = "0.2.6"
+description = "Mutenix host software for the Mutenix macropad"
 readme = "README.md"
 requires-python = ">=3.12"
 include = [
