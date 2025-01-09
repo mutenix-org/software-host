@@ -124,3 +124,49 @@ def run_till_some_loop(sleep_time: float = 0):
         return wrapper
 
     return decorator
+
+
+def rate_limited_logger(logger, limit=3, interval=10):
+    """
+    A decorator to limit repeated log messages.
+
+    Args:
+        logger (logging.Logger): The logger instance to use.
+        limit (int): The number of allowed repeated log messages.
+        interval (int): The time interval in seconds within which repeated log messages are limited.
+
+    Returns:
+        function: The wrapped logging function.
+    """
+
+    def decorator(func):
+        last_logged = {}
+        log_count = {}
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            message = args[0] if args else ""
+            current_time = time.monotonic()
+
+            if message not in last_logged:
+                last_logged[message] = 0
+                log_count[message] = 0
+
+            if current_time - last_logged[message] > interval:
+                if log_count[message] > limit:
+                    logger.warning(
+                        f"Message '{message}' was suppressed {log_count[message] - limit} times in the last {interval} seconds.",
+                    )
+                log_count[message] = 0
+
+            if log_count[message] < limit:
+                func(*args, **kwargs)
+                last_logged[message] = current_time
+                log_count[message] += 1
+            else:
+                log_count[message] += 1
+                last_logged[message] = current_time
+
+        return wrapper
+
+    return decorator
