@@ -11,6 +11,55 @@ It consists of basically those parts
 
 Mutenix is ideal for software teams looking to enhance their project management and collaboration capabilities.
 
+## Installation
+
+### Executable
+
+Download the executable here: [Releases](https://github.com/mutenix-org/software-host/releases/latest)
+Run it.
+
+### Using uv
+
+```bash
+uv tool mutenix
+```
+
+or
+
+```bash
+uvx mutenix
+```
+
+## Configuration
+
+Mutenix tries to find a file called `mutenix.yaml` in the directory it is run from or `$HOME/.config/`. It it does not find one, it will create one in the current directory.
+
+The file could be used to configure the action triggered by each of the buttons.
+
+There are are two sections to configure actions:
+
+- `actions`: actions triggered by a single press
+- `double_tap_actions`: actions triggered by a double tap on a button
+
+Each of the buttons can be configured in one of the following ways:
+
+```yaml
+actions:
+- action: send-reaction
+  button_id: 4
+  extra: like
+```
+
+- `action`:
+    - Simple action: `mute`, `unmute`, `toggle-mute`, `hide-video`, `show-video`, `toggle-video`, `unblur-background`, `blur-background`, `toggle-background-blur`, `lower-hand`, `raise-hand`, `toggle-hand`, `leave-call`, `toggle-ui`, `stop-sharing`
+    - Send Reaction: `send-reaction`, this requires `extra` to be one of: `applause`, `laugh`, `like`, `love`, `wow`
+    - Additional Options:
+      - `activate-teams` to trigger an action to bring teams into the foreground
+      - `cmd` to run an arbitrary command. This is to be used with case, as no check is performed on the output or what command is run. Specify the command in `extra`.
+- `button_id`: the id of the buttons, starting with 1
+- `extra`: see the actions which require it
+
+
 ## Contributing
 
 ### Setting up pre-commit hooks
