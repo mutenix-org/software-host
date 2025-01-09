@@ -165,6 +165,12 @@ class SimpleHidCommand(HidCommand):
     def to_buffer(self) -> bytes:
         return bytes([int(self.command), 0, 0, 0, 0, 0, 0, 0])
 
+    def __str__(self):
+        return f"{self.command.name}"
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Ping(SimpleHidCommand):
     def __init__(self):

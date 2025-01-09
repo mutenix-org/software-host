@@ -10,6 +10,7 @@ from mutenix.hid_commands import HidInputMessage
 from mutenix.hid_commands import HidOutputMessage
 from mutenix.hid_commands import Ping
 from mutenix.utils import block_parallel
+from mutenix.utils import rate_limited_logger
 from mutenix.utils import run_loop
 from mutenix.utils import run_till_some_loop
 
@@ -90,6 +91,10 @@ class HidDevice:
             else:
                 callback(msg)
 
+    @rate_limited_logger(_logger, limit=3, interval=10)
+    def _log_failed_to_send(self, *args, **kwargs):
+        _logger.error(*args, **kwargs)
+
     async def _read(self):
         try:
             buffer = self._device.read(64)
@@ -111,7 +116,7 @@ class HidDevice:
             _logger.debug("Sending message: %s", msg)
             result = self._send_report(msg)
             if result < 0:
-                _logger.error("Failed to send message: %s", msg)
+                self._log_failed_to_send("Failed to send message: %s", msg)
                 future.set_exception(Exception("Failed to send message"))
                 return
             self._last_communication = asyncio.get_event_loop().time()
@@ -138,7 +143,7 @@ class HidDevice:
                 self._last_ping_time = asyncio.get_event_loop().time()
                 await future
             except Exception as e:
-                _logger.error("Failed to send ping: %s", e)
+                self._log_failed_to_send("Failed to send ping: %s", e)
 
     async def _process(self):  # pragma: no cover
         await self._wait_for_device()
