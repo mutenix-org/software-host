@@ -7,6 +7,7 @@ import pathlib
 from typing import Callable
 
 import jinja2
+import markdown
 from aiohttp import web
 from aiohttp_jinja2 import render_template
 from aiohttp_jinja2 import setup as jinja2_setup
@@ -123,7 +124,19 @@ class VirtualMacropad:
         return render_template("help.html", request, {})
 
     async def about(self, request: web.Request):
-        return render_template("about.html", request, {})
+        readme_path = pathlib.Path(__file__).parent.parent.parent / "README.md"
+        license_path = pathlib.Path(__file__).parent.parent.parent / "LICENSE"
+        with open(readme_path, "r", encoding="utf-8") as f:
+            readme_content = f.read()
+        with open(license_path, "r", encoding="utf-8") as f:
+            license_content = f.read()
+        html_readme_content = markdown.markdown(readme_content)
+        html_license_content = markdown.markdown(license_content)
+        context = {
+            "readme_content": html_readme_content,
+            "license_content": html_license_content,
+        }
+        return render_template("about.html", request, context)
 
     async def _handle_msg(self, msg: HidOutputMessage):
         for callback in self._callbacks:

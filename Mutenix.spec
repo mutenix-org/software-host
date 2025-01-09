@@ -12,7 +12,13 @@ a = Analysis(
     ['src/mutenix/package.py'],
     pathex=['src'],
     binaries=[],
-    datas=[('src/mutenix/assets/*', 'mutenix/assets'), ('src/mutenix/static/*', 'mutenix/static'), ('src/mutenix/static/js/*', 'mutenix/static/js'), ('src/mutenix/templates/*', 'mutenix/templates')],
+    datas=[
+        ('src/mutenix/assets/*', 'mutenix/assets'),
+        ('src/mutenix/static/*', 'mutenix/static'),
+        ('src/mutenix/static/js/*', 'mutenix/static/js'),
+        ('src/mutenix/static/css/*', 'mutenix/static/css'),
+        ('src/mutenix/templates/*', 'mutenix/templates')
+    ],
     hiddenimports=[ "hidapi" ],
     hookspath=[],
     hooksconfig={},

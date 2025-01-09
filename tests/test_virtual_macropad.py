@@ -130,3 +130,52 @@ class TestVirtualMacropad(AioHTTPTestCase):
         await self.macropad.stop()
         self.macropad.app.shutdown.assert_called_once()
         self.macropad.app.cleanup.assert_called_once()
+
+    async def test_favicon_32(self):
+        request = await self.client.request("GET", "/favicon/32")
+        assert request.status == 200
+        assert request.content_type == "image/png"
+
+    async def test_favicon_16(self):
+        request = await self.client.request("GET", "/favicon/16")
+        assert request.status == 200
+        assert request.content_type == "image/png"
+
+    async def test_favicon_apple_touch(self):
+        request = await self.client.request("GET", "/favicon/apple_touch")
+        assert request.status == 200
+        assert request.content_type == "image/png"
+
+    async def test_favicon_not_found(self):
+        request = await self.client.request("GET", "/favicon/non_existent")
+        assert request.status == 404
+
+    async def test_favicon_svg(self):
+        request = await self.client.request("GET", "/favicon.svg")
+        assert request.status == 200
+        assert request.content_type == "image/svg+xml"
+
+    async def test_serve_manifest(self):
+        request = await self.client.request("GET", "/site.webmanifest")
+        assert request.status == 200
+        manifest = await request.json()
+        assert manifest["name"] == "Mutenix Virtual Macropad"
+        assert manifest["short_name"] == "Mutenix"
+        assert manifest["start_url"] == "/"
+        assert manifest["display"] == "standalone"
+        assert len(manifest["icons"]) == 3
+        assert manifest["icons"][0]["src"] == "/favicon/32"
+        assert manifest["icons"][1]["src"] == "/favicon/16"
+        assert manifest["icons"][2]["src"] == "/favicon/apple_touch"
+
+    async def test_help(self):
+        request = await self.client.request("GET", "/help")
+        assert request.status == 200
+        text = await request.text()
+        assert "Help" in text
+
+    async def test_about(self):
+        request = await self.client.request("GET", "/about")
+        assert request.status == 200
+        text = await request.text()
+        assert "About" in text
