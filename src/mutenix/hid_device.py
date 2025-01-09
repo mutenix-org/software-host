@@ -105,7 +105,6 @@ class HidDevice:
         except Exception as e:
             _logger.error("Error reading message: %s", e)
 
-
     async def _write(self):
         try:
             msg, future = await self._send_buffer.get()

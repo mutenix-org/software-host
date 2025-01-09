@@ -8,12 +8,15 @@ from mutenix.virtual_macropad import HOST
 from mutenix.virtual_macropad import PORT
 from PIL import Image
 
+
 def load_image(file_name):
-    file_path = Path(__file__).parent / 'assets' / file_name
+    file_path = Path(__file__).parent / "assets" / file_name
     return Image.open(file_path)
+
 
 def run_trayicon(macropad):
     from pystray import Icon as icon, Menu as menu, MenuItem as item
+
     def open_macropad(icon, item):
         webbrowser.open(f"http://{HOST}:{PORT}")
 
@@ -22,21 +25,23 @@ def run_trayicon(macropad):
         icon.stop()
 
     icon(
-        'MUTENIX', load_image('icon_all_red_64.png'), menu=menu(
+        "MUTENIX",
+        load_image("icon_all_red_64.png"),
+        menu=menu(
             item(
-                'Open Virtual Macropad',
+                "Open Virtual Macropad",
                 open_macropad,
             ),
             item(
-                'Help',
+                "Help",
                 lambda: webbrowser.open(f"http://{HOST}:{PORT}/help"),
             ),
             item(
-                'About',
+                "About",
                 lambda: webbrowser.open(f"http://{HOST}:{PORT}/about"),
             ),
             item(
-                'Quit',
+                "Quit",
                 quit_macropad,
             ),
         ),

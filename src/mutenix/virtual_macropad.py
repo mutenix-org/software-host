@@ -121,10 +121,9 @@ class VirtualMacropad:
 
     async def help(self, request: web.Request):
         return render_template("help.html", request, {})
-    
+
     async def about(self, request: web.Request):
         return render_template("about.html", request, {})
-
 
     async def _handle_msg(self, msg: HidOutputMessage):
         for callback in self._callbacks:

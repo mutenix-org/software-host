@@ -4,7 +4,8 @@ import logging
 
 import pytest
 
-@pytest.fixture(scope="session",autouse=True)
+
+@pytest.fixture(scope="session", autouse=True)
 def loggingconfig():
     print("Setting up logging configuration")
     logging.basicConfig(level=logging.DEBUG)

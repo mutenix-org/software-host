@@ -58,7 +58,9 @@ class Macropad:
 
     def _setup_buttons(self):
         self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
-        self._double_tap_actions = {entry.button_id: entry for entry in self._config.double_tap_action}
+        self._double_tap_actions = {
+            entry.button_id: entry for entry in self._config.double_tap_action
+        }
 
     async def _send_status(self, status: Status):
         _logger.debug("Status: %s", status)
@@ -90,7 +92,9 @@ class Macropad:
                         mapped_action()
                 else:
                     if action.action == MeetingAction.React:
-                        client_message = ClientMessage.create(action=MeetingAction.React)
+                        client_message = ClientMessage.create(
+                            action=MeetingAction.React,
+                        )
                         client_message.parameters = ClientMessageParameter(
                             type_=action.extra,
                         )
@@ -142,8 +146,10 @@ class Macropad:
                 if state.is_in_meeting:
                     set_led(1, state.is_muted, LedColor.RED, LedColor.GREEN)
                     set_led(
-                        2, state.is_hand_raised,
-                        LedColor.YELLOW, LedColor.WHITE,
+                        2,
+                        state.is_hand_raised,
+                        LedColor.YELLOW,
+                        LedColor.WHITE,
                     )
                     set_led(3, state.is_video_on, LedColor.GREEN, LedColor.RED)
                 else:
@@ -153,8 +159,10 @@ class Macropad:
             if msg.meeting_update.meeting_permissions:
                 permissions = msg.meeting_update.meeting_permissions
                 set_led(
-                    5, permissions.can_leave,
-                    LedColor.GREEN, LedColor.BLACK,
+                    5,
+                    permissions.can_leave,
+                    LedColor.GREEN,
+                    LedColor.BLACK,
                 )
 
         for m in msgs.values():

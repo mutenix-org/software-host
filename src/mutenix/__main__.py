@@ -24,10 +24,14 @@ logging.basicConfig(
 )
 _logger = logging.getLogger(__name__)
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Mutenix Macropad Controller")
-    parser.add_argument('--update-file', type=str, help='Path to the update tar.gz file')
+    parser.add_argument(
+        "--update-file", type=str, help="Path to the update tar.gz file",
+    )
     return parser.parse_args()
+
 
 def main(args: argparse.Namespace):
     check_for_self_update(MAJOR, MINOR, PATCH)
@@ -54,6 +58,7 @@ def main(args: argparse.Namespace):
     run_trayicon(macropad)
 
     loop_thread.join()
+
 
 def runmain():
     args = parse_arguments()

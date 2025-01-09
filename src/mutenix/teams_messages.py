@@ -38,14 +38,17 @@ class MeetingState(BaseModel):
 
 class MeetingUpdate(BaseModel):
     """Update of the meeting state communicated by teams."""
+
     meeting_permissions: Optional[MeetingPermissions] = Field(
-        None, alias="meetingPermissions",
+        None,
+        alias="meetingPermissions",
     )
     meeting_state: Optional[MeetingState] = Field(None, alias="meetingState")
 
 
 class ServerMessage(BaseModel):
     """Message received from the Teams WebSocket server."""
+
     request_id: Optional[int] = Field(None, alias="requestId")
     response: Optional[str] = None
     error_msg: Optional[str] = Field(None, alias="errorMsg")

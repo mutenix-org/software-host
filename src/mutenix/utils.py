@@ -10,14 +10,15 @@ import time
 
 _logger = logging.getLogger(__name__)
 
-if platform.system().lower() == "windows": # pragma: no cover
-    from pywinauto.findwindows import find_windows # type: ignore
-    import win32gui # type: ignore
-    import win32con # type: ignore
-elif platform.system().lower() == "linux": # pragma: no cover
+if platform.system().lower() == "windows":  # pragma: no cover
+    from pywinauto.findwindows import find_windows  # type: ignore
+    import win32gui  # type: ignore
+    import win32con  # type: ignore
+elif platform.system().lower() == "linux":  # pragma: no cover
     import subprocess
 
-def bring_teams_to_foreground() -> None: # pragma: no cover
+
+def bring_teams_to_foreground() -> None:  # pragma: no cover
     """
     Bring the Microsoft Teams window to the foreground.
 
@@ -53,7 +54,8 @@ def bring_teams_to_foreground() -> None: # pragma: no cover
             # Get the window ID of Microsoft Teams
             window_id = (
                 subprocess.check_output(
-                    "xdotool search --name 'Microsoft Teams'", shell=True,
+                    "xdotool search --name 'Microsoft Teams'",
+                    shell=True,
                 )
                 .strip()
                 .decode()
@@ -73,23 +75,27 @@ def check_run(func):
             return func(self, *args, **kwargs)
         else:
             _logger.debug("Not running, skip %s", func.__name__)
+
     return wrapper
+
 
 def run_loop(func):
     if asyncio.iscoroutinefunction(func):
+
         async def wrapper(self, *args, **kwargs):
             while self._run:
                 await func(self, *args, **kwargs)
                 await asyncio.sleep(0)
 
     else:
-        raise Exception("only for async functions") # pragma: no cover
+        raise Exception("only for async functions")  # pragma: no cover
     return wrapper
 
 
 def block_parallel(func):
     """Blocks parallel calls to the function."""
     func._already_running = False
+
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         _logger.debug("block_parallel %s %s", func.__name__, func._already_running)
@@ -100,11 +106,14 @@ def block_parallel(func):
         func._already_running = True
         await func(self, *args, **kwargs)
         func._already_running = False
+
     return wrapper
+
 
 def run_till_some_loop(sleep_time: float = 0):
     def decorator(func):
         if asyncio.iscoroutinefunction(func):
+
             async def wrapper(self, *args, **kwargs):
                 while self._run:
                     some = await func(self, *args, **kwargs)
@@ -113,6 +122,7 @@ def run_till_some_loop(sleep_time: float = 0):
                     if sleep_time > 0:
                         await asyncio.sleep(sleep_time)
         else:
+
             def wrapper(self, *args, **kwargs):
                 while self._run:
                     some = func(self, *args, **kwargs)
@@ -120,5 +130,7 @@ def run_till_some_loop(sleep_time: float = 0):
                         return some
                     if sleep_time > 0:
                         time.sleep(sleep_time)
+
         return wrapper
+
     return decorator

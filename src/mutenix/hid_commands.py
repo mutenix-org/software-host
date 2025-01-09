@@ -6,8 +6,10 @@ from enum import IntEnum
 from enum import ReprEnum
 from typing import override
 
+
 class HardwareTypes(IntEnum):
     """Hardware types for the Macropad."""
+
     UNKNOWN = 0x00
     SINGLE_BUTTON = 0x01
     FIVE_BUTTON_USB = 0x02
@@ -15,18 +17,23 @@ class HardwareTypes(IntEnum):
     TEN_BUTTON_USB = 0x04
     TEN_BUTTON_BT = 0x05
 
+
 class HidInCommands(IntEnum):
     """Identifiers for incoming HID messages."""
+
     VERSION_INFO = 0x99
     STATUS = 0x1
     STATUS_REQUEST = 0x2
 
+
 class HidOutCommands(IntEnum):
     """Identifiers for outgoing HID messages."""
+
     SET_LED = 0x1
     PING = 0xF0
     PREPARE_UPDATE = 0xE0
     RESET = 0xE1
+
 
 class HidInputMessage:
     MESSAGE_LENGTH = 8
@@ -42,14 +49,15 @@ class HidInputMessage:
                 return StatusRequest()
         raise NotImplementedError
 
-    def __repr__(self): # pragma: no cover
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
-class Status(HidInputMessage):
 
+class Status(HidInputMessage):
     @classmethod
     def trigger_button(cls, button: int):
         return cls(bytes([button, 1, 0, 0, 1]))
+
     def __init__(self, buffer: bytes):
         self.buffer = buffer
 
@@ -80,6 +88,7 @@ class Status(HidInputMessage):
     def released(self) -> bool:
         return self.buffer[4] != 0
 
+
 class VersionInfo(HidInputMessage):
     def __init__(self, buffer: bytes):
         self.buffer = buffer
@@ -95,18 +104,22 @@ class VersionInfo(HidInputMessage):
     def type(self):
         return HardwareTypes(self.buffer[3])
 
+
 class StatusRequest(HidInputMessage):
-    def __str__(self): # pragma: no cover
+    def __str__(self):  # pragma: no cover
         return "Status Request"
+
 
 class HidOutputMessage:
     REPORT_ID = 1
     pass
 
+
 class HidCommand(HidOutputMessage, ABC):
     @abstractmethod
-    def to_buffer(self) -> bytes: # pragma: no cover
+    def to_buffer(self) -> bytes:  # pragma: no cover
         raise NotImplementedError
+
 
 class LedColor(tuple, ReprEnum):
     # The colors are encoded Green, Red, Blue, White
@@ -120,6 +133,7 @@ class LedColor(tuple, ReprEnum):
     MAGENTA = (0x00, 0x0A, 0x0A, 0x00)
     ORANGE = (0x08, 0x0A, 0x00, 0x00)
     PURPLE = (0x00, 0x09, 0x09, 0x00)
+
 
 class SetLed(HidCommand):
     def __init__(self, id, led_color: LedColor):
@@ -142,6 +156,7 @@ class SetLed(HidCommand):
             ],
         )
 
+
 class SimpleHidCommand(HidCommand):
     def __init__(self, command: HidOutCommands):
         self.command = command
@@ -150,13 +165,16 @@ class SimpleHidCommand(HidCommand):
     def to_buffer(self) -> bytes:
         return bytes([int(self.command), 0, 0, 0, 0, 0, 0, 0])
 
+
 class Ping(SimpleHidCommand):
     def __init__(self):
         super().__init__(HidOutCommands.PING)
 
+
 class PrepareUpdate(SimpleHidCommand):
     def __init__(self):
         super().__init__(HidOutCommands.PREPARE_UPDATE)
+
 
 class Reset(SimpleHidCommand):
     def __init__(self):

@@ -14,6 +14,7 @@ from mutenix.hid_commands import Status
 from mutenix.virtual_macropad import UnsupportedMessageTypeError
 from mutenix.virtual_macropad import VirtualMacropad
 
+
 class TestVirtualMacropad(AioHTTPTestCase):
     async def get_application(self):
         self.macropad = VirtualMacropad()
@@ -33,12 +34,10 @@ class TestVirtualMacropad(AioHTTPTestCase):
         text = await request.text()
         assert "<!DOCTYPE html PUBLIC" in text
 
-
     async def test_button_handler(self):
         data = {"button": 1}
         request = await self.client.request("POST", "/button", json=data)
         assert request.status == 200
-
 
     async def test_send_msg(self):
         msg = SetLed(id=1, led_color=LedColor.RED)
@@ -49,6 +48,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
     async def test_send_msg_invalid(self):
         class SomeMessage(HidOutputMessage):
             pass
+
         msg = SomeMessage()
         with pytest.raises(UnsupportedMessageTypeError):
             await self.macropad.send_msg(msg)
@@ -57,7 +57,6 @@ class TestVirtualMacropad(AioHTTPTestCase):
         await self.macropad.process()
         assert self.macropad.host == "127.0.0.1"
         assert self.macropad.port == 12909
-
 
     async def test_websocket_handler_button_press(self):
         self.start_process()
@@ -83,7 +82,6 @@ class TestVirtualMacropad(AioHTTPTestCase):
         msg = await ws.receive_json()
         assert "error" in msg
         await ws.close()
-
 
     async def test_websocket_handler_multiple_clients(self):
         self.start_process()
@@ -114,7 +112,9 @@ class TestVirtualMacropad(AioHTTPTestCase):
             await self.macropad._send_json_safe(ws, data)
             ws.send_json.assert_called_once_with(data)
             mock_logger_error.assert_called_once_with(
-                "Error sending LED status: %s to websocket %s", ANY, ANY,
+                "Error sending LED status: %s to websocket %s",
+                ANY,
+                ANY,
             )
 
     async def test_register_callback(self):
