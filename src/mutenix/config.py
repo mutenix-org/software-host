@@ -68,6 +68,8 @@ def load_config(file_path: Path | None = None) -> Config:
     try:
         with open(file_path, "r") as file:
             config_data = yaml.safe_load(file)
+        if config_data is None:
+            raise yaml.YAMLError("No data in file")
     except (FileNotFoundError, yaml.YAMLError, IOError):
         config = create_default_config()
         config.file_path = str(file_path)

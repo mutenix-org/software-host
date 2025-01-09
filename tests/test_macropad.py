@@ -8,6 +8,7 @@ from unittest.mock import mock_open
 from unittest.mock import patch
 
 import pytest
+from mutenix.config import create_default_config
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 from mutenix.hid_commands import VersionInfo
@@ -27,10 +28,13 @@ def macropad():
         patch("mutenix.macropad.HidDevice") as MockHidDevice,
         patch("mutenix.macropad.WebSocketClient") as MockWebSocketClient,
         patch("mutenix.macropad.VirtualMacropad") as MockVirtualMacropad,
+        patch("mutenix.config.load_config") as MockLoadConfigFile,
+        patch("mutenix.config.save_config"),
     ):
         MockHidDevice.return_value = Mock()
         MockWebSocketClient.return_value = Mock()
         MockVirtualMacropad.return_value = Mock()
+        MockLoadConfigFile.return_value = create_default_config()
         return Macropad()
 
 
@@ -98,7 +102,10 @@ async def test_update_device_status(macropad):
     macropad._current_state = ServerMessage(
         meetingUpdate=MeetingUpdate(
             meetingState=MeetingState(
-                isInMeeting=True, isMuted=True, isHandRaised=False, isVideoOn=True,
+                isInMeeting=True,
+                isMuted=True,
+                isHandRaised=False,
+                isVideoOn=True,
             ),
             meetingPermissions=MeetingPermissions(canLeave=True),
         ),
@@ -122,7 +129,10 @@ async def test_update_device_status_not_in_meeting(macropad):
     macropad._current_state = ServerMessage(
         meetingUpdate=MeetingUpdate(
             meetingState=MeetingState(
-                isInMeeting=False, isMuted=False, isHandRaised=False, isVideoOn=False,
+                isInMeeting=False,
+                isMuted=False,
+                isHandRaised=False,
+                isVideoOn=False,
             ),
             meetingPermissions=MeetingPermissions(canLeave=False),
         ),
@@ -160,7 +170,10 @@ async def test_update_device_status_not_in_meeting(macropad):
 )
 @pytest.mark.asyncio
 async def test_hid_callback_parametrized(
-    macropad, msg_bytes, expected_action: MeetingAction, should_call,
+    macropad,
+    msg_bytes,
+    expected_action: MeetingAction,
+    should_call,
 ):
     msg = Status(msg_bytes)
     macropad._websocket.send_message = AsyncMock()
@@ -202,7 +215,8 @@ async def test_setup_without_existing_token():
                     macropad = Macropad()
                     macropad._setup()
                     MockWebSocketClient.assert_called_with(
-                        ANY, IdentifierWithoutToken(),
+                        ANY,
+                        IdentifierWithoutToken(),
                     )
 
 
@@ -283,7 +297,8 @@ async def test_manual_update_success(macropad):
             macropad._device.wait_for_device.assert_called_once()
             mock_file.assert_called_once_with(update_file, "rb")
             mock_perform_upgrade.assert_called_once_with(
-                macropad._device.raw, mock_file(),
+                macropad._device.raw,
+                mock_file(),
             )
 
 
