@@ -36,7 +36,9 @@ def check_for_device_update(device: hid.device, device_version: VersionInfo):
         releases = result.json()
         latest_version = releases.get("tag_name", "v0.0.0")[1:]
         _logger.debug("Latest version: %s", latest_version)
-        if semver.compare(device_version.version, latest_version) >= 0:
+        online_version = semver.Version.parse(latest_version)
+        local_version = semver.Version.parse(device_version.version)
+        if online_version.compare(local_version) <= 0:
             _logger.info("Device is up to date")
             return
 
@@ -332,7 +334,6 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 
 # region: Update Application
 def check_for_self_update(major: int, minor: int, patch: int):
-    current_version = f"{major}.{minor}.{patch}"
     try:
         result = requests.get(
             "https://api.github.com/repos/mutenix-org/software-host/releases/latest",
@@ -347,7 +348,9 @@ def check_for_self_update(major: int, minor: int, patch: int):
         releases = result.json()
         latest_version = releases.get("tag_name", "v0.0.0")[1:]
         _logger.debug("Latest version: %s", latest_version)
-        if semver.compare(current_version, latest_version) >= 0:
+        online_version = semver.Version.parse(latest_version)
+        local_version = semver.Version(major=major, minor=minor, patch=patch)
+        if online_version.compare(local_version) <= 0:
             _logger.info("Host Software is up to date")
             return
 
