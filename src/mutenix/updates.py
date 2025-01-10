@@ -7,6 +7,7 @@ import pathlib
 import tarfile
 import tempfile
 import time
+import webbrowser
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import BinaryIO
@@ -23,27 +24,31 @@ _logger = logging.getLogger(__name__)
 def check_for_device_update(device: hid.device, device_version: VersionInfo):
     try:
         result = requests.get(
-            f"https://mutenix.de/api/v1/releases/macropad-{device_version.type.name}",
+            "https://api.github.com/repos/mutenix-org/firmware-macroboard/releases/latest",
         )
         if result.status_code != 200:
             _logger.error(
-                "Failed to download the release info, status code: %s",
+                "Failed to fetch latest release info, status code: %s",
                 result.status_code,
             )
             return
 
         releases = result.json()
-        latest_version = releases.get("latest", "0.0.0")
+        latest_version = releases.get("tag_name", "v0.0.0")[1:]
         _logger.debug("Latest version: %s", latest_version)
         if semver.compare(device_version.version, latest_version) >= 0:
             _logger.info("Device is up to date")
             return
 
         print("Device update available, starting update, please be patient")
-        update_url = releases.get(latest_version).get("url")
-        result = requests.get(update_url)
-        result.raise_for_status()
-        perform_upgrade_with_file(device, io.BytesIO(result.content))
+        assets = releases.get("assets", [])
+        for asset in assets:
+            if asset.get("name") == f"v{latest_version}.tar.gz":
+                update_url = asset.get("browser_download_url")
+                result = requests.get(update_url)
+                result.raise_for_status()
+                perform_upgrade_with_file(device, io.BytesIO(result.content))
+                return
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability %s", e)
 
@@ -74,7 +79,7 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
         _logger.info("Successfully updated device firmware")
 
 
-class RequestChunk:
+class DeviceFileChunk:
     def __init__(self, data: bytes):
         self.id = 0
         self.segment = 0
@@ -82,14 +87,22 @@ class RequestChunk:
 
     def parse(self, data: bytes):
         self.identifier = data[:2].decode("utf-8")
-        if self.identifier != "RQ":
+        if not self.is_valid():
             return
         self.id = int.from_bytes(data[2:4], "little")
         self.segment = int.from_bytes(data[4:6], "little")
         _logger.info("Chunk request: %s", self)
 
     def is_valid(self):
+        return self.identifier in ["RQ", "AK"]
+
+    @property
+    def is_request(self):
         return self.identifier == "RQ"
+
+    @property
+    def is_ack(self):
+        return self.identifier == "AK"
 
     def __str__(self):
         if self.is_valid():
@@ -163,6 +176,24 @@ class FileEnd(Chunk):
         )
 
 
+class FileDelete(Chunk):
+    def __init__(
+        self,
+        id: int,
+        filename: str,
+    ):
+        self.id = id
+        self.content = bytes((len(filename),)) + filename.encode("utf-8")
+
+    def packet(self):
+        return (
+            int(5).to_bytes(2, "little")
+            + self.id.to_bytes(2, "little")
+            + self.content
+            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
+        )
+
+
 class TransferFile:
     def __init__(self, id, filename: str | pathlib.Path):
         self.id = id
@@ -171,11 +202,16 @@ class TransferFile:
         else:
             file = filename
         self.filename = file.name
+        self.packages_sent: list[int] = []
+        self._chunks: list[Chunk] = []
+        if self.filename.endswith(".delete"):
+            self.filename = self.filename[:-7]
+            self._chunks = [FileDelete(self.id, self.filename)]
+            return
+
         with open(file, "rb") as f:
             self.content = f.read()
         self.size = len(self.content)
-        self.packages_sent: list[int] = []
-        self._chunks: list[Chunk] = []
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
 
@@ -200,12 +236,21 @@ class TransferFile:
         self.packages_sent.append(next)
         return self._chunks[next]
 
+    def ack_chunk(self, chunk: DeviceFileChunk):
+        if chunk.id != self.id:
+            return
+        _logger.info("Acked chunk %s", chunk.segment)
+
     @property
     def chunks(self):
         return len(self._chunks)
 
-    def get_chunk(self, request: RequestChunk) -> Chunk:
-        if request.segment < 0 or request.segment >= len(self._chunks):
+    def get_chunk(self, request: DeviceFileChunk) -> Chunk:
+        if (
+            request.segment < 0
+            or request.segment >= len(self._chunks)
+            or not request.is_request
+        ):
             raise ValueError("Invalid request")
         return self._chunks[request.segment + 1]
 
@@ -237,9 +282,16 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     while True:
         received = device.read(24, 100)
         if len(received) > 0:
-            rc = RequestChunk(bytes(received))
-            if rc.is_valid():
+            rc = DeviceFileChunk(bytes(received))
+            if rc.is_valid() and rc.is_request:
                 chunk_requests.append(rc)
+            if rc.is_ack:
+                file = next((f for f in transfer_files if f.id == rc.id), None)
+                if not file:
+                    print("File not found")
+                    _logger.warning("File not found")
+                    raise FileNotFoundError("File not found")
+                file_progress_bars[file.id].update(1)
 
         if len(chunk_requests) > 0:
             _logger.debug("Sending requested chunk")
@@ -259,7 +311,6 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
             _logger.debug("Sending chunk of file %s", file.filename)
             cnk = bytes((2,)) + chunk.packet()
             device.write(cnk)
-            file_progress_bars[file.id].update(1)
             time.sleep(DATA_TRANSFER_SLEEP_TIME)
         except StopIteration:
             if (
@@ -283,27 +334,25 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 def check_for_self_update(major: int, minor: int, patch: int):
     current_version = f"{major}.{minor}.{patch}"
     try:
-        result = requests.get("https://mutenix.de/api/v1/releases/software-python")
+        result = requests.get(
+            "https://api.github.com/repos/mutenix-org/software-host/releases/latest",
+        )
         if result.status_code != 200:
             _logger.error(
-                "Failed to download the release info, status code: %s",
+                "Failed to fetch latest release info, status code: %s",
                 result.status_code,
             )
             return
 
-        versions = result.json()
-        _logger.debug("Versions: %s", versions)
-        latest_version = versions.get("latest", "0.0.0")
+        releases = result.json()
+        latest_version = releases.get("tag_name", "v0.0.0")[1:]
         _logger.debug("Latest version: %s", latest_version)
         if semver.compare(current_version, latest_version) >= 0:
-            _logger.info("Application is up to date")
+            _logger.info("Host Software is up to date")
             return
 
         _logger.info("Application update available, but auto update is disabled")
-        print(
-            "Application update available, but auto update is disabled, please update manually",
-        )
-
+        webbrowser.open(releases.get("html_url"))
     except requests.RequestException as e:
         _logger.error("Failed to check for application update availability: %s", e)
 

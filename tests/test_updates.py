@@ -12,12 +12,12 @@ from mutenix.hid_commands import HardwareTypes
 from mutenix.updates import check_for_device_update
 from mutenix.updates import check_for_self_update
 from mutenix.updates import Chunk
+from mutenix.updates import DeviceFileChunk
 from mutenix.updates import FileChunk
 from mutenix.updates import FileEnd
 from mutenix.updates import FileStart
 from mutenix.updates import MAX_CHUNK_SIZE
 from mutenix.updates import perform_hid_upgrade
-from mutenix.updates import RequestChunk
 from mutenix.updates import TransferFile
 from mutenix.updates import VersionInfo
 
@@ -28,7 +28,7 @@ class TestUpdates(unittest.TestCase):
     def test_check_for_device_update_up_to_date(self, mock_compare, mock_get):
         mock_compare.return_value = 0
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"latest": "1.0.0"}
+        mock_get.return_value.json.return_value = {"tag_name": "v1.0.0"}
         device_version = VersionInfo(
             buffer=bytes([1, 0, 0, HardwareTypes.UNKNOWN.value, 0, 0, 0, 0]),
         )
@@ -50,8 +50,13 @@ class TestUpdates(unittest.TestCase):
         mock_compare.return_value = -1
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
-            "latest": "2.0.0",
-            "2.0.0": {"url": "http://example.com/update.tar.gz"},
+            "tag_name": "v2.0.0",
+            "assets": [
+                {
+                    "name": "v2.0.0.tar.gz",
+                    "browser_download_url": "http://example.com/update.tar.gz",
+                },
+            ],
         }
 
         mock_update_response = MagicMock()
@@ -95,8 +100,13 @@ class TestUpdates(unittest.TestCase):
         mock_compare.return_value = -1
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
-            "latest": "2.0.0",
-            "2.0.0": {"url": "http://example.com/update.tar.gz"},
+            "tag_name": "v2.0.0",
+            "assets": [
+                {
+                    "name": "v2.0.0",
+                    "browser_download_url": "http://example.com/update.tar.gz",
+                },
+            ],
         }
 
         mock_update_response = MagicMock()
@@ -122,7 +132,7 @@ class TestUpdates(unittest.TestCase):
     def test_check_for_self_update_up_to_date(self, mock_compare, mock_get):
         mock_compare.return_value = 0
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"latest": "1.0.0"}
+        mock_get.return_value.json.return_value = {"tag_name": "v1.0.0"}
 
         check_for_self_update(1, 0, 0)
 
@@ -135,8 +145,8 @@ class TestUpdates(unittest.TestCase):
         mock_compare.return_value = -1
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
-            "latest": "2.0.0",
-            "2.0.0": {"url": "http://example.com/update.tar.gz"},
+            "tag_name": "v2.0.0",
+            "html_url": "http://example.com",
         }
 
         mock_update_response = MagicMock()
@@ -144,8 +154,7 @@ class TestUpdates(unittest.TestCase):
         mock_update_response.content = b"fake content"
         mock_get.side_effect = [mock_get.return_value, mock_update_response]
 
-        with patch("tarfile.open") as mock_tarfile:
-            mock_tarfile.return_value.__enter__.return_value.extract = MagicMock()
+        with patch("webbrowser.open"):
             check_for_self_update(1, 0, 0)
 
         mock_get.assert_called()
@@ -252,7 +261,8 @@ class TestUpdates(unittest.TestCase):
             check_for_self_update(1, 0, 0)
 
         self.assertIn(
-            "Failed to check for application update availability", log.output[0],
+            "Failed to check for application update availability",
+            log.output[0],
         )
 
     @patch("mutenix.updates.requests.get")
@@ -263,26 +273,27 @@ class TestUpdates(unittest.TestCase):
             check_for_self_update(1, 0, 0)
 
         self.assertIn(
-            "Failed to download the release info, status code: 500", log.output[0],
+            "Failed to fetch latest release info, status code: 500",
+            log.output[0],
         )
 
 
 class TestRequestChunk(unittest.TestCase):
     def test_request_chunk_valid(self):
         data = b"RQ" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little") + b"\0" * 2
-        chunk = RequestChunk(data)
+        chunk = DeviceFileChunk(data)
         self.assertTrue(chunk.is_valid())
         self.assertEqual(chunk.id, 1)
         self.assertEqual(chunk.segment, 2)
 
     def test_request_chunk_invalid_identifier(self):
         data = b"XX" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little") + b"\0" * 2
-        chunk = RequestChunk(data)
+        chunk = DeviceFileChunk(data)
         self.assertFalse(chunk.is_valid())
 
     def test_request_chunk_invalid_length(self):
         data = b"RR" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little")
-        chunk = RequestChunk(data)
+        chunk = DeviceFileChunk(data)
         self.assertFalse(chunk.is_valid())
         assert str(chunk) == "Invalid Request"
 
@@ -308,7 +319,8 @@ class TestFileStart(unittest.TestCase):
         self.assertEqual(packet[6:8], (0).to_bytes(2, "little"))
         self.assertEqual(packet[8:9], bytes((7,)))
         self.assertEqual(
-            packet[9:19], b"test.py" + bytes((2,)) + (100).to_bytes(2, "little"),
+            packet[9:19],
+            b"test.py" + bytes((2,)) + (100).to_bytes(2, "little"),
         )
 
 
@@ -343,7 +355,7 @@ class TestTransferFile(unittest.TestCase):
 
     def test_transfer_file_get_chunk(self):
         transfer_file = TransferFile(1, self.file_path)
-        request_chunk = RequestChunk(
+        request_chunk = DeviceFileChunk(
             b"RQ" + (1).to_bytes(2, "little") + (0).to_bytes(2, "little") + b"\0" * 2,
         )
         chunk = transfer_file.get_chunk(request_chunk)
