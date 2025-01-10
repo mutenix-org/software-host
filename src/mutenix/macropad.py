@@ -3,10 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
+import time
+from collections import defaultdict
 from typing import Callable
 
 from mutenix.config import ActionEnum
 from mutenix.config import ButtonAction
+from mutenix.config import LedStatusSource
 from mutenix.config import load_config
 from mutenix.config import save_config
 from mutenix.hid_commands import LedColor
@@ -33,6 +37,7 @@ class Macropad:
 
     def __init__(self, vid=0x2E8A, pid=0x2083):
         self._version_seen = None
+        self._last_status_check = defaultdict(int)
         self._config = load_config()
         self._setup(vid, pid)
         self._current_state = None
@@ -51,7 +56,10 @@ class Macropad:
                 token=token,
             ),
         )
-        self._virtual_macropad = VirtualMacropad()
+        self._virtual_macropad = VirtualMacropad(
+            self._config.virtual_keypad.bind_address,
+            self._config.virtual_keypad.bind_port,
+        )
         self._websocket.register_callback(self._teams_callback)
         self._device.register_callback(self._hid_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
@@ -126,41 +134,59 @@ class Macropad:
         await self._update_device_status()
 
     async def _update_device_status(self):
-        if self._current_state is None:
-            return
-        msgs = {}
         msg = self._current_state
+        msgs = {}
 
-        def set_led(id, condition, true_color, false_color):
-            if condition:
-                msgs[id] = SetLed(id, true_color)
-            else:
-                msgs[id] = SetLed(id, false_color)
+        def map_led_color(color):
+            if not hasattr(LedColor, color.upper()):
+                return LedColor.GREEN
+            return getattr(LedColor, color.upper())
 
-        if msg.meeting_update:
-            if msg.meeting_update.meeting_state:
-                state = msg.meeting_update.meeting_state
-                if state.is_in_meeting:
-                    set_led(1, state.is_muted, LedColor.RED, LedColor.GREEN)
-                    set_led(
-                        2,
-                        state.is_hand_raised,
-                        LedColor.YELLOW,
-                        LedColor.WHITE,
+        for ledstatus in self._config.leds:
+            if ledstatus.source == LedStatusSource.TEAMS:
+                color = "black"
+                if (
+                    msg
+                    and msg.meeting_update
+                    and msg.meeting_update.meeting_state
+                    and msg.meeting_update.meeting_state.is_in_meeting
+                ):
+                    mapped_state = getattr(
+                        msg.meeting_update.meeting_state,
+                        ledstatus.extra.replace("-", "_").lower(),
                     )
-                    set_led(3, state.is_video_on, LedColor.GREEN, LedColor.RED)
-                else:
-                    for i in range(1, 6):
-                        set_led(i, False, LedColor.BLACK, LedColor.BLACK)
-
-            if msg.meeting_update.meeting_permissions:
-                permissions = msg.meeting_update.meeting_permissions
-                set_led(
-                    5,
-                    permissions.can_leave,
-                    LedColor.GREEN,
-                    LedColor.BLACK,
+                    color = ledstatus.color_on if mapped_state else ledstatus.color_off
+                msgs[ledstatus.button_id] = SetLed(
+                    ledstatus.button_id,
+                    map_led_color(color),
                 )
+            elif ledstatus.source == LedStatusSource.CMD:
+                if (
+                    self._last_status_check[ledstatus.button_id] + ledstatus.interval
+                    < time.time()
+                ):
+                    continue
+                if ledstatus.read_result:
+                    result = await asyncio.to_thread(
+                        subprocess.check_output,
+                        ledstatus.extra,
+                    )
+                    msgs[ledstatus.button_id] = SetLed(
+                        ledstatus.button_id,
+                        map_led_color(result.strip()),
+                    )
+                else:
+                    result = await asyncio.to_thread(
+                        subprocess.check_call,
+                        ledstatus.extra,
+                    )
+                    msgs[ledstatus.button_id] = SetLed(
+                        ledstatus.button_id,
+                        map_led_color(
+                            ledstatus.color_on if result == 0 else ledstatus.color_off,
+                        ),
+                    )
+                self._last_status_check[ledstatus.button_id] = time.time()
 
         for m in msgs.values():
             try:
@@ -169,6 +195,10 @@ class Macropad:
             except Exception as e:
                 print(e)
 
+    async def _check_status(self):
+        await self._update_device_status()
+        await asyncio.sleep(0.1)
+
     async def process(self):
         """Starts the process loop for the device and the WebSocket connection."""
         try:
@@ -176,6 +206,7 @@ class Macropad:
                 self._device.process(),
                 self._websocket.process(),
                 self._virtual_macropad.process(),
+                self._check_status(),
             )
         except Exception as e:
             _logger.error("Error in Macropad process: %s", e)
@@ -194,3 +225,11 @@ class Macropad:
         _logger.info("Websocket stopped")
         await self._virtual_macropad.stop()
         _logger.info("Virtual Device stopped")
+
+    @property
+    def virtual_keypad_address(self):
+        return self._config.virtual_keypad.bind_address
+
+    @property
+    def virtual_keypad_port(self):
+        return self._config.virtual_keypad.bind_port

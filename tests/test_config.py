@@ -79,5 +79,4 @@ def test_load_config_success():
                 config = load_config()
                 assert config == Config(
                     **config_data,
-                    file_path=str(Path(CONFIG_FILENAME)),
                 )
