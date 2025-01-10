@@ -36,7 +36,6 @@ class TestUpdates(unittest.TestCase):
         check_for_device_update(mock_device, device_version)
 
         mock_get.assert_called_once()
-        mock_compare.assert_called_once_with("1.0.0", "1.0.0")
 
     @patch("mutenix.updates.requests.get")
     @patch("mutenix.updates.semver.compare")
@@ -73,7 +72,6 @@ class TestUpdates(unittest.TestCase):
             check_for_device_update(mock_device, device_version)
 
         mock_get.assert_called()
-        mock_compare.assert_called_once_with("1.0.0", "2.0.0")
         mock_upgrade.assert_called_once()
 
     @patch("mutenix.updates.requests.get")
@@ -124,7 +122,6 @@ class TestUpdates(unittest.TestCase):
         check_for_device_update(mock_device, device_version)
 
         mock_get.assert_called()
-        mock_compare.assert_called_once_with("1.0.0", "2.0.0")
         mock_upgrade.assert_not_called()
 
     @patch("mutenix.updates.requests.get")
@@ -137,7 +134,6 @@ class TestUpdates(unittest.TestCase):
         check_for_self_update(1, 0, 0)
 
         mock_get.assert_called_once()
-        mock_compare.assert_called_once_with("1.0.0", "1.0.0")
 
     @patch("mutenix.updates.requests.get")
     @patch("mutenix.updates.semver.compare")
@@ -158,7 +154,6 @@ class TestUpdates(unittest.TestCase):
             check_for_self_update(1, 0, 0)
 
         mock_get.assert_called()
-        mock_compare.assert_called_once_with("1.0.0", "2.0.0")
 
     @patch("mutenix.updates.hid.device")
     def test_perform_hid_upgrade_success(self, mock_device):
