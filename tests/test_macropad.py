@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from collections import defaultdict
 from unittest.mock import ANY
 from unittest.mock import AsyncMock
 from unittest.mock import Mock
@@ -9,6 +11,8 @@ from unittest.mock import patch
 
 import pytest
 from mutenix.config import create_default_config
+from mutenix.config import LedStatusSource
+from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 from mutenix.hid_commands import VersionInfo
@@ -346,3 +350,142 @@ async def test_stop():
     macropad._device.stop.assert_called_once()
     macropad._websocket.stop.assert_called_once()
     macropad._virtual_macropad.stop.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_teams_source_in_meeting(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.TEAMS,
+            button_id=1,
+            extra="is-muted",
+            color_on="red",
+            color_off="green",
+        ),
+    ]
+    macropad._current_state = ServerMessage(
+        meetingUpdate=MeetingUpdate(
+            meetingState=MeetingState(
+                isInMeeting=True,
+                isMuted=True,
+                isHandRaised=False,
+                isVideoOn=True,
+            ),
+            meetingPermissions=MeetingPermissions(canLeave=True),
+        ),
+    )
+
+    macropad._device.send_msg = AsyncMock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.RED))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(SetLed(1, LedColor.RED))
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_teams_source_not_in_meeting(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.TEAMS,
+            button_id=1,
+            extra="is-muted",
+            color_on="red",
+            color_off="green",
+        ),
+    ]
+    macropad._current_state = ServerMessage(
+        meetingUpdate=MeetingUpdate(
+            meetingState=MeetingState(
+                isInMeeting=False,
+                isMuted=False,
+                isHandRaised=False,
+                isVideoOn=False,
+            ),
+            meetingPermissions=MeetingPermissions(canLeave=False),
+        ),
+    )
+
+    macropad._device.send_msg = AsyncMock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.BLACK))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(
+        SetLed(1, LedColor.BLACK),
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_cmd_source_with_result(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.CMD,
+            button_id=1,
+            extra="echo blue",
+            interval=0,
+            read_result=True,
+        ),
+    ]
+    macropad._last_status_check = defaultdict(int)
+    macropad._device.send_msg = AsyncMock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    with patch("asyncio.to_thread", return_value="blue"):
+        await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.BLUE))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(
+        SetLed(1, LedColor.BLUE),
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_cmd_source_without_result(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.CMD,
+            button_id=1,
+            extra="exit 0",
+            interval=0,
+            read_result=False,
+            color_on="yellow",
+            color_off="black",
+        ),
+    ]
+    macropad._last_status_check = defaultdict(int)
+    macropad._device.send_msg = AsyncMock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    with patch("asyncio.to_thread", return_value=0):
+        await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.YELLOW))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(
+        SetLed(1, LedColor.YELLOW),
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_cmd_source_interval_not_elapsed(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.CMD,
+            button_id=1,
+            extra="exit 0",
+            interval=10,
+            read_result=False,
+            color_on="yellow",
+            color_off="black",
+        ),
+    ]
+    macropad._last_status_check = defaultdict(lambda: time.time())
+    macropad._device.send_msg = AsyncMock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_not_called()
+    macropad._virtual_macropad.send_msg.assert_not_called()

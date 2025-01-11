@@ -8,8 +8,8 @@ import tarfile
 import tempfile
 import time
 import webbrowser
-from abc import abstractmethod
 from collections.abc import Sequence
+from enum import IntEnum
 from typing import BinaryIO
 
 import hid
@@ -60,6 +60,11 @@ MAX_CHUNK_SIZE = 60 - HEADER_SIZE
 DATA_TRANSFER_SLEEP_TIME = 0.02
 STATE_CHANGE_SLEEP_TIME = 0.5
 WAIT_FOR_REQUESTS_SLEEP_TIME = STATE_CHANGE_SLEEP_TIME
+HID_REPORT_ID_COMMUNICATION = 1
+HID_REPORT_ID_TRANSFER = 2
+
+HID_COMMAND_PREPARE_UPDATE = 0xE0
+HID_COMMAND_RESET = 0xE1
 
 
 def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
@@ -81,59 +86,73 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
         _logger.info("Successfully updated device firmware")
 
 
-class DeviceFileChunk:
+class ChunkAck:
     def __init__(self, data: bytes):
         self.id = 0
-        self.segment = 0
+        self.package = 0
+        self.type_ = 0
         self.parse(data)
 
     def parse(self, data: bytes):
         self.identifier = data[:2].decode("utf-8")
-        if not self.is_valid():
+        if not self.is_valid:
             return
         self.id = int.from_bytes(data[2:4], "little")
-        self.segment = int.from_bytes(data[4:6], "little")
-        _logger.info("Chunk request: %s", self)
+        self.package = int.from_bytes(data[4:6], "little")
+        self.type_ = int.from_bytes(data[6:7], "little")
+        _logger.info("Ack: %s", self)
 
+    @property
     def is_valid(self):
-        return self.identifier in ["RQ", "AK"]
-
-    @property
-    def is_request(self):
-        return self.identifier == "RQ"
-
-    @property
-    def is_ack(self):
         return self.identifier == "AK"
 
     def __str__(self):
-        if self.is_valid():
-            return f"File: {self.id}, Package: {self.segment}"
+        if self.is_valid:
+            return f"File: {self.id}, Type: {self.type_}, Package: {self.package}"
         return "Invalid Request"
 
 
+class ChunkType(IntEnum):
+    FILE_START = 1
+    FILE_CHUNK = 2
+    FILE_END = 3
+    COMPLETE = 3
+    FILE_DELETE = 5
+
+
 class Chunk:
-    @abstractmethod
+    def __init__(self, type_: int, id: int, package: int = 0, total_packages: int = 0):
+        self.type_ = type_
+        self.id = id
+        self.package = package
+        self.total_packages = total_packages
+        self._acked = False
+        self.content = b""
+
     def packet(self):  # pragma: no cover
-        pass
+        return (
+            self._base_packet()
+            + self.content
+            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
+        )
+
+    def _base_packet(self):
+        return (
+            int(self.type_).to_bytes(2, "little")
+            + self.id.to_bytes(2, "little")
+            + self.total_packages.to_bytes(2, "little")
+            + self.package.to_bytes(2, "little")
+        )
+
+    @property
+    def acked(self):
+        return self._acked
 
 
 class FileChunk(Chunk):
     def __init__(self, id: int, package: int, total_packages: int, content: bytes):
-        self.id = id
-        self.package = package
-        self.total_packages = total_packages
+        super().__init__(ChunkType.FILE_CHUNK, id, package, total_packages)
         self.content = content
-
-    def packet(self):
-        return (
-            int(2).to_bytes(2, "little")
-            + self.id.to_bytes(2, "little")
-            + self.total_packages.to_bytes(2, "little")
-            + self.package.to_bytes(2, "little")
-            + self.content
-            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
-        )
 
 
 class FileStart(Chunk):
@@ -145,9 +164,7 @@ class FileStart(Chunk):
         filename: str,
         filesize: int,
     ):
-        self.id = id
-        self.package = package
-        self.total_packages = total_packages
+        super().__init__(ChunkType.FILE_START, id, package, total_packages)
         self.content = (
             bytes((len(filename),))
             + filename.encode("utf-8")
@@ -155,27 +172,10 @@ class FileStart(Chunk):
             + filesize.to_bytes(2, "little")
         )
 
-    def packet(self):
-        return (
-            int(1).to_bytes(2, "little")
-            + self.id.to_bytes(2, "little")
-            + self.total_packages.to_bytes(2, "little")
-            + self.package.to_bytes(2, "little")
-            + self.content
-            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
-        )
-
 
 class FileEnd(Chunk):
     def __init__(self, id: int):
-        self.id = id
-
-    def packet(self):
-        return (
-            int(3).to_bytes(2, "little")
-            + self.id.to_bytes(2, "little")
-            + b"\0" * (MAX_CHUNK_SIZE + 4)
-        )
+        super().__init__(ChunkType.FILE_END, id)
 
 
 class FileDelete(Chunk):
@@ -184,16 +184,13 @@ class FileDelete(Chunk):
         id: int,
         filename: str,
     ):
-        self.id = id
+        super().__init__(ChunkType.FILE_DELETE, id)
         self.content = bytes((len(filename),)) + filename.encode("utf-8")
 
-    def packet(self):
-        return (
-            int(5).to_bytes(2, "little")
-            + self.id.to_bytes(2, "little")
-            + self.content
-            + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
-        )
+
+class Completed(Chunk):
+    def __init__(self):
+        super().__init__(ChunkType.COMPLETE, 0)
 
 
 class TransferFile:
@@ -233,44 +230,47 @@ class TransferFile:
             )
         self._chunks.append(FileEnd(self.id))
 
-    def get_next_chunk(self) -> Chunk:
-        next = max(self.packages_sent) + 1 if len(self.packages_sent) > 0 else 0
-        self.packages_sent.append(next)
-        return self._chunks[next]
+    def get_next_chunk(self) -> Chunk | None:
+        if self.is_complete():
+            return None
+        return next((chunk for chunk in self._chunks if not chunk.acked))
 
-    def ack_chunk(self, chunk: DeviceFileChunk):
+    def ack_chunk(self, chunk: ChunkAck):
         if chunk.id != self.id:
             return
-        _logger.info("Acked chunk %s", chunk.segment)
+
+        acked_chunk = next(
+            filter(
+                lambda x: x.type_ == chunk.type_ and x.package == chunk.package,
+                self._chunks,
+            ),
+            None,
+        )
+        if acked_chunk:
+            acked_chunk._acked = True
+            _logger.info("Acked chunk %s", chunk.package)
+        else:
+            _logger.warning("Chunk not found %s: %s", chunk.type_, chunk.package)
 
     @property
     def chunks(self):
         return len(self._chunks)
 
-    def get_chunk(self, request: DeviceFileChunk) -> Chunk:
-        if (
-            request.segment < 0
-            or request.segment >= len(self._chunks)
-            or not request.is_request
-        ):
-            raise ValueError("Invalid request")
-        return self._chunks[request.segment + 1]
-
     def is_complete(self):
-        return len(self.packages_sent) == len(self._chunks)
+        return all(map(lambda x: x.acked, self._chunks))
+
+
+def send_hid_command(device: hid.device, command: int):
+    device.write([HID_REPORT_ID_COMMUNICATION, command] + [0] * 7)
 
 
 def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path]):
     _logger.debug("Opening device for update")
     _logger.debug("Sending prepare update")
-    device.write([1, 0xE0] + [0] * 7)
+    send_hid_command(device, HID_COMMAND_PREPARE_UPDATE)
     time.sleep(STATE_CHANGE_SLEEP_TIME)
 
     transfer_files = [TransferFile(i, file) for i, file in enumerate(files)]
-
-    chunk_requests = []
-    finished = False
-    finished_at: float = float("inf")
 
     _logger.debug("Preparing to send %s files", len(transfer_files))
     file_progress_bars = {
@@ -284,52 +284,36 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     while True:
         received = device.read(24, 100)
         if len(received) > 0:
-            rc = DeviceFileChunk(bytes(received))
-            if rc.is_valid() and rc.is_request:
-                chunk_requests.append(rc)
-            if rc.is_ack:
+            rc = ChunkAck(bytes(received))
+            if rc.is_valid:
+                _logger.debug("Received Ack")
                 file = next((f for f in transfer_files if f.id == rc.id), None)
                 if not file:
-                    print("File not found")
-                    _logger.warning("File not found")
-                    raise FileNotFoundError("File not found")
+                    _logger.warning("No file id found for ack")
+                    continue
                 file_progress_bars[file.id].update(1)
-
-        if len(chunk_requests) > 0:
-            _logger.debug("Sending requested chunk")
-            cr = chunk_requests.pop(0)
-            file = next((f for f in transfer_files if f.id == cr.id), None)
-            if not file:
-                print("File not found")
-                _logger.warning("File not found")
-                raise FileNotFoundError("File not found")
-            file_chunk = file.get_chunk(cr)
-            device.write(bytearray((2,)) + file_chunk.packet())
-            time.sleep(DATA_TRANSFER_SLEEP_TIME)
+                file.ack_chunk(rc)
 
         try:
             file = next(filter(lambda x: not x.is_complete(), transfer_files))
             chunk = file.get_next_chunk()
-            _logger.debug("Sending chunk of file %s", file.filename)
-            cnk = bytes((2,)) + chunk.packet()
+            if not chunk:
+                continue
+            _logger.debug(
+                "Sending chunk (%s...) of file %s",
+                chunk.packet()[:10],
+                file.filename,
+            )
+            cnk = bytes((HID_REPORT_ID_TRANSFER,)) + chunk.packet()
             device.write(cnk)
             time.sleep(DATA_TRANSFER_SLEEP_TIME)
         except StopIteration:
-            if (
-                finished
-                and (time.monotonic() - finished_at) > WAIT_FOR_REQUESTS_SLEEP_TIME
-            ):
-                break
-            time.sleep(WAIT_FOR_REQUESTS_SLEEP_TIME / 5)
-            if not finished:
-                print("All files transfered, waiting a bit for file requests")
-                finished = True
-                finished_at = time.monotonic()
+            break
     time.sleep(STATE_CHANGE_SLEEP_TIME)
-    device.write([2, 4] + [0] * 59)
+    device.write(bytes((HID_REPORT_ID_TRANSFER,)) + Completed().packet())
     time.sleep(STATE_CHANGE_SLEEP_TIME)
     print("Resetting")
-    device.write([1, 0xE1] + [0] * 7)
+    send_hid_command(device, HID_COMMAND_RESET)
 
 
 # region: Update Application
