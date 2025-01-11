@@ -147,8 +147,8 @@ async def test_update_device_status_not_in_meeting(macropad):
     macropad._device.send_msg = Mock(side_effect=send_msg)
     macropad._virtual_macropad.send_msg = AsyncMock()
     await macropad._update_device_status()
-    assert macropad._device.send_msg.call_count == 5
-    assert macropad._virtual_macropad.send_msg.call_count == 5
+    assert macropad._device.send_msg.call_count == 4
+    assert macropad._virtual_macropad.send_msg.call_count == 4
 
 
 @pytest.mark.parametrize(

@@ -4,8 +4,7 @@ import asyncio
 import webbrowser
 from pathlib import Path
 
-from mutenix.virtual_macropad import HOST
-from mutenix.virtual_macropad import PORT
+from mutenix.macropad import Macropad
 from PIL import Image
 
 
@@ -14,12 +13,19 @@ def load_image(file_name):
     return Image.open(file_path)
 
 
-def run_trayicon(macropad):  # pragma: no cover
+def run_trayicon(macropad: Macropad):  # pragma: no cover
     from pystray import Icon as icon, Menu as menu, MenuItem as item
 
     def open_url(endpoint=""):
         def open_url(icon, item):
-            webbrowser.open(f"http://{HOST}:{PORT}{endpoint}")
+            address = (
+                macropad.virtual_keypad_address
+                if macropad.virtual_keypad_address != "0.0.0.0"
+                else "127.0.0.1"
+            )
+            webbrowser.open(
+                f"http://{address}:{macropad.virtual_keypad_port}{endpoint}",
+            )
 
         return open_url
 

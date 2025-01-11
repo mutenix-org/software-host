@@ -116,6 +116,7 @@ class WebSocketClient:
             async with asyncio.timeout(1):
                 _logger.debug("Checking receive")
                 msg = await self._connection.recv()
+                print(msg)
                 _logger.debug("Received message: %s", msg)
                 message = ServerMessage.model_validate_json(msg)
                 if message:
