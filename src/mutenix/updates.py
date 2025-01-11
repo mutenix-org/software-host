@@ -76,7 +76,8 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
             map(
                 lambda x: tmpdir / x,
                 filter(
-                    lambda x: x.endswith(".py") and not x.startswith("."),
+                    lambda x: (x.endswith(".py") or x.endswith(".delete"))
+                    and not x.startswith("."),
                     os.listdir(tmpdirname),
                 ),
             ),
