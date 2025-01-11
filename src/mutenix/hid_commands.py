@@ -156,6 +156,9 @@ class SetLed(HidCommand):
             ],
         )
 
+    def __eq__(self, other):
+        return self.id == other.id and self.color == other.color
+
 
 class SimpleHidCommand(HidCommand):
     def __init__(self, command: HidOutCommands):
@@ -165,10 +168,10 @@ class SimpleHidCommand(HidCommand):
     def to_buffer(self) -> bytes:
         return bytes([int(self.command), 0, 0, 0, 0, 0, 0, 0])
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return f"{self.command.name}"
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
 

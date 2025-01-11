@@ -163,7 +163,7 @@ class Macropad:
             elif ledstatus.source == LedStatusSource.CMD:
                 if (
                     self._last_status_check[ledstatus.button_id] + ledstatus.interval
-                    < time.time()
+                    > time.time()
                 ):
                     continue
                 if ledstatus.read_result:

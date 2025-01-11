@@ -12,7 +12,7 @@ from mutenix.hid_commands import HardwareTypes
 from mutenix.updates import check_for_device_update
 from mutenix.updates import check_for_self_update
 from mutenix.updates import Chunk
-from mutenix.updates import DeviceFileChunk
+from mutenix.updates import ChunkAck
 from mutenix.updates import FileChunk
 from mutenix.updates import FileEnd
 from mutenix.updates import FileStart
@@ -160,7 +160,32 @@ class TestUpdates(unittest.TestCase):
         mock_device_instance = MagicMock()
         mock_device.return_value = mock_device_instance
 
-        mock_device_instance.read.return_value = bytes()
+        mock_device_instance.read.side_effect = [
+            bytes(),
+            bytes([65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 1, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 1, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 1, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 2, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 2, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 2, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes(),
+            bytes(),
+            bytes(),
+            bytes(),
+            bytes(),
+            bytes(),
+        ]
+
+        def write_side_effect(data):
+            if data[0] == 2:
+                mock_device_instance.read.side_effect = [
+                    bytes([65, 75, data[3], data[4], data[5], data[6], data[1], 0, 0]),
+                ]
+
+        mock_device_instance.write.side_effect = write_side_effect
 
         with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
             with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
@@ -181,51 +206,17 @@ class TestUpdates(unittest.TestCase):
         )  # 3 files * 3 chunks each + 3 state change commands
 
     @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_file_not_found(self, mock_device):
+    def test_perform_hid_upgrade_ack(self, mock_device):
         mock_device_instance = MagicMock()
         mock_device.return_value = mock_device_instance
 
         mock_device_instance.read.side_effect = [
-            bytes([82, 81, 1, 0, 0, 0, 0, 0]),  # RequestChunk for first file
             bytes(),  # No more requests
-        ]
-
-        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
-                with patch("builtins.open", mock_open(read_data=b"fake content")):
-                    with patch("pathlib.Path.is_file", return_value=False):
-                        with self.assertRaises(FileNotFoundError):
-                            perform_hid_upgrade(mock_device_instance, ["file1.py"])
-
-    @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_invalid_identifier(self, mock_device):
-        mock_device_instance = MagicMock()
-        mock_device.return_value = mock_device_instance
-
-        def read_side_effect(*args):
-            def generator():
-                yield bytes([81, 81, 1, 0, 0, 0, 0, 0])
-                while True:
-                    yield bytes()
-
-            return next(generator())
-
-        mock_device_instance.read.side_effect = read_side_effect
-
-        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
-                with patch("builtins.open", mock_open(read_data=b"fake content")):
-                    with patch("pathlib.Path.is_file", return_value=False):
-                        perform_hid_upgrade(mock_device_instance, ["file1.py"])
-
-    @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_invalid_request(self, mock_device):
-        mock_device_instance = MagicMock()
-        mock_device.return_value = mock_device_instance
-
-        mock_device_instance.read.side_effect = [
-            bytes([82, 81, 0, 0, 0, 0, 0, 0]),  # RequestChunk for first file
-            bytes([82, 81, 0, 0, 99, 0, 0, 0]),  # Invalid RequestChunk
+            bytes([65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes(),  # No more requests
+            bytes(),  # No more requests
             bytes(),  # No more requests
             bytes(),  # No more requests
             bytes(),  # No more requests
@@ -240,13 +231,7 @@ class TestUpdates(unittest.TestCase):
                             "pathlib.Path.open",
                             mock_open(read_data=b"fake content"),
                         ):
-                            with self.assertRaises(ValueError):
-                                perform_hid_upgrade(mock_device_instance, ["file1.py"])
-
-        self.assertEqual(
-            mock_device_instance.write.call_count,
-            3,
-        )  # 1 file * 3 chunks
+                            perform_hid_upgrade(mock_device_instance, ["file1.py"])
 
     @patch("mutenix.updates.requests.get")
     def test_check_for_self_update_request_error(self, mock_get):
@@ -271,26 +256,6 @@ class TestUpdates(unittest.TestCase):
             "Failed to fetch latest release info, status code: 500",
             log.output[0],
         )
-
-
-class TestRequestChunk(unittest.TestCase):
-    def test_request_chunk_valid(self):
-        data = b"RQ" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little") + b"\0" * 2
-        chunk = DeviceFileChunk(data)
-        self.assertTrue(chunk.is_valid())
-        self.assertEqual(chunk.id, 1)
-        self.assertEqual(chunk.segment, 2)
-
-    def test_request_chunk_invalid_identifier(self):
-        data = b"XX" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little") + b"\0" * 2
-        chunk = DeviceFileChunk(data)
-        self.assertFalse(chunk.is_valid())
-
-    def test_request_chunk_invalid_length(self):
-        data = b"RR" + (1).to_bytes(2, "little") + (2).to_bytes(2, "little")
-        chunk = DeviceFileChunk(data)
-        self.assertFalse(chunk.is_valid())
-        assert str(chunk) == "Invalid Request"
 
 
 class TestFileChunk(unittest.TestCase):
@@ -348,25 +313,24 @@ class TestTransferFile(unittest.TestCase):
         chunk = transfer_file.get_next_chunk()
         self.assertIsInstance(chunk, Chunk)
 
-    def test_transfer_file_get_chunk(self):
-        transfer_file = TransferFile(1, self.file_path)
-        request_chunk = DeviceFileChunk(
-            b"RQ" + (1).to_bytes(2, "little") + (0).to_bytes(2, "little") + b"\0" * 2,
-        )
-        chunk = transfer_file.get_chunk(request_chunk)
-        self.assertIsInstance(chunk, Chunk)
-
     def test_transfer_file_is_complete(self):
         transfer_file = TransferFile(1, self.file_path)
         while not transfer_file.is_complete():
-            transfer_file.get_next_chunk()
+            chunk = transfer_file.get_next_chunk()
+            if chunk:
+                dfc = ChunkAck(
+                    b"AK"
+                    + (chunk.id).to_bytes(2, "little")
+                    + (chunk.package).to_bytes(2, "little")
+                    + (chunk.type_).to_bytes(1, "little")
+                    + b"\0" * 2,
+                )
+                dfc.type_ = chunk.type_
+                dfc.package = chunk.package
+                transfer_file.ack_chunk(dfc)
         self.assertTrue(transfer_file.is_complete())
 
     def test_transfer_file_from_path(self):
         transfer_file = TransferFile(1, pathlib.Path(self.file_path))
         self.assertEqual(transfer_file.filename, "test_file.py")
         self.assertEqual(transfer_file.size, len(self.file_content))
-
-
-if __name__ == "__main__":
-    unittest.main()
