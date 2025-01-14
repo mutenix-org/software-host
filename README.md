@@ -71,3 +71,9 @@ pip install pre-commit
 pre-commit install
 pre-commit run --all-files
 ```
+
+
+## Links
+
+- [Hardware](https://github.com/mutenix-org/hardware-macropad)
+- [Firmware](https://github.com/mutenix-org/firmware-macroboard)
