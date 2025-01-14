@@ -114,9 +114,7 @@ class WebSocketClient:
     async def _receive(self):
         try:
             async with asyncio.timeout(1):
-                _logger.debug("Checking receive")
                 msg = await self._connection.recv()
-                print(msg)
                 _logger.debug("Received message: %s", msg)
                 message = ServerMessage.model_validate_json(msg)
                 if message:
@@ -127,8 +125,7 @@ class WebSocketClient:
                     else:
                         self._callback(message)
         except asyncio.TimeoutError:
-            _logger.debug("Receive timed out stopped")
-            await asyncio.sleep(0.2)
+            pass
         except Exception as e:
             _logger.error("Error receiving message: %s", e)
             await self._connect()

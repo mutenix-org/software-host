@@ -57,7 +57,7 @@ def check_for_device_update(device: hid.device, device_version: VersionInfo):
 
 HEADER_SIZE = 8
 MAX_CHUNK_SIZE = 60 - HEADER_SIZE
-DATA_TRANSFER_SLEEP_TIME = 0.02
+DATA_TRANSFER_SLEEP_TIME = 1
 STATE_CHANGE_SLEEP_TIME = 0.5
 WAIT_FOR_REQUESTS_SLEEP_TIME = STATE_CHANGE_SLEEP_TIME
 HID_REPORT_ID_COMMUNICATION = 1
@@ -76,7 +76,8 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
             map(
                 lambda x: tmpdir / x,
                 filter(
-                    lambda x: x.endswith(".py") and not x.startswith("."),
+                    lambda x: (x.endswith(".py") or x.endswith(".delete"))
+                    and not x.startswith("."),
                     os.listdir(tmpdirname),
                 ),
             ),
@@ -282,7 +283,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     }
 
     while True:
-        received = device.read(24, 100)
+        received = device.read(24, 00)
         if len(received) > 0:
             rc = ChunkAck(bytes(received))
             if rc.is_valid:

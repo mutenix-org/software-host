@@ -22,9 +22,7 @@ class HidDevice:
     Providing async read and write loops for incoming and outgoing messages.
     """
 
-    def __init__(self, vid: int, pid: int):
-        self._vid = vid
-        self._pid = pid
+    def __init__(self):
         self._device: hid.device = hid.device()
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
         self._send_buffer: asyncio.Queue = asyncio.Queue()
@@ -39,16 +37,50 @@ class HidDevice:
     @block_parallel
     async def _wait_for_device(self):
         _logger.info(
-            "Looking for device with VID: %04x, PID: %04x",
-            self._vid,
-            self._pid,
+            "Looking for device with",
         )
         self._device = await self._search_for_device_loop()
 
     async def _search_for_device(self):
         try:
+
+            def find_device():
+                devices = []
+                for device in hid.enumerate():
+                    if "mutenix" in device["product_string"].lower():
+                        _logger.info("Device found %s", device)
+                        devices.append(device)
+                return devices
+
+            device_info = find_device()
+            if len(device_info) == 0:
+                asyncio.sleep(0)
+                return None
             device = hid.device()
-            device.open(self._vid, self._pid)
+            # We are sorting the devices by vendor_id to make sure we try to open BT device first
+            for device_info in sorted(device_info, key=lambda x: x["vendor_id"]):
+                if device_info["product_id"] == 0 and device_info["vendor_id"] == 0:
+                    try:
+                        device.open(
+                            product_id=0,
+                            vendor_id=0,
+                            serial_number=device_info["serial_number"],
+                        )
+                        break
+                    except Exception as e:
+                        _logger.warning("Could not open BT Connection (%s)", e)
+                else:
+                    try:
+                        device.open(
+                            product_id=device_info["product_id"],
+                            vendor_id=device_info["vendor_id"],
+                            serial_number=device_info["serial_number"],
+                        )
+                        break
+                    except Exception as e:
+                        _logger.warning("Could not open USB Connection (%s)", e)
+            else:
+                return None
             device.set_nonblocking(1)
             _logger.info("Device found %s", device)
             return device
@@ -99,10 +131,11 @@ class HidDevice:
         try:
             buffer = self._device.read(64)
             if buffer and len(buffer):
+                _logger.debug("Reading message: %s", buffer)
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
             else:
-                await asyncio.sleep(0.2)  # pragma: no cover
+                await asyncio.sleep(0)  # pragma: no cover
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
             await self._wait_for_device()

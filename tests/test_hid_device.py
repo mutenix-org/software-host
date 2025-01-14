@@ -20,19 +20,7 @@ tracemalloc.start()
 def hid_device():
     with patch("hid.device") as MockHidDevice:
         MockHidDevice.return_value = Mock()
-        return HidDevice(vid=0x1234, pid=0x5678)
-
-
-@pytest.mark.asyncio
-async def test_wait_for_device(hid_device):
-    with patch.object(
-        hid_device._device,
-        "open",
-        side_effect=Exception("Device not found"),
-    ):
-        with patch("asyncio.sleep", side_effect=asyncio.CancelledError):
-            with pytest.raises(asyncio.CancelledError):
-                await hid_device._wait_for_device()
+        return HidDevice()
 
 
 @pytest.mark.asyncio
@@ -220,7 +208,9 @@ async def test_send_report_failure(hid_device):
 async def test_send_report_exception(hid_device):
     msg = PrepareUpdate()
     with patch.object(
-        hid_device._device, "write", side_effect=OSError("Device error"),
+        hid_device._device,
+        "write",
+        side_effect=OSError("Device error"),
     ) as mock_write:
         with pytest.raises(OSError, match="Device error"):
             hid_device._send_report(msg)
@@ -230,7 +220,7 @@ async def test_send_report_exception(hid_device):
 @pytest.mark.asyncio
 async def test_unregister_callback():
     # Create a HidDevice instance
-    device = HidDevice(vid=0x1234, pid=0x5678)
+    device = HidDevice()
 
     # Create a mock callback
     callback = Mock()
@@ -246,32 +236,6 @@ async def test_unregister_callback():
     # Try to unregister the callback again (should not raise an error)
     device.unregister_callback(callback)
     assert callback not in device._callbacks
-
-
-@pytest.mark.asyncio
-async def test_search_for_device_success(hid_device):
-    with patch("hid.device") as MockHidDevice:
-        mock_device = MockHidDevice.return_value
-        mock_device.open.return_value = None
-        mock_device.set_nonblocking.return_value = None
-
-        device = await hid_device._search_for_device()
-
-        assert device is not None
-        mock_device.open.assert_called_once_with(hid_device._vid, hid_device._pid)
-        mock_device.set_nonblocking.assert_called_once_with(1)
-
-
-@pytest.mark.asyncio
-async def test_search_for_device_failure(hid_device):
-    with patch("hid.device") as MockHidDevice:
-        mock_device = MockHidDevice.return_value
-        mock_device.open.side_effect = Exception("Device not found")
-
-        device = await hid_device._search_for_device()
-
-        assert device is None
-        mock_device.open.assert_called_once_with(hid_device._vid, hid_device._pid)
 
 
 @pytest.mark.asyncio
@@ -311,3 +275,82 @@ async def test_invoke_callbacks_mixed(hid_device):
     callback.assert_called_once_with(msg)
     await asyncio.sleep(0)  # Allow the async callback to be called
     assert async_callback.called
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_success(hid_device):
+    device_info = {
+        "product_id": 0,
+        "vendor_id": 0,
+        "serial_number": "122345",
+        "product_string": "Mutenix Macropad",
+    }
+    with patch("hid.device"):
+        with patch("hid.enumerate", return_value=[device_info]):
+            device = await hid_device._search_for_device()
+            assert device is not None
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_prefer_bluetooth(hid_device):
+    device_info_bt = {
+        "product_id": 0,
+        "vendor_id": 0,
+        "serial_number": "122345",
+        "product_string": "Mutenix Macropad",
+    }
+    device_info_usb = {
+        "product_id": 0x1234,
+        "vendor_id": 0x5678,
+        "serial_number": "122345",
+        "product_string": "Mutenix Macropad",
+    }
+    with patch("hid.device") as MockHidDevice:
+        with patch("hid.enumerate", return_value=[device_info_bt, device_info_usb]):
+            m = Mock()
+            MockHidDevice.return_value = m
+            device = await hid_device._search_for_device()
+            assert device is not None
+            m.open.assert_called_with(product_id=0, vendor_id=0, serial_number="122345")
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_no_device_found(hid_device):
+    with patch("hid.enumerate", return_value=[]):
+        device = await hid_device._search_for_device()
+        assert device is None
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_exception(hid_device):
+    with patch("hid.enumerate", side_effect=Exception("Error")):
+        with patch("mutenix.hid_device._logger.debug") as mock_logger:
+            device = await hid_device._search_for_device()
+            assert device is None
+            mock_logger.assert_called_with("Failed to get device: %s", ANY)
+
+
+@pytest.mark.asyncio
+async def test_wait_for_device_success(hid_device):
+    with patch.object(
+        hid_device,
+        "_search_for_device_loop",
+        new_callable=AsyncMock,
+    ) as mock_search:
+        mock_search.return_value = Mock()
+        await hid_device._wait_for_device()
+        assert mock_search.called
+        assert hid_device._device is not None
+
+
+@pytest.mark.asyncio
+async def test_wait_for_device_failure(hid_device):
+    with patch.object(
+        hid_device,
+        "_search_for_device_loop",
+        new_callable=AsyncMock,
+    ) as mock_search:
+        mock_search.return_value = None
+        await hid_device._wait_for_device()
+        assert mock_search.called
+        assert hid_device._device is None

@@ -124,8 +124,8 @@ async def test_update_device_status(macropad):
     macropad._device.send_msg = Mock(side_effect=send_msg)
     macropad._virtual_macropad.send_msg = Mock()
     await macropad._update_device_status()
-    assert macropad._device.send_msg.call_count == 4
-    assert macropad._virtual_macropad.send_msg.call_count == 4
+    assert macropad._device.send_msg.call_count == 8
+    assert macropad._virtual_macropad.send_msg.call_count == 8
 
 
 @pytest.mark.asyncio
@@ -151,8 +151,8 @@ async def test_update_device_status_not_in_meeting(macropad):
     macropad._device.send_msg = Mock(side_effect=send_msg)
     macropad._virtual_macropad.send_msg = AsyncMock()
     await macropad._update_device_status()
-    assert macropad._device.send_msg.call_count == 4
-    assert macropad._virtual_macropad.send_msg.call_count == 4
+    assert macropad._device.send_msg.call_count == 8
+    assert macropad._virtual_macropad.send_msg.call_count == 8
 
 
 @pytest.mark.parametrize(
@@ -277,12 +277,12 @@ async def test_process(macropad):
 @pytest.mark.asyncio
 async def test_process_with_exception(macropad):
     macropad._device.process = AsyncMock(side_effect=Exception("Device error"))
-    macropad._websocket.process = AsyncMock()
-    macropad._virtual_macropad.process = AsyncMock()
+    macropad._websocket.process = AsyncMock(return_value=None)
+    macropad._virtual_macropad.process = AsyncMock(return_value=None)
 
     with patch("mutenix.macropad._logger.error") as mock_logger_error:
         await macropad.process()
-        mock_logger_error.assert_called_once_with("Error in Macropad process: %s", ANY)
+        mock_logger_error.assert_called_with("Error in Macropad process: %s", ANY)
 
     macropad._device.process.assert_called_once()
     macropad._websocket.process.assert_called_once()

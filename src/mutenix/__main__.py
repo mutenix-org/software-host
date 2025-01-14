@@ -17,7 +17,7 @@ from mutenix.version import PATCH
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "mutenix.log"
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     filename=log_file_path,
     filemode="a",
     format="%(asctime)s - %(name)-25s [%(levelname)-8s]: %(message)s",
@@ -28,7 +28,14 @@ _logger = logging.getLogger(__name__)
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Mutenix Macropad Controller")
     parser.add_argument(
-        "--update-file", type=str, help="Path to the update tar.gz file",
+        "--update-file",
+        type=str,
+        help="Path to the update tar.gz file",
+    )
+    parser.add_argument(
+        "--list-devices",
+        action="store_true",
+        help="List all connected devices",
     )
     return parser.parse_args()
 
@@ -41,8 +48,15 @@ def main(args: argparse.Namespace):
         _logger.info("SIGINT received, shutting down...")
         asyncio.create_task(macropad.stop())
 
+    if args.list_devices:
+        import hid
+
+        for device in hid.enumerate():
+            print(device)
+        return
+
     signal.signal(signal.SIGINT, signal_handler)
-    macropad = Macropad(vid=0x2E8A, pid=0x2083)
+    macropad = Macropad()
 
     if args.update_file:
         _logger.info("Starting manual update with file: %s", args.update_file)
