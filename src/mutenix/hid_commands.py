@@ -33,6 +33,7 @@ class HidOutCommands(IntEnum):
     PING = 0xF0
     PREPARE_UPDATE = 0xE0
     RESET = 0xE1
+    UPDATE_CONFIG = 0xE2
 
 
 class HidInputMessage:
@@ -116,6 +117,13 @@ class HidOutputMessage:
 
 
 class HidCommand(HidOutputMessage, ABC):
+    REPORT_ID = 1
+    _counter = 0
+
+    def __init__(self):
+        type(self)._counter = (type(self)._counter + 1) % 256
+        self._current_counter = type(self)._counter
+
     @abstractmethod
     def to_buffer(self) -> bytes:  # pragma: no cover
         raise NotImplementedError
@@ -137,6 +145,7 @@ class LedColor(tuple, ReprEnum):
 
 class SetLed(HidCommand):
     def __init__(self, id, led_color: LedColor):
+        super().__init__()
         self.id = id
         self.color = led_color
 
@@ -152,21 +161,56 @@ class SetLed(HidCommand):
                 color[2],
                 color[3],
                 0,
-                0,
+                self._current_counter,
             ],
         )
 
     def __eq__(self, other):
         return self.id == other.id and self.color == other.color
 
+    def __str__(self):
+        return f"SetLed {{ id: {self.id}, color: {self.color.name} }}"
+
+
+class UpdateConfig(HidCommand):
+    def __init__(self):
+        super().__init__()
+        self._activate_debug = 0
+        self._activate_filesystem = 0
+
+    def activate_debug(self, activate: bool):
+        self._activate_debug = 2 if activate else 1
+
+    def activate_filesystem(self, activate: bool):
+        self._activate_filesystem = 2 if activate else 1
+
+    @override
+    def to_buffer(self) -> bytes:
+        return bytes(
+            [
+                HidOutCommands.UPDATE_CONFIG,
+                self._activate_debug,
+                self._activate_filesystem,
+                0,
+                0,
+                0,
+                0,
+                self._current_counter,
+            ],
+        )
+
+    def __str__(self):
+        return f"UpdateConfig {{ debug: {self.activate_debug}, filesystem: {self.activate_filesystem} }}"
+
 
 class SimpleHidCommand(HidCommand):
     def __init__(self, command: HidOutCommands):
+        super().__init__()
         self.command = command
 
     @override
     def to_buffer(self) -> bytes:
-        return bytes([int(self.command), 0, 0, 0, 0, 0, 0, 0])
+        return bytes([int(self.command), 0, 0, 0, 0, 0, 0, self._current_counter])
 
     def __str__(self):  # pragma: no cover
         return f"{self.command.name}"

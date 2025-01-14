@@ -29,6 +29,15 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
 
         return open_url
 
+    def activate_serial_console(icon, item):
+        macropad.activate_serial_console()
+
+    def deactivate_serial_console(icon, item):
+        macropad.deactivate_serial_console()
+
+    def activate_filesystem(icon, item):
+        macropad.activate_filesystem()
+
     def quit_macropad(icon, item):
         asyncio.run(macropad.stop())
         icon.stop()
@@ -48,6 +57,14 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
             item(
                 "About",
                 open_url("/about"),
+            ),
+            item(
+                "Debug Options",
+                menu(
+                    item("Activate Serial Console", activate_serial_console),
+                    item("Deactivate Serial Console", deactivate_serial_console),
+                    item("Activate Filesystem", activate_filesystem),
+                ),
             ),
             item(
                 "Quit",

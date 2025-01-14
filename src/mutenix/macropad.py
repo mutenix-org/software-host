@@ -16,6 +16,7 @@ from mutenix.config import save_config
 from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
+from mutenix.hid_commands import UpdateConfig
 from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
 from mutenix.teams_messages import ClientMessage
@@ -35,16 +36,17 @@ _logger = logging.getLogger(__name__)
 class Macropad:
     """The main logic for the Macropad."""
 
-    def __init__(self, vid=0x2E8A, pid=0x2083):
+    def __init__(self):
         self._version_seen = None
         self._last_status_check = defaultdict(int)
         self._config = load_config()
-        self._setup(vid, pid)
+        self._last_led_update = {}
+        self._setup()
         self._current_state = None
         self._setup_buttons()
 
-    def _setup(self, vid=0x2E8A, pid=0x2083):
-        self._device = HidDevice(vid, pid)
+    def _setup(self):
+        self._device = HidDevice()
         token = self._config.teams_token
         self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",
@@ -114,10 +116,11 @@ class Macropad:
         if self._version_seen != version_info.version:
             _logger.info(version_info)
             self._version_seen = version_info.version
-            check_for_device_update(self._device.raw, version_info)
+            if self._config.auto_update:
+                check_for_device_update(self._device.raw, version_info)
         else:
             _logger.debug(version_info)
-        await self._update_device_status()
+        await self._update_device_status(force=True)
 
     async def _hid_callback(self, msg):
         if isinstance(msg, Status):
@@ -127,13 +130,14 @@ class Macropad:
 
     async def _teams_callback(self, msg: ServerMessage):
         _logger.debug("Teams message: %s", msg)
-        self._current_state = msg
+        if msg.meeting_update:
+            self._current_state = msg
         if msg.token_refresh:
             self._config.teams_token = msg.token_refresh
             save_config(self._config)
         await self._update_device_status()
 
-    async def _update_device_status(self):
+    async def _update_device_status(self, force=False):
         msg = self._current_state
         msgs = {}
 
@@ -156,10 +160,15 @@ class Macropad:
                         ledstatus.extra.replace("-", "_").lower(),
                     )
                     color = ledstatus.color_on if mapped_state else ledstatus.color_off
-                msgs[ledstatus.button_id] = SetLed(
-                    ledstatus.button_id,
-                    map_led_color(color),
-                )
+                    msgs[ledstatus.button_id] = SetLed(
+                        ledstatus.button_id,
+                        map_led_color(color),
+                    )
+                else:
+                    msgs[ledstatus.button_id] = SetLed(
+                        ledstatus.button_id,
+                        map_led_color("black"),
+                    )
             elif ledstatus.source == LedStatusSource.CMD:
                 if (
                     self._last_status_check[ledstatus.button_id] + ledstatus.interval
@@ -188,12 +197,21 @@ class Macropad:
                     )
                 self._last_status_check[ledstatus.button_id] = time.time()
 
-        for m in msgs.values():
+        for key, message in msgs.items():
             try:
-                self._device.send_msg(m)
-                await self._virtual_macropad.send_msg(m)
+                if not force and (
+                    key in self._last_led_update
+                    and self._last_led_update[key] == message
+                ):
+                    continue
+                _logger.debug(
+                    f"Sending message: {message}, prev: {self._last_led_update.get(key, None)}",
+                )
+                self._device.send_msg(message)
+                await self._virtual_macropad.send_msg(message)
+                self._last_led_update[key] = message
             except Exception as e:
-                print(e)
+                _logger.exception(e)
 
     async def _check_status(self):
         await self._update_device_status()
@@ -233,3 +251,18 @@ class Macropad:
     @property
     def virtual_keypad_port(self):
         return self._config.virtual_keypad.bind_port
+
+    def activate_serial_console(self):
+        message = UpdateConfig()
+        message.activate_debug(True)
+        self._device.send_msg(message)
+
+    def deactivate_serial_console(self):
+        message = UpdateConfig()
+        message.activate_debug(False)
+        self._device.send_msg(message)
+
+    def activate_filesystem(self):
+        message = UpdateConfig()
+        message.activate_filesystem(True)
+        self._device.send_msg(message)

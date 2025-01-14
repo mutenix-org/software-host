@@ -76,6 +76,7 @@ class Config(BaseModel):
     teams_token: str | None = None
     file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
+    auto_update: bool = True
 
 
 def create_default_config() -> Config:
@@ -86,9 +87,15 @@ def create_default_config() -> Config:
             ButtonAction(button_id=3, action=ActionEnum.ACTIVATE_TEAMS),
             ButtonAction(button_id=4, action=MeetingAction.React, extra="like"),
             ButtonAction(button_id=5, action=MeetingAction.LeaveCall),
+            ButtonAction(button_id=6, action=MeetingAction.ToggleMute),
+            ButtonAction(button_id=7, action=MeetingAction.ToggleHand),
+            ButtonAction(button_id=8, action=ActionEnum.ACTIVATE_TEAMS),
+            ButtonAction(button_id=9, action=MeetingAction.React, extra="like"),
+            ButtonAction(button_id=10, action=MeetingAction.LeaveCall),
         ],
         double_tap_action=[
             ButtonAction(button_id=3, action=MeetingAction.ToggleVideo),
+            ButtonAction(button_id=8, action=MeetingAction.ToggleVideo),
         ],
         leds=[
             LedStatus(
@@ -114,6 +121,34 @@ def create_default_config() -> Config:
             ),
             LedStatus(
                 button_id=5,
+                source=LedStatusSource.TEAMS,
+                extra=TeamsState.IN_MEETING,
+                color_on=LedColor.GREEN,
+                color_off=LedColor.BLACK,
+            ),
+            LedStatus(
+                button_id=6,
+                source=LedStatusSource.TEAMS,
+                extra=TeamsState.MUTED,
+                color_on=LedColor.RED,
+                color_off=LedColor.GREEN,
+            ),
+            LedStatus(
+                button_id=7,
+                source=LedStatusSource.TEAMS,
+                extra=TeamsState.HAND_RAISED,
+                color_on=LedColor.YELLOW,
+                color_off=LedColor.BLACK,
+            ),
+            LedStatus(
+                button_id=8,
+                source=LedStatusSource.TEAMS,
+                extra=TeamsState.VIDEO_ON,
+                color_on=LedColor.RED,
+                color_off=LedColor.GREEN,
+            ),
+            LedStatus(
+                button_id=10,
                 source=LedStatusSource.TEAMS,
                 extra=TeamsState.IN_MEETING,
                 color_on=LedColor.GREEN,
