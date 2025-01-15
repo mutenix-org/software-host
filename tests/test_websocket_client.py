@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 from __future__ import annotations
 
 import asyncio
@@ -47,7 +49,8 @@ async def test_connect(websocket_client):
 @pytest.mark.asyncio
 async def test_connect_exception(websocket_client):
     asyncio.get_event_loop().call_later(
-        0.02, lambda: asyncio.create_task(websocket_client.stop()),
+        0.02,
+        lambda: asyncio.create_task(websocket_client.stop()),
     )
     websocket_client.RETRY_INTERVAL = 0.01
     with patch("websockets.connect", new_callable=AsyncMock) as mock_connect:
@@ -107,11 +110,15 @@ async def test_process(websocket_client):
 
     with (
         patch.object(
-            websocket_client, "_connect", AsyncMock(side_effect=set_connection),
+            websocket_client,
+            "_connect",
+            AsyncMock(side_effect=set_connection),
         ) as mock_connect,
         patch.object(websocket_client, "_send_loop", AsyncMock()) as mock_send_loop,
         patch.object(
-            websocket_client, "_receive_loop", AsyncMock(),
+            websocket_client,
+            "_receive_loop",
+            AsyncMock(),
         ) as mock_receive_loop,
     ):
         task = asyncio.get_event_loop().create_task(websocket_client.process())

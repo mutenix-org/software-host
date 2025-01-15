@@ -1,5 +1,5 @@
-from __future__ import annotations
-
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import asyncio
 import logging
 import os
