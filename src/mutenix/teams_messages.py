@@ -1,5 +1,5 @@
-from __future__ import annotations
-
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 from enum import Enum
 from typing import ClassVar
 from typing import Optional

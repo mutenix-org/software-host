@@ -1,5 +1,5 @@
-from __future__ import annotations
-
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 from abc import ABC
 from abc import abstractmethod
 from enum import IntEnum

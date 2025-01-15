@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 const ws = new WebSocket('ws://' + window.location.host + '/ws');
 function requestState() {
     //ws.send(JSON.stringify({ command: "state_request"}));

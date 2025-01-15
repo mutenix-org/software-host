@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 from __future__ import annotations
 
 import asyncio
@@ -230,7 +232,8 @@ async def test_setup_without_existing_token():
     [
         (Status(bytes([1, 1, 0, 0, 1])), MeetingAction.ToggleMute, None),
         (Status(bytes([2, 1, 0, 0, 1])), MeetingAction.ToggleHand, None),
-        (Status(bytes([3, 1, 0, 0, 1])), None, None),  # bring_teams_to_foreground
+        # bring_teams_to_foreground
+        (Status(bytes([3, 1, 0, 0, 1])), None, None),
         (Status(bytes([3, 1, 1, 0, 1])), MeetingAction.ToggleVideo, None),  # doubletap
         (
             Status(bytes([4, 1, 0, 0, 1])),

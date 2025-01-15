@@ -1,5 +1,3 @@
-from __future__ import annotations
-
-from mutenix.__main__ import runmain
-
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 __all__ = ["runmain"]
