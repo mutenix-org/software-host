@@ -1,6 +1,9 @@
 [project]
 name = "mutenix"
 version = "0.4.0"
+authors = [
+    { name = "Matthias Bilger", email = "matthias@bilger.info" }
+]
 description = "Mutenix host software for the Mutenix macropad"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -28,6 +31,20 @@ dependencies = [
      "pyyaml>=6.0.2",
      "markdown>=3.7",
 ]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Topic :: Utilities",
+  "Programming Language :: Python :: 3.12",
+]
+keywords = ["teams", "macroboard", "keyboard", "remote"]
+
+[project.urls]
+Homepage = "https://mutenix.de"
+Documentation = "https://mutenix.de/docs/host"
+Repository = "https://github.com/mutenix-org/software-host"
+Issues = "https://github.com/mutenix-org/software-host/issues"
 
 
 [project.scripts]
