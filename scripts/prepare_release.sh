@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 # Check if the working directory is clean
 if ! git diff-index --quiet HEAD --; then
     echo "Working directory is not clean. Please commit or stash your changes."
