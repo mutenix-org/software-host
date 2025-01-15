@@ -75,5 +75,5 @@ pre-commit run --all-files
 
 ## Links
 
-- [Hardware](https://github.com/mutenix-org/hardware-macropad)
+- [Hardware](https://github.com/mutenix-org/hardware-macroboard)
 - [Firmware](https://github.com/mutenix-org/firmware-macroboard)
