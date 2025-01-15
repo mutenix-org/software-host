@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
