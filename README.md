@@ -56,6 +56,11 @@ actions:
     - Additional Options:
       - `activate-teams` to trigger an action to bring teams into the foreground
       - `cmd` to run an arbitrary command. This is to be used with case, as no check is performed on the output or what command is run. Specify the command in `extra`.
+      - `webhook` to make a user defined webhook call, make sure `extra has the following information:
+        - `url`: the url endpoint
+        - `method`: (optional, default: GET) the method to use
+        - `data`: (optional) json string to send
+        - `headers`: headers to add
 - `button_id`: the id of the buttons, starting with 1
 - `extra`: see the actions which require it
 

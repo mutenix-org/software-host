@@ -8,6 +8,7 @@ import time
 from collections import defaultdict
 from typing import Callable
 
+import requests
 from mutenix.config import ActionEnum
 from mutenix.config import ButtonAction
 from mutenix.config import LedStatusSource
@@ -79,9 +80,19 @@ class Macropad:
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
         mapped_action: Callable | None | MeetingAction = None
+
+        def perform_webhook(extra):
+            requests.request(
+                extra.get("method", "GET"),
+                extra["url"],
+                json=extra.get("data", None),
+                headers=extra.get("headers", {}),
+            )
+
         action_map: dict[ActionEnum, Callable] = {
             ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
             ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
+            ActionEnum.WEBHOOK: perform_webhook,
         }
 
         if status.triggered:
