@@ -11,11 +11,11 @@ class HardwareTypes(IntEnum):
     """Hardware types for the Macropad."""
 
     UNKNOWN = 0x00
-    SINGLE_BUTTON = 0x01
-    FIVE_BUTTON_USB = 0x02
-    FIVE_BUTTON_BT = 0x03
-    TEN_BUTTON_USB = 0x04
-    TEN_BUTTON_BT = 0x05
+    SINGLE_BUTTON = 0x02
+    FIVE_BUTTON_USB = 0x03
+    FIVE_BUTTON_BT = 0x04
+    TEN_BUTTON_USB = 0x05
+    TEN_BUTTON_BT = 0x06
 
 
 class HidInCommands(IntEnum):
