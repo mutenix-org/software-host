@@ -25,7 +25,7 @@ def test_status():
 
 
 def test_version_info():
-    buffer = bytes([1, 0, 0, 2])
+    buffer = bytes([1, 0, 0, 3])
     version_info = VersionInfo(buffer)
     assert version_info.version == "1.0.0"
     assert version_info.type.name == "FIVE_BUTTON_USB"
