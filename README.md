@@ -30,6 +30,12 @@ or
 uvx mutenix
 ```
 
+### Command Line options
+
+- `--list-devices`: lists HID devices
+- `--config <your config file>`: Use that config file
+- `--update-file <firmware archive>`: perform an update with that file
+
 ## Configuration
 
 Using the configuration file several things could be configured:
