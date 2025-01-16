@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +23,20 @@ def test_parse_arguments_with_update_file():
     with patch("sys.argv", ["__main__.py"] + test_args):
         args = parse_arguments()
         assert args.update_file == "path/to/update.tar.gz"
+
+
+def test_parse_arguments_list_devices():
+    test_args = ["--list-devices"]
+    with patch("sys.argv", ["__main__.py"] + test_args):
+        args = parse_arguments()
+        assert args.list_devices is True
+
+
+def test_parse_arguments_config():
+    test_args = ["--config", "path/to/config.yaml"]
+    with patch("sys.argv", ["__main__.py"] + test_args):
+        args = parse_arguments()
+        assert args.config == Path("path/to/config.yaml")
 
 
 @pytest.fixture
@@ -54,7 +69,7 @@ def test_main_no_update_file(
     mock_run_trayicon,
     mock_signal,
 ):
-    args = argparse.Namespace(update_file=None, list_devices=False)
+    args = argparse.Namespace(update_file=None, list_devices=False, config=None)
 
     with (
         patch("threading.Thread.start", autospec=True) as mock_thread_start,
@@ -71,7 +86,11 @@ def test_main_no_update_file(
 
 
 def test_main_with_update_file(mock_macropad, mock_check_for_self_update, mock_signal):
-    args = argparse.Namespace(update_file="path/to/update.tar.gz", list_devices=False)
+    args = argparse.Namespace(
+        update_file="path/to/update.tar.gz",
+        list_devices=False,
+        config=None,
+    )
 
     with patch("asyncio.run", autospec=True) as mock_asyncio_run:
         main(args)

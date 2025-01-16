@@ -179,6 +179,7 @@ def load_config(file_path: Path | None = None) -> Config:
         file_path = find_config_file()
 
     try:
+        _logger.info("Loading config from file: %s", file_path)
         with open(file_path, "r") as file:
             config_data = yaml.safe_load(file)
         if config_data is None:

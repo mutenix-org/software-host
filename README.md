@@ -48,6 +48,13 @@ actions:
 - action: send-reaction
   button_id: 4
   extra: like
+- action: webhook
+  button_id: 5
+  extra:
+    url: https://some.end.point/wherever
+    headers:
+      X-Auth: "12345"
+    data: {"key": "value"}
 ```
 
 - `action`:
