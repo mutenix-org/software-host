@@ -164,15 +164,15 @@ class TestUpdates(unittest.TestCase):
 
         mock_device_instance.read.side_effect = [
             bytes(),
-            bytes([65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 1, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 1, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 1, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 2, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 2, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 2, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 1, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 1, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 1, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 2, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 2, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 2, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
             bytes(),
             bytes(),
             bytes(),
@@ -180,14 +180,6 @@ class TestUpdates(unittest.TestCase):
             bytes(),
             bytes(),
         ]
-
-        def write_side_effect(data):
-            if data[0] == 2:
-                mock_device_instance.read.side_effect = [
-                    bytes([65, 75, data[3], data[4], data[5], data[6], data[1], 0, 0]),
-                ]
-
-        mock_device_instance.write.side_effect = write_side_effect
 
         with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
             with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
@@ -214,9 +206,9 @@ class TestUpdates(unittest.TestCase):
 
         mock_device_instance.read.side_effect = [
             bytes(),  # No more requests
-            bytes([65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
-            bytes([65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 1, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 2, 0, 0]),  # Acknowledge for first file
+            bytes([2, 65, 75, 0, 0, 0, 0, 3, 0, 0]),  # Acknowledge for first file
             bytes(),  # No more requests
             bytes(),  # No more requests
             bytes(),  # No more requests

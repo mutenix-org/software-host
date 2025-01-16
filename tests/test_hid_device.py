@@ -220,7 +220,7 @@ async def test_send_report_exception(hid_device):
 
 
 @pytest.mark.asyncio
-async def test_unregister_callback():
+async def test_unregister_callback(hid_device: HidDevice):
     # Create a HidDevice instance
     device = HidDevice()
 

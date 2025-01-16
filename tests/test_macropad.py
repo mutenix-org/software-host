@@ -378,7 +378,7 @@ async def test_update_device_status_teams_source_in_meeting(macropad):
         ),
     )
 
-    macropad._device.send_msg = AsyncMock()
+    macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 
     await macropad._update_device_status()
@@ -410,7 +410,7 @@ async def test_update_device_status_teams_source_not_in_meeting(macropad):
         ),
     )
 
-    macropad._device.send_msg = AsyncMock()
+    macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 
     await macropad._update_device_status()
@@ -433,7 +433,7 @@ async def test_update_device_status_cmd_source_with_result(macropad):
         ),
     ]
     macropad._last_status_check = defaultdict(int)
-    macropad._device.send_msg = AsyncMock()
+    macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 
     with patch("asyncio.to_thread", return_value="blue"):
@@ -459,7 +459,7 @@ async def test_update_device_status_cmd_source_without_result(macropad):
         ),
     ]
     macropad._last_status_check = defaultdict(int)
-    macropad._device.send_msg = AsyncMock()
+    macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 
     with patch("asyncio.to_thread", return_value=0):
