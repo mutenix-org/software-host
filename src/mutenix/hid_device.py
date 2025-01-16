@@ -23,13 +23,15 @@ class HidDevice:
     """
 
     def __init__(self):
-        self._device: hid.device = hid.device()
+        self._device: hid.device | None = None
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
-        self._send_buffer: asyncio.Queue = asyncio.Queue()
-        self._last_communication = 0
-        self._last_ping_time = 0
-        self._waiting_for_device = False
-        self._run = True
+        self._send_buffer: asyncio.Queue[tuple[HidOutputMessage, asyncio.Future]] = (
+            asyncio.Queue()
+        )
+        self._last_communication: float = 0
+        self._last_ping_time: float = 0
+        self._waiting_for_device: bool = False
+        self._run: bool = True
 
     def __del__(self):
         if self._device:
@@ -40,6 +42,7 @@ class HidDevice:
         _logger.info(
             "Looking for device with",
         )
+        self._device = None
         self._device = await self._search_for_device_loop()
 
     async def _search_for_device(self):
@@ -92,6 +95,8 @@ class HidDevice:
     def _send_report(self, data: HidCommand):
         buffer = bytes([data.REPORT_ID]) + data.to_buffer()
         buffer = bytes(buffer)
+        if not self._device:
+            raise ValueError("Device not connected")
         return self._device.write(buffer)
 
     def send_msg(self, msg: HidOutputMessage):
@@ -213,3 +218,7 @@ class HidDevice:
 
     async def wait_for_device(self):  # pragma: no cover
         await self._wait_for_device()
+
+    @property
+    def connected(self) -> bool:  # pragma: no cover
+        return self._device is not None

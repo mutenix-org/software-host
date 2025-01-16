@@ -102,44 +102,41 @@ async def test_read_success(hid_device):
     async def callback(msg):
         future.set_result(msg)
 
+    hid_device._device = Mock()
+    hid_device._device.read.return_value = data
+
     hid_device._callbacks.append(callback)
-    with patch.object(hid_device._device, "read", new_callable=Mock, return_value=data):
-        with patch(
-            "mutenix.hid_commands.HidInputMessage.from_buffer",
-            return_value=Mock(),
-        ):
-            await hid_device._read()
+    with patch(
+        "mutenix.hid_commands.HidInputMessage.from_buffer",
+        return_value=Mock(),
+    ):
+        await hid_device._read()
     await future
 
 
 @pytest.mark.asyncio
 async def test_read_device_disconnected(hid_device):
     hid_device._wait_for_device = AsyncMock()
-    with patch.object(
-        hid_device._device,
-        "read",
-        side_effect=OSError("Device disconnected"),
-    ):
-        with patch("mutenix.hid_device._logger.error") as mock_logger:
-            await hid_device._read()
-            mock_logger.assert_called_with("Device disconnected: %s", ANY)
+    hid_device._device = Mock()
+    hid_device._device.read.side_effect = OSError("Device disconnected")
+
+    with patch("mutenix.hid_device._logger.error") as mock_logger:
+        await hid_device._read()
+        mock_logger.assert_called_with("Device disconnected: %s", ANY)
 
     assert hid_device._wait_for_device.called
 
 
 @pytest.mark.asyncio
 async def test_read_value_error(hid_device):
-    with patch.object(
-        hid_device._device,
-        "read",
-        side_effect=ValueError("Invalid message"),
-    ):
-        with patch("mutenix.hid_device._logger.error") as mock_logger:
-            await hid_device._read()
-            mock_logger.assert_called_with(
-                "Error reading message: %s",
-                ANY,
-            )
+    hid_device._device = Mock()
+    hid_device._device.read.side_effect = ValueError("Invalid message")
+    with patch("mutenix.hid_device._logger.error") as mock_logger:
+        await hid_device._read()
+        mock_logger.assert_called_with(
+            "Error reading message: %s",
+            ANY,
+        )
 
 
 class TypeMatcher:
@@ -191,32 +188,40 @@ async def test_ping_waits_before_sending(hid_device):
 @pytest.mark.asyncio
 async def test_send_report_success(hid_device):
     msg = PrepareUpdate()
-    with patch.object(hid_device._device, "write", return_value=1) as mock_write:
-        result = hid_device._send_report(msg)
-        assert result == 1
-        mock_write.assert_called_once_with(bytes([msg.REPORT_ID]) + msg.to_buffer())
+
+    hid_device._device = Mock()
+    hid_device._device.write.return_value = 1
+    result = hid_device._send_report(msg)
+    assert result == 1
+    hid_device._device.write.assert_called_once_with(
+        bytes([msg.REPORT_ID]) + msg.to_buffer(),
+    )
 
 
 @pytest.mark.asyncio
 async def test_send_report_failure(hid_device):
     msg = PrepareUpdate()
-    with patch.object(hid_device._device, "write", return_value=-1) as mock_write:
-        result = hid_device._send_report(msg)
-        assert result == -1
-        mock_write.assert_called_once_with(bytes([msg.REPORT_ID]) + msg.to_buffer())
+
+    hid_device._device = Mock()
+    hid_device._device.write.return_value = -1
+    result = hid_device._send_report(msg)
+    assert result == -1
+    hid_device._device.write.assert_called_once_with(
+        bytes([msg.REPORT_ID]) + msg.to_buffer(),
+    )
 
 
 @pytest.mark.asyncio
 async def test_send_report_exception(hid_device):
     msg = PrepareUpdate()
-    with patch.object(
-        hid_device._device,
-        "write",
-        side_effect=OSError("Device error"),
-    ) as mock_write:
-        with pytest.raises(OSError, match="Device error"):
-            hid_device._send_report(msg)
-        mock_write.assert_called_once_with(bytes([msg.REPORT_ID]) + msg.to_buffer())
+
+    hid_device._device = Mock()
+    hid_device._device.write.side_effect = OSError("Device error")
+    with pytest.raises(OSError, match="Device error"):
+        hid_device._send_report(msg)
+    hid_device._device.write.assert_called_once_with(
+        bytes([msg.REPORT_ID]) + msg.to_buffer(),
+    )
 
 
 @pytest.mark.asyncio
