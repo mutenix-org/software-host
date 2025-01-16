@@ -8,9 +8,15 @@ import websockets
 from mutenix.teams_messages import ClientMessage
 from mutenix.teams_messages import ServerMessage
 from mutenix.utils import block_parallel
+from mutenix.utils import rate_limited_logger
 from mutenix.utils import run_loop
 
 _logger = logging.getLogger(__name__)
+
+
+@rate_limited_logger(_logger, limit=3, interval=10)
+def _log_failed_to_connect(*args, **kwargs):
+    _logger.error(*args, **kwargs)
 
 
 class Identifier:
@@ -55,6 +61,7 @@ class WebSocketClient:
     @block_parallel
     async def _connect(self):
         while self._run:
+            self._connection = None
             connection = await self._do_connect()
             if not connection:
                 await asyncio.sleep(self.RETRY_INTERVAL)
@@ -68,7 +75,7 @@ class WebSocketClient:
             _logger.info("Connected to WebSocket server at %s", self._uri)
             return connection
         except Exception as e:
-            _logger.info(
+            _log_failed_to_connect(
                 "Failed to connect to WebSocket server: %s: %s",
                 type(e).__name__,
                 e,
@@ -148,6 +155,10 @@ class WebSocketClient:
             _, future = self._send_queue.get_nowait()
             future.set_exception(RuntimeError("WebSocketClient is stopping"))
             self._send_queue.task_done()
+
+    @property
+    def connected(self) -> bool:
+        return self._connection is not None
 
     _receive_loop = run_loop(_receive)
     _send_loop = run_loop(_send)

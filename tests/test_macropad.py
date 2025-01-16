@@ -270,6 +270,12 @@ async def test_process(macropad):
     macropad._websocket.process = AsyncMock()
     macropad._virtual_macropad.process = AsyncMock()
 
+    async def stop_macropad():
+        await asyncio.sleep(0.2)
+        await macropad.stop()
+
+    asyncio.create_task(stop_macropad())
+
     await macropad.process()
 
     macropad._device.process.assert_called_once()
@@ -282,6 +288,8 @@ async def test_process_with_exception(macropad):
     macropad._device.process = AsyncMock(side_effect=Exception("Device error"))
     macropad._websocket.process = AsyncMock(return_value=None)
     macropad._virtual_macropad.process = AsyncMock(return_value=None)
+
+    macropad._check_status = AsyncMock()
 
     with patch("mutenix.macropad._logger.error") as mock_logger_error:
         await macropad.process()

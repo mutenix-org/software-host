@@ -3,9 +3,12 @@
 import asyncio
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 from mutenix.macropad import Macropad
 from PIL import Image
+
+my_icon: Any | None = None
 
 
 def load_image(file_name):
@@ -14,6 +17,7 @@ def load_image(file_name):
 
 
 def run_trayicon(macropad: Macropad):  # pragma: no cover
+    global my_icon
     from pystray import Icon as icon, Menu as menu, MenuItem as item
 
     def open_url(endpoint=""):
@@ -42,13 +46,28 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
         asyncio.run(macropad.stop())
         icon.stop()
 
-    icon(
+    def nothing(icon, item):
+        pass
+
+    my_icon = icon(
         "MUTENIX",
         load_image("icon_all_red_64.png"),
         menu=menu(
             item(
                 "Open Virtual Macropad",
                 open_url("/"),
+            ),
+            item(
+                "Teams connected",
+                nothing,
+                checked=lambda x: macropad.teams_connected,
+                enabled=False,
+            ),
+            item(
+                "Device connected",
+                nothing,
+                checked=lambda x: macropad.device_connected,
+                enabled=False,
             ),
             item(
                 "Help",
@@ -71,4 +90,5 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                 quit_macropad,
             ),
         ),
-    ).run()
+    )
+    my_icon.run()

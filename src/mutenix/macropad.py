@@ -26,6 +26,7 @@ from mutenix.teams_messages import ServerMessage
 from mutenix.updates import check_for_device_update
 from mutenix.updates import perform_upgrade_with_file
 from mutenix.utils import bring_teams_to_foreground
+from mutenix.utils import run_loop
 from mutenix.virtual_macropad import VirtualMacropad
 from mutenix.websocket_client import Identifier
 from mutenix.websocket_client import WebSocketClient
@@ -37,6 +38,7 @@ class Macropad:
     """The main logic for the Macropad."""
 
     def __init__(self):
+        self._run = True
         self._version_seen = None
         self._last_status_check = defaultdict(int)
         self._config = load_config()
@@ -44,6 +46,7 @@ class Macropad:
         self._setup()
         self._current_state = None
         self._setup_buttons()
+        self._checktime = time.time()
 
     def _setup(self):
         self._device = HidDevice()
@@ -213,9 +216,21 @@ class Macropad:
             except Exception as e:
                 _logger.exception(e)
 
-    async def _check_status(self):
+    async def _do_check_status(self):
+        from mutenix.tray_icon import my_icon
+
         await self._update_device_status()
         await asyncio.sleep(0.1)
+        if int(time.time() - self._checktime) > 10:
+            try:
+                if my_icon:
+                    my_icon.update_menu()
+                self._checktime = time.time()
+            except Exception as e:
+                _logger.error("Error updating tray icon: %s", e)
+                print(e)
+
+    _check_status = run_loop(_do_check_status)
 
     async def process(self):
         """Starts the process loop for the device and the WebSocket connection."""
@@ -237,6 +252,7 @@ class Macropad:
 
     async def stop(self):
         """Stops the device and WebSocket connection."""
+        self._run = False
         await self._device.stop()
         _logger.info("Device stopped")
         await self._websocket.stop()
@@ -266,3 +282,11 @@ class Macropad:
         message = UpdateConfig()
         message.activate_filesystem(True)
         self._device.send_msg(message)
+
+    @property
+    def teams_connected(self) -> bool:
+        return self._websocket.connected
+
+    @property
+    def device_connected(self) -> bool:
+        return self._device.connected
