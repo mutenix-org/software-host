@@ -25,6 +25,7 @@ def check_for_device_update(device: hid.device, device_version: VersionInfo):
     try:
         result = requests.get(
             "https://api.github.com/repos/mutenix-org/firmware-macroboard/releases/latest",
+            timeout=4,
         )
         if result.status_code != 200:
             _logger.error(
@@ -321,6 +322,7 @@ def check_for_self_update(major: int, minor: int, patch: int):
     try:
         result = requests.get(
             "https://api.github.com/repos/mutenix-org/software-host/releases/latest",
+            timeout=4,
         )
         if result.status_code != 200:
             _logger.error(
