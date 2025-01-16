@@ -283,9 +283,9 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     }
 
     while True:
-        received = device.read(24, 00)
+        received = device.read(100, 1000)
         if len(received) > 0:
-            rc = ChunkAck(bytes(received))
+            rc = ChunkAck(bytes(received[1:]))
             if rc.is_valid:
                 _logger.debug("Received Ack")
                 file = next((f for f in transfer_files if f.id == rc.id), None)
@@ -307,7 +307,6 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
             )
             cnk = bytes((HID_REPORT_ID_TRANSFER,)) + chunk.packet()
             device.write(cnk)
-            time.sleep(DATA_TRANSFER_SLEEP_TIME)
         except StopIteration:
             break
     time.sleep(STATE_CHANGE_SLEEP_TIME)

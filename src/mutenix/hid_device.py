@@ -32,7 +32,8 @@ class HidDevice:
         self._run = True
 
     def __del__(self):
-        self._device.close()
+        if self._device:
+            self._device.close()
 
     @block_parallel
     async def _wait_for_device(self):
@@ -54,7 +55,7 @@ class HidDevice:
 
             device_info = find_device()
             if len(device_info) == 0:
-                asyncio.sleep(0)
+                await asyncio.sleep(0)
                 return None
             device = hid.device()
             # We are sorting the devices by vendor_id to make sure we try to open BT device first
