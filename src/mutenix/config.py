@@ -71,6 +71,12 @@ class VirtualKeypadConfig(BaseModel):
     bind_port: int = 12909
 
 
+class DeviceInfo(BaseModel):
+    vendor_id: int | None = None
+    product_id: int | None = None
+    serial_number: str | None = None
+
+
 class Config(BaseModel):
     actions: list[ButtonAction]
     double_tap_action: list[ButtonAction] = []
@@ -79,6 +85,7 @@ class Config(BaseModel):
     file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
     auto_update: bool = True
+    device_identifications: list[DeviceInfo] = []
 
 
 def create_default_config() -> Config:

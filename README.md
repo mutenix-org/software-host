@@ -32,11 +32,21 @@ uvx mutenix
 
 ## Configuration
 
+Using the configuration file several things could be configured:
+
+- actions of the buttons
+- led states/colors
+- virtual keypad binding (address and port)
+- device identification to connect to
+
 Mutenix tries to find a file called `mutenix.yaml` in the directory it is run from or `$HOME/.config/`. It it does not find one, it will create one in the current directory.
+
+
+# Actions configuration
 
 The file could be used to configure the action triggered by each of the buttons.
 
-There are are two sections to configure actions:
+There are are two sections corresponding to trigger types to configure actions:
 
 - `actions`: actions triggered by a single press
 - `double_tap_actions`: actions triggered by a double tap on a button
@@ -45,9 +55,13 @@ Each of the buttons can be configured in one of the following ways:
 
 ```yaml
 actions:
+- action: cmd
+  button_id: 3
+  extra: net send * Please call me
 - action: send-reaction
   button_id: 4
   extra: like
+double_tap_action:
 - action: webhook
   button_id: 5
   extra:
@@ -70,6 +84,62 @@ actions:
         - `headers`: headers to add
 - `button_id`: the id of the buttons, starting with 1
 - `extra`: see the actions which require it
+
+
+### LED Configuration
+
+Next section is for the colors of the LED, each LED which is associated with a button can be controlled.
+
+```yaml
+leds:
+- button_id: 1
+  source: teams
+  color_off: green
+  color_on: red
+  extra: is-muted
+  interval: 0.0
+  read_result: false
+```
+
+- `source`:
+  - `teams`: based on the information received by the websocket. The following informations are available and could be selected by `extra`: `is-muted`, `is-hand-raised`, `is-in-meeting`, `is-recording-on`, `is-background-blurred`, `is-sharing`, `has-unread-messages`, `is-video-on`
+  - `cmd`: A command to execute and take its output/return code.
+    - if `read_result` is `false` or not set the exit code will be used so select `color_off` or `color_on`.
+    - if `read_result` is `true`, the output of the command will be used. Supported output is one of the colors listed below.
+  - `color_on/color_off` define the colors to use in case the state is true or the exit code is 0
+  - `interval` the amount of seconds between two checks/runs of the call.
+
+**Supported Colors**: `red`, `green`, `blue`, `white`, `black`, `yellow`, `cyan`, `magenta`, `orange`, `purple`
+
+### Websocket config
+
+- `address`: The bind address.
+- `port`: The bind port for the virtual macropad.
+
+### Device Config
+
+```yaml
+device_identifications:
+-  vendor_id: 12345
+   product_id: 1
+   serial_number: 9121DB23244
+-  vendor_id: 12345
+   product_id: 1
+   serial_number: 9121DB2324F
+```
+
+The settings can configure for which device to look for. If not given it will search for a device with `mutenix` in the `product_string` or the default PID/VID combination.
+
+### Teams Token
+
+After allowing the access to teams, the token is also stored in the file. Changing or deleting requires a reauthentication in teams.
+
+
+## Teams it not working
+
+In teams the `Third Pary API` must be enabled.
+
+![Privacy Settings in Teams](images/privacy_settings.png)
 
 
 ## Contributing

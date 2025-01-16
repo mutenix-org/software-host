@@ -51,7 +51,7 @@ class Macropad:
         self._checktime = time.time()
 
     def _setup(self):
-        self._device = HidDevice()
+        self._device = HidDevice(self._config.device_identifications)
         token = self._config.teams_token
         self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",

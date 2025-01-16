@@ -5,6 +5,7 @@ import logging
 from typing import Callable
 
 import hid
+from mutenix.config import DeviceInfo
 from mutenix.hid_commands import HidCommand
 from mutenix.hid_commands import HidInputMessage
 from mutenix.hid_commands import HidOutputMessage
@@ -22,7 +23,8 @@ class HidDevice:
     Providing async read and write loops for incoming and outgoing messages.
     """
 
-    def __init__(self):
+    def __init__(self, device_identifications: list[DeviceInfo] | None = None):
+        self._device_info = device_identifications or []
         self._device: hid.device | None = None
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
         self._send_buffer: asyncio.Queue[tuple[HidOutputMessage, asyncio.Future]] = (
@@ -56,13 +58,18 @@ class HidDevice:
                         devices.append(device)
                 return devices
 
-            device_info = find_device()
-            if len(device_info) == 0:
+            if not self._device_info:
+                available_devices = find_device()
+            else:
+                available_devices = self._device_info
+            if len(available_devices) == 0:
+                _logger.debug("No device available, no config")
                 await asyncio.sleep(0)
                 return None
+            _logger.debug("Looking for device with %s", available_devices)
             device = hid.device()
             # We are sorting the devices by vendor_id to make sure we try to open BT device first
-            for device_info in sorted(device_info, key=lambda x: x["vendor_id"]):
+            for device_info in sorted(available_devices, key=lambda x: x["vendor_id"]):
                 if device_info["product_id"] == 0 and device_info["vendor_id"] == 0:
                     try:
                         device.open(
