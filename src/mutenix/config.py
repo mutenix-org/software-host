@@ -4,6 +4,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import yaml
 from mutenix.teams_messages import MeetingAction
@@ -17,6 +18,7 @@ CONFIG_FILENAME = "mutenix.yaml"
 class ActionEnum(str, Enum):
     ACTIVATE_TEAMS = "activate-teams"
     CMD = "cmd"
+    WEBHOOK = "webhook"
 
 
 class LedStatusSource(str, Enum):
@@ -51,7 +53,7 @@ class TeamsState(str, Enum):
 class ButtonAction(BaseModel):
     button_id: int
     action: MeetingAction | ActionEnum
-    extra: str | None = None
+    extra: str | dict[str, Any] | None = None
 
 
 class LedStatus(BaseModel):
@@ -177,6 +179,7 @@ def load_config(file_path: Path | None = None) -> Config:
         file_path = find_config_file()
 
     try:
+        _logger.info("Loading config from file: %s", file_path)
         with open(file_path, "r") as file:
             config_data = yaml.safe_load(file)
         if config_data is None:

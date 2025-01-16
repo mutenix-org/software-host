@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import pathlib
 import time
 from collections import defaultdict
 from unittest.mock import ANY
@@ -41,7 +42,7 @@ def macropad():
         MockWebSocketClient.return_value = Mock()
         MockVirtualMacropad.return_value = Mock()
         MockLoadConfigFile.return_value = create_default_config()
-        return Macropad()
+        return Macropad(pathlib.Path(__file__).parent / "mutenix.yaml")
 
 
 @pytest.mark.asyncio
@@ -85,7 +86,8 @@ async def test_teams_callback_token_refresh(macropad):
     macropad._current_state = None
     with patch("builtins.open", mock_open()) as mock_file:
         await macropad._teams_callback(msg)
-        mock_file.assert_called_once_with("mutenix.yaml", "w")
+        mock_file.assert_called_once()
+        assert mock_file.call_args[0][0].endswith("mutenix.yaml")
         mock_file().write.assert_any_call("new_token")
 
 
@@ -99,7 +101,8 @@ async def test_teams_callback_token_refresh_save_failed(macropad):
     ):
         mock_file().write.side_effect = IOError
         await macropad._teams_callback(msg)
-        mock_file.assert_called_with("mutenix.yaml", "w")
+        mock_file.assert_called()
+        assert mock_file.call_args[0][0].endswith("mutenix.yaml")
         # mock_logger_error.assert_called_once()
 
 

@@ -6,8 +6,10 @@ import os
 import subprocess
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Callable
 
+import requests
 from mutenix.config import ActionEnum
 from mutenix.config import ButtonAction
 from mutenix.config import LedStatusSource
@@ -37,14 +39,14 @@ _logger = logging.getLogger(__name__)
 class Macropad:
     """The main logic for the Macropad."""
 
-    def __init__(self):
+    def __init__(self, config_file: Path | None = None):
         self._run = True
         self._version_seen = None
-        self._last_status_check = defaultdict(int)
-        self._config = load_config()
-        self._last_led_update = {}
+        self._last_status_check: defaultdict[int, int] = defaultdict(int)
+        self._config = load_config(config_file)
+        self._last_led_update: dict[int, SetLed] = {}
         self._setup()
-        self._current_state = None
+        self._current_state: ServerMessage | None = None
         self._setup_buttons()
         self._checktime = time.time()
 
@@ -79,9 +81,22 @@ class Macropad:
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
         mapped_action: Callable | None | MeetingAction = None
+
+        def perform_webhook(extra):
+            requests.request(
+                extra.get("method", "GET"),
+                extra["url"],
+                json=extra.get("data", None),
+                headers={
+                    str(key): str(value)
+                    for key, value in extra.get("headers", {}).items()
+                },
+            )
+
         action_map: dict[ActionEnum, Callable] = {
             ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
             ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
+            ActionEnum.WEBHOOK: perform_webhook,
         }
 
         if status.triggered:
@@ -99,7 +114,7 @@ class Macropad:
                 mapped_action = action_map.get(action.action, None)
             if mapped_action:
                 if callable(mapped_action):
-                    if action.action == ActionEnum.CMD:
+                    if action.action in [ActionEnum.CMD, ActionEnum.WEBHOOK]:
                         mapped_action(action.extra)  # pragma: no cover
                     else:
                         mapped_action()

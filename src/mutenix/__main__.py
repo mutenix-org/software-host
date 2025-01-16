@@ -28,6 +28,11 @@ _logger = logging.getLogger(__name__)
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Mutenix Macropad Controller")
     parser.add_argument(
+        "--config",
+        type=pathlib.Path,
+        help="Path to the configuration file",
+    )
+    parser.add_argument(
         "--update-file",
         type=str,
         help="Path to the update tar.gz file",
@@ -56,7 +61,7 @@ def main(args: argparse.Namespace):
         return
 
     signal.signal(signal.SIGINT, signal_handler)
-    macropad = Macropad()
+    macropad = Macropad(args.config)
 
     if args.update_file:
         _logger.info("Starting manual update with file: %s", args.update_file)
