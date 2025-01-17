@@ -61,7 +61,9 @@ class HidDevice:
             if not self._device_info:
                 available_devices = find_device()
             else:
-                available_devices = self._device_info
+                available_devices = list(
+                    map(lambda x: x.model_dump(), self._device_info)
+                )
             if len(available_devices) == 0:
                 _logger.debug("No device available, no config")
                 await asyncio.sleep(0)

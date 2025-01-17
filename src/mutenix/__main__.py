@@ -71,12 +71,16 @@ def main(args: argparse.Namespace):
     def run_asyncio_loop():
         asyncio.run(macropad.process())
 
+    _logger.info("Running Main Thread")
     loop_thread = threading.Thread(target=run_asyncio_loop)
     loop_thread.start()
 
+    _logger.info("Tray icon start")
     run_trayicon(macropad)
+    _logger.info("Tray icon stopped")
 
     loop_thread.join()
+    _logger.info("Trhead joined")
 
 
 def runmain():

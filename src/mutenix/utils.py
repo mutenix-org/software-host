@@ -42,6 +42,8 @@ def bring_teams_to_foreground() -> None:  # pragma: no cover
             _logger.debug("Minimizing and restoring window %s", w)
             win32gui.ShowWindow(w, win32con.SW_MINIMIZE)
             win32gui.ShowWindow(w, win32con.SW_RESTORE)
+            win32gui.ShowWindow(w, win32con.SW_SHOWMAXIMIZED)
+            win32gui.ShowWindow(w, win32con.SW_SHOWNORMAL)
             win32gui.SetActiveWindow(w)
 
     elif platform.system().lower() == "darwin":

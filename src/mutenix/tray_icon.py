@@ -43,8 +43,8 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
         macropad.activate_filesystem()
 
     def quit_macropad(icon, item):
-        asyncio.run(macropad.stop())
         icon.stop()
+        asyncio.run(macropad.stop())
 
     def nothing(icon, item):
         pass
