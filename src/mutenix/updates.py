@@ -275,32 +275,29 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     transfer_files = [TransferFile(i, file) for i, file in enumerate(files)]
 
     _logger.debug("Preparing to send %s files", len(transfer_files))
-    file_progress_bars = {
-        file.id: tqdm(
+
+    for i, file in enumerate(transfer_files, 1):
+        fileprogress = tqdm(
             total=file.chunks,
-            desc=f"{file.id}/{len(transfer_files)} {file.filename}",
+            desc=f"Sending file {file.filename:25} {i:2}/{len(transfer_files)}",
         )
-        for file in transfer_files
-    }
+        while True:
+            received = device.read(100, 1000)
+            if len(received) > 0:
+                rc = ChunkAck(bytes(received[1:]))
+                if rc.is_valid:
+                    _logger.debug("Received Ack")
+                    ack_file = next((f for f in transfer_files if f.id == rc.id), None)
+                    if not ack_file:
+                        _logger.warning("No file id found for ack")
+                        continue
+                    fileprogress.update(1)
+                    ack_file.ack_chunk(rc)
 
-    while True:
-        received = device.read(100, 1000)
-        if len(received) > 0:
-            rc = ChunkAck(bytes(received[1:]))
-            if rc.is_valid:
-                _logger.debug("Received Ack")
-                file = next((f for f in transfer_files if f.id == rc.id), None)
-                if not file:
-                    _logger.warning("No file id found for ack")
-                    continue
-                file_progress_bars[file.id].update(1)
-                file.ack_chunk(rc)
-
-        try:
-            file = next(filter(lambda x: not x.is_complete(), transfer_files))
             chunk = file.get_next_chunk()
             if not chunk:
-                continue
+                fileprogress.close()
+                break
             _logger.debug(
                 "Sending chunk (%s...) of file %s",
                 chunk.packet()[:10],
@@ -308,8 +305,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
             )
             cnk = bytes((HID_REPORT_ID_TRANSFER,)) + chunk.packet()
             device.write(cnk)
-        except StopIteration:
-            break
+
     time.sleep(STATE_CHANGE_SLEEP_TIME)
     device.write(bytes((HID_REPORT_ID_TRANSFER,)) + Completed().packet())
     time.sleep(STATE_CHANGE_SLEEP_TIME)

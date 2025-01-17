@@ -196,8 +196,8 @@ class TestUpdates(unittest.TestCase):
 
         self.assertEqual(
             mock_device_instance.write.call_count,
-            12,
-        )  # 3 files * 3 chunks each + 3 state change commands
+            10,
+        )  # 3 files * 3 chunks each + 1 state change commands
 
     @patch("mutenix.updates.hid.device")
     def test_perform_hid_upgrade_ack(self, mock_device):
