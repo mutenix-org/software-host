@@ -46,9 +46,7 @@ def parse_arguments():
 
 
 def main(args: argparse.Namespace):
-    check_for_self_update(MAJOR, MINOR, PATCH)
-
-    def signal_handler(signal, frame):
+    def signal_handler(signal, frame):  # pragma: no cover
         print("Shuting down...")
         _logger.info("SIGINT received, shutting down...")
         asyncio.create_task(macropad.stop())
@@ -60,6 +58,8 @@ def main(args: argparse.Namespace):
             print(device)
         return
 
+    check_for_self_update(MAJOR, MINOR, PATCH)
+
     signal.signal(signal.SIGINT, signal_handler)
     macropad = Macropad(args.config)
 
@@ -68,7 +68,7 @@ def main(args: argparse.Namespace):
         asyncio.run(macropad.manual_update(args.update_file))
         return
 
-    def run_asyncio_loop():
+    def run_asyncio_loop():  # pragma: no cover
         asyncio.run(macropad.process())
 
     _logger.info("Running Main Thread")
@@ -83,11 +83,11 @@ def main(args: argparse.Namespace):
     _logger.info("Trhead joined")
 
 
-def runmain():
+def runmain():  # pragma: no cover
     args = parse_arguments()
     logging.basicConfig(level=logging.INFO)
     main(args)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     runmain()

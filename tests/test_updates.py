@@ -16,6 +16,7 @@ from mutenix.updates import check_for_self_update
 from mutenix.updates import Chunk
 from mutenix.updates import ChunkAck
 from mutenix.updates import FileChunk
+from mutenix.updates import FileDelete
 from mutenix.updates import FileEnd
 from mutenix.updates import FileStart
 from mutenix.updates import MAX_CHUNK_SIZE
@@ -328,3 +329,59 @@ class TestTransferFile(unittest.TestCase):
         transfer_file = TransferFile(1, pathlib.Path(self.file_path))
         self.assertEqual(transfer_file.filename, "test_file.py")
         self.assertEqual(transfer_file.size, len(self.file_content))
+
+
+class TestPerformHidUpgradeError(unittest.TestCase):
+    @patch("mutenix.updates.hid.device")
+    def test_perform_hid_upgrade_error(self, mock_device):
+        mock_device_instance = MagicMock()
+        mock_device.return_value = mock_device_instance
+
+        mock_device_instance.read.side_effect = [
+            bytes([2, 69, 82, 5, 69, 114, 114, 111, 114]),  # Error
+        ]
+
+        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
+            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
+                with patch("builtins.open", mock_open(read_data=b"fake content")):
+                    with patch("pathlib.Path.is_file", return_value=True):
+                        with patch(
+                            "pathlib.Path.open",
+                            mock_open(read_data=b"fake content"),
+                        ):
+                            with self.assertLogs(
+                                "mutenix.updates",
+                                level="ERROR",
+                            ) as log:
+                                perform_hid_upgrade(mock_device_instance, ["file1.py"])
+
+        self.assertIn("Error received from device: Error", log.output[0])
+
+
+class TestTransferFileInit(unittest.TestCase):
+    def setUp(self):
+        self.file_content = b"fake content" * 10
+        self.file_path = "test_file.py"
+        with open(self.file_path, "wb") as f:
+            f.write(self.file_content)
+
+    def tearDown(self):
+        os.remove(self.file_path)
+
+    def test_transfer_file_init(self):
+        transfer_file = TransferFile(1, self.file_path)
+        self.assertEqual(transfer_file.id, 1)
+        self.assertEqual(transfer_file.filename, "test_file.py")
+        self.assertEqual(transfer_file.size, len(self.file_content))
+        self.assertEqual(len(transfer_file._chunks), transfer_file.chunks)
+
+    def test_transfer_file_init_delete(self):
+        delete_file_path = "test_file.py.delete"
+        with open(delete_file_path, "wb") as f:
+            f.write(self.file_content)
+        transfer_file = TransferFile(1, delete_file_path)
+        self.assertEqual(transfer_file.id, 1)
+        self.assertEqual(transfer_file.filename, "test_file.py")
+        self.assertEqual(len(transfer_file._chunks), 1)
+        self.assertIsInstance(transfer_file._chunks[0], FileDelete)
+        os.remove(delete_file_path)

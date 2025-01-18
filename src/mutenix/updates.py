@@ -323,7 +323,7 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
                     err = UpdateError(bytes(received[1:]))
                     if err.is_valid:
                         print("Error received from device: ", err)
-                        _logger.error(err)
+                        _logger.error("Error received from device: %s", err)
                         cancelled = True
                         break
 
