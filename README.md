@@ -79,6 +79,24 @@ Each of the buttons can be configured in one of the following ways:
 
 ```yaml
 actions:
+- action: key-press
+  button_id: 1
+  extra:
+    sequence:
+      - modifiers: [cmd_l, shift]
+        key: p
+      - string: Reload Window
+      - key: enter
+- action: mouse
+  button_id: 2
+  extra:
+    sequence:
+      - x: 100
+        y: 100
+      - action: click
+        button: left
+      - x: 200
+        y: 200
 - action: cmd
   button_id: 3
   extra: net send * Please call me
@@ -105,6 +123,9 @@ double_tap_action:
       - `keypress`: Press keys. In extra you can specify one or many keys or key combinations
         - **one key**: `key` like 'A', B', ... and `modifiers` with modifiers as `shift`, `alt`, ... see [pynput](https://pynput.readthedocs.io/en/latest/keyboard.html#pynput.keyboard.Key)
         - **multiple keys**: a list of the one key settings in sequence
+      - `mouse`: Simulate mouse
+        - **single action**: One of the following actions: `move`, `set`, `click`, `press`, `release`. Parameters are `x`, `y` for position, `button` for click actions and `count` for click
+        - **sequence**: multiple actions as a list
       - `webhook` to make a user defined webhook call, make sure `extra has the following information:
         - `url`: the url endpoint
         - `method`: (optional, default: GET) the method to use

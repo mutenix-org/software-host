@@ -36,9 +36,13 @@ from mutenix.websocket_client import WebSocketClient
 try:
     from pynput.keyboard import Controller
     from pynput.keyboard import Key
+    from pynput.mouse import Button
+    from pynput.mouse import Controller as MouseController
 except ImportError:
     Controller = None
     Key = None
+    Button = None
+    MouseController = None
 
 _logger = logging.getLogger(__name__)
 
@@ -110,26 +114,54 @@ class Macropad:
                 return
 
             keyboard = Controller()
-            for key in extra.get("modifiers", []):
-                keyboard.press(getattr(Key, key))
-            keyboard.press(getattr(Key, extra["key"]))
-            keyboard.release(getattr(Key, extra["key"]))
-            for key in extra.get("modifiers", []):
-                keyboard.release(getattr(Key, key))
+            if "key" in extra:
 
-        def keytype(extra):
-            if not Controller:
-                _logger.error("pynput not installed, cannot send keypress")
+                def do_key(*keys):
+                    if len(keys) > 1:
+                        keyboard.press(keys[0])
+                    with keyboard.pressed(keys[0]):
+                        do_key(*keys[1:])
+
+                try:
+                    do_key(
+                        *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
+                        extra["key"]
+                        if len(extra["key"]) == 1
+                        else getattr(Key, extra["key"]),
+                    )
+                except AttributeError:
+                    print("Key not found")
+            elif "string" in extra:
+                keyboard.type(extra["string"])
+
+        def mousemove(extra):
+            if not MouseController:
+                _logger.error("pynput not installed, cannot send mousemove")
                 return
-            keyboard = Controller()
-            keyboard.type(extra)
+            if "sequence" in extra:
+                for sequence in extra["sequence"]:
+                    mousemove(sequence)
+                return
+            mouse = MouseController()
+            action = extra.get("action", "move")
+            match action:
+                case "move":
+                    mouse.move(extra.get("x", 0), extra.get("y", 0))
+                case "set":
+                    mouse.position = (extra.get("x", 0), extra.get("y", 0))
+                case "click":
+                    mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
+                case "press":
+                    mouse.press(getattr(Button, extra["button"]))
+                case "release":
+                    mouse.release(getattr(Button, extra["button"]))
 
         action_map: dict[ActionEnum, Callable] = {
             ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
             ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
             ActionEnum.WEBHOOK: perform_webhook,
             ActionEnum.KEYPRESS: keypress,
-            ActionEnum.TYPE: keytype,
+            ActionEnum.MOUSE: mousemove,
         }
 
         if status.triggered:
@@ -151,7 +183,7 @@ class Macropad:
                         ActionEnum.CMD,
                         ActionEnum.WEBHOOK,
                         ActionEnum.KEYPRESS,
-                        ActionEnum.TYPE,
+                        ActionEnum.MOUSE,
                     ]:
                         mapped_action(action.extra)  # pragma: no cover
                     else:
