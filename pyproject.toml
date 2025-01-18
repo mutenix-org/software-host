@@ -1,12 +1,14 @@
 [project]
 name = "mutenix"
-version = "0.4.9"
+version = "0.4.10"
 authors = [
     { name = "Matthias Bilger", email = "matthias@bilger.info" }
 ]
 description = "Mutenix host software for the Mutenix macropad"
 readme = "README.md"
 requires-python = ">=3.12"
+license="MIT"
+
 include = [
     "templates/**",
     "static/**",
