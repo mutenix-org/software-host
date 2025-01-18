@@ -125,8 +125,8 @@ def create_default_config() -> Config:
                 button_id=3,
                 source=LedStatusSource.TEAMS,
                 extra=TeamsState.VIDEO_ON,
-                color_on=LedColor.RED,
-                color_off=LedColor.GREEN,
+                color_on=LedColor.GREEN,
+                color_off=LedColor.RED,
             ),
             LedStatus(
                 button_id=5,

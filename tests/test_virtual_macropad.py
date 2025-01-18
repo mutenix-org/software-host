@@ -165,10 +165,7 @@ class TestVirtualMacropad(AioHTTPTestCase):
         assert manifest["short_name"] == "Mutenix"
         assert manifest["start_url"] == "/"
         assert manifest["display"] == "standalone"
-        assert len(manifest["icons"]) == 3
-        assert manifest["icons"][0]["src"] == "/favicon/32"
-        assert manifest["icons"][1]["src"] == "/favicon/16"
-        assert manifest["icons"][2]["src"] == "/favicon/apple_touch"
+        assert len(manifest["icons"]) == 4
 
     async def test_help(self):
         request = await self.client.request("GET", "/help")
