@@ -37,6 +37,11 @@ class VirtualMacropad:
             "type": "image/png",
         },
         {
+            "src": "/favicon/64",
+            "sizes": "64x64",
+            "type": "image/png",
+        },
+        {
             "src": "/favicon/16",
             "sizes": "16x16",
             "type": "image/png",
@@ -60,6 +65,7 @@ class VirtualMacropad:
         )
         self.app.router.add_route("GET", "/favicon/{filename}", self.favicon)
         self.app.router.add_route("GET", "/favicon.svg", self.favicon_svg)
+        self.app.router.add_route("GET", "/favicon.ico", self.favicon_ico)
         self.app.router.add_route("GET", "/site.webmanifest", self.serve_manifest)
         self.app.router.add_route("GET", "/help", self.help)
         self.app.router.add_route("GET", "/about", self.about)
@@ -70,6 +76,7 @@ class VirtualMacropad:
                 web.get("/ws", self.websocket_handler),
             ],
         )
+        self.app.router.add_route("GET", "/popup", self.popup)
         jinja2_setup(self.app, loader=jinja2.PackageLoader("mutenix", "templates"))
         self._websockets: set[web.WebSocketResponse] = set()
         self._led_status: dict[int, str] = {}
@@ -80,6 +87,9 @@ class VirtualMacropad:
 
     async def index(self, request: web.Request):
         return render_template("index.html", request, {})
+
+    async def popup(self, request: web.Request):
+        return render_template("popup.html", request, {})
 
     async def button_handler(self, request: web.Request):
         data = await request.json()
@@ -99,6 +109,11 @@ class VirtualMacropad:
         else:
             raise web.HTTPNotFound()
         return web.FileResponse(icon_path)
+
+    async def favicon_ico(self, request: web.Request):
+        return web.FileResponse(
+            pathlib.Path(__file__).parent / "assets" / "mutenix.ico",
+        )
 
     async def favicon_svg(self, request: web.Request):
         return web.FileResponse(

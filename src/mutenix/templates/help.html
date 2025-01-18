@@ -1,42 +1,41 @@
-<!DOCTYPE html>
-<!-- SPDX-License-Identifier: MIT -->
-<!-- Copyright (c) 2025 Matthias Bilger matthias@bilger.info -->
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Help - Mutenix</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Help - Mutenix{% endblock %}
+{% block content %}
+<header>
     <h1>Help</h1>
-    <div id="help-content">
-        <h2>Getting Started</h2>
-        <p>Welcome to Mutenix! This guide will help you get started with your Mutenix macropad.</p>
+</header>
+<main>
+    <section>
+    <h2>Getting Started</h2>
+    <p>Welcome to Mutenix! This guide will help you get started with your Mutenix macropad.</p>
+    </section>
 
-        <h2>Frequently Asked Questions</h2>
-        <h3>How do I update the firmware?</h3>
+    <section>
+    <h2>Frequently Asked Questions</h2>
+    <h3>How do I update the firmware?</h3>
 
-        <h3>What should I do if my macropad is not recognized?</h3>
-        <p>If your macropad is not recognized, try the following troubleshooting steps:</p>
-        <ul>
-            <li>Ensure the USB cable is properly connected.</li>
-            <li>Try connecting to a different USB port.</li>
-            <li>Restart your computer and try again.</li>
-            <li>Reinstall the Mutenix drivers from our <a href="/downloads">downloads page</a>.</li>
-        </ul>
+    <h3>What should I do if my macropad is not recognized?</h3>
+    <p>If your macropad is not recognized, try the following troubleshooting steps:</p>
+    <ul>
+        <li>Ensure the USB cable is properly connected.</li>
+        <li>Try connecting to a different USB port.</li>
+        <li>Restart your computer and try again.</li>
+        <li>Reinstall the Mutenix drivers from our <a href="/downloads">downloads page</a>.</li>
+    </ul>
 
-        <h3>Why is my macropad not working with Teams?</h3>
-        <p>If your macropad is not working with Microsoft Teams, ensure that you have enabled third-party integration in the Teams settings:</p>
-        <ol>
-            <li>Open Microsoft Teams.</li>
-            <li>Go to Settings.</li>
-            <li>Select Permissions.</li>
-            <li>Enable third-party integration.</li>
-        </ol>
+    <h3>Why is my macropad not working with Teams?</h3>
+    <p>If your macropad is not working with Microsoft Teams, ensure that you have enabled third-party integration in the Teams settings:</p>
+    <ol>
+        <li>Open Microsoft Teams.</li>
+        <li>Go to Settings.</li>
+        <li>Select Permissions.</li>
+        <li>Enable third-party integration.</li>
+    </ol>
+    </section>
 
-        <h2>Contact Support</h2>
-        <p>If you need further assistance, please create a ticket on our <a href="https://github.com/mutenix-org/mutenix/issues">GitHub Issues page</a>.</p>
-    </div>
-</body>
-</html>
+    <section>
+    <h2>Contact Support</h2>
+    <p>If you need further assistance, please create a ticket on our <a href="https://github.com/mutenix-org/mutenix/issues">GitHub Issues page</a>.</p>
+    </section>
+</main>
+{% endblock %}

@@ -31,3 +31,36 @@ window.onblur = function () {
 window.onfocus = function () {
     requestState();
 };
+
+function openPopup() {
+const popupWidth = document.getElementById('keypads').offsetWidth+20;
+const popupHeight = document.getElementById('keypads').offsetHeight+50;
+const popup = window.open('/popup', 'popup', `width=${popupWidth},height=${popupHeight},resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
+}
+
+function activateButton(buttonSelection) {
+    const fiveButtonDiv = document.getElementById('five_button');
+    const tenButtonDiv = document.getElementById('ten_button');
+    if (buttonSelection === 'ten') {
+        fiveButtonDiv.style.display = 'none';
+        tenButtonDiv.style.display = 'block';
+        toggleButton.textContent = 'Show 5 Buttons';
+    } else {
+        fiveButtonDiv.style.display = 'block';
+        tenButtonDiv.style.display = 'none';
+        toggleButton.textContent = 'Show 10 Buttons';
+    }
+    localStorage.setItem('buttonSelection', buttonSelection);
+    requestState();
+}
+function toggleButtons() {
+    const fiveButtonDiv = document.getElementById('five_button');
+    const tenButtonDiv = document.getElementById('ten_button');
+    const toggleButton = document.getElementById('toggleButton');
+
+    if (fiveButtonDiv.style.display === 'none') {
+        activateButton('five');
+    } else {
+        activateButton('ten');
+    }
+}
