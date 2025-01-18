@@ -58,6 +58,10 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                 open_url("/"),
             ),
             item(
+                "Reload Config",
+                macropad.reload_config,
+            ),
+            item(
                 "Teams connected",
                 nothing,
                 checked=lambda x: macropad.teams_connected,
