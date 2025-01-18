@@ -7,6 +7,8 @@ authors = [
 description = "Mutenix host software for the Mutenix macropad"
 readme = "README.md"
 requires-python = ">=3.12"
+license="MIT"
+
 include = [
     "templates/**",
     "static/**",

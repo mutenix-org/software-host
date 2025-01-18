@@ -116,8 +116,8 @@ class WebServer:
         return render_template("help.html", request, {})
 
     async def about(self, request: web.Request):
-        readme_path = pathlib.Path(__file__).parent.parent.parent / "README.md"
-        license_path = pathlib.Path(__file__).parent.parent.parent / "LICENSE"
+        readme_path = pathlib.Path(__file__).parent / "README.md"
+        license_path = pathlib.Path(__file__).parent / "LICENSE"
         with open(readme_path, "r", encoding="utf-8") as f:
             readme_content = f.read()
         with open(license_path, "r", encoding="utf-8") as f:
