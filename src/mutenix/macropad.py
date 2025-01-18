@@ -305,3 +305,10 @@ class Macropad:
     @property
     def device_connected(self) -> bool:
         return self._device.connected
+
+    def reload_config(self):
+        _logger.info("Reloading config")
+        self._config = load_config()
+        self._setup_buttons()
+        self._update_device_status(force=True)
+        _logger.info("Config reloaded")
