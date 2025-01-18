@@ -14,7 +14,8 @@ IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
 # Update version.py with the new version
 cat <<EOF > src/mutenix/version.py
-from __future__ import annotations
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 
 MAJOR = $MAJOR
 MINOR = $MINOR
