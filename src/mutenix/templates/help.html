@@ -20,7 +20,8 @@
         <li>Ensure the USB cable is properly connected.</li>
         <li>Try connecting to a different USB port.</li>
         <li>Restart your computer and try again.</li>
-        <li>Reinstall the Mutenix drivers from our <a href="/downloads">downloads page</a>.</li>
+        <li>Run Mutenix with <pre>--list-devices</pre> to see if the device is recognized.</li>
+        <li>If you find the device, add the device (PID, VID) to the configuration: <pre>device_identifications</pre> see <a href="/about#device-config">here</a></li>
     </ul>
 
     <h3>Why is my macropad not working with Teams?</h3>
@@ -31,11 +32,25 @@
         <li>Select Permissions.</li>
         <li>Enable third-party integration.</li>
     </ol>
+    <img src="/images/privacy_settings.png" alt="Teams settings" />
+
+    <h3>Special Modes</h3>
+    <p>You can enter special modes by holding specific buttons while plugging the device in:</p>
+    <ol>
+        <li><b>Enable Filesystem:</b> Hold down button 1. Mutenix functionality will also be available.</li>
+        <li><b>Enable Serial Console:</b> Hold down button 2. Mutenix functionality will also be available.</li>
+        <li><b>Force update mode:</b> Hold down button 3.</li>
+        <li><b>Jump to UF2 Bootloader</b> Hold down button 4.</li>
+    </ol>
+    <p><b>NB: </b> Serial Console and Filesystem can be combined.</p>
+
+    <h3>Manual Update</h3>
+    <p>If you enable the filesystem, you can also perform a manual update by deleting all the .py files and copy the content of the folder of <a href="https://github.com/mutenix-org/firmware-macroboard">to the drive</a></p>
     </section>
 
     <section>
     <h2>Contact Support</h2>
-    <p>If you need further assistance, please create a ticket on our <a href="https://github.com/mutenix-org/mutenix/issues">GitHub Issues page</a>.</p>
+    <p>If you need further assistance, please create a ticket on our <a href="https://github.com/mutenix-org/software-host/issues">GitHub Issues page</a>.</p>
     </section>
 </main>
 {% endblock %}
