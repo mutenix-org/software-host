@@ -8,4 +8,4 @@ build/
 .coverage
 .coverage.*
 __pycache__
-mutenix.yaml
+mutenix*.yaml

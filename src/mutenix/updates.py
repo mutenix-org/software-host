@@ -88,6 +88,29 @@ def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
         _logger.info("Successfully updated device firmware")
 
 
+class UpdateError:
+    def __init__(self, data: bytes):
+        self.info = ""
+        self.parse(data)
+
+    def parse(self, data: bytes):
+        self.identifier = data[:2].decode("utf-8")
+        if not self.is_valid:
+            return
+        length = max(int.from_bytes(data[2:3], "little"), 33)
+        self.info = data[3 : 3 + length].decode("utf-8")
+        _logger.info("Error received: %s", self)
+
+    @property
+    def is_valid(self):
+        return self.identifier == "ER"
+
+    def __str__(self):
+        if self.is_valid:
+            return f"Error: {self.info}"
+        return "Invalid Request"
+
+
 class ChunkAck:
     def __init__(self, data: bytes):
         self.id = 0
@@ -275,8 +298,11 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
     transfer_files = [TransferFile(i, file) for i, file in enumerate(files)]
 
     _logger.debug("Preparing to send %s files", len(transfer_files))
+    cancelled = False
 
     for i, file in enumerate(transfer_files, 1):
+        if cancelled:
+            break
         fileprogress = tqdm(
             total=file.chunks,
             desc=f"Sending file {file.filename:25} {i:2}/{len(transfer_files)}",
@@ -293,6 +319,13 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
                         continue
                     fileprogress.update(1)
                     ack_file.ack_chunk(rc)
+                else:
+                    err = UpdateError(bytes(received[1:]))
+                    if err.is_valid:
+                        print("Error received from device: ", err)
+                        _logger.error(err)
+                        cancelled = True
+                        break
 
             chunk = file.get_next_chunk()
             if not chunk:
