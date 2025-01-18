@@ -241,7 +241,7 @@ class Macropad:
                 if my_icon:
                     my_icon.update_menu()
                 self._checktime = time.time()
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 _logger.error("Error updating tray icon: %s", e)
                 print(e)
 

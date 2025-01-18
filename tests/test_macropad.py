@@ -503,3 +503,49 @@ async def test_update_device_status_cmd_source_interval_not_elapsed(macropad):
 
     macropad._device.send_msg.assert_not_called()
     macropad._virtual_macropad.send_msg.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_do_check_status_update_device_status_called(macropad):
+    macropad._update_device_status = AsyncMock()
+    macropad._checktime = time.time() - 11  # Ensure the time condition is met
+
+    await macropad._do_check_status()
+
+    macropad._update_device_status.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_do_check_status_sleep_called(macropad):
+    macropad._update_device_status = AsyncMock()
+    macropad._checktime = time.time() - 11  # Ensure the time condition is met
+
+    with patch("asyncio.sleep", return_value=None) as mock_sleep:
+        await macropad._do_check_status()
+        mock_sleep.assert_called_once_with(0.1)
+
+
+def test_activate_serial_console(macropad):
+    macropad._device.send_msg = Mock()
+    macropad.activate_serial_console()
+    macropad._device.send_msg.assert_called_once()
+    sent_message = macropad._device.send_msg.call_args[0][0]
+    assert sent_message._activate_debug == 2
+    assert sent_message._activate_filesystem == 0
+
+
+def test_deactivate_serial_console(macropad):
+    macropad._device.send_msg = Mock()
+    macropad.deactivate_serial_console()
+    macropad._device.send_msg.assert_called_once()
+    sent_message = macropad._device.send_msg.call_args[0][0]
+    assert sent_message._activate_debug == 1
+    assert sent_message._activate_filesystem == 0
+
+
+def test_activate_filesystem(macropad):
+    macropad._device.send_msg = Mock()
+    macropad.activate_filesystem()
+    macropad._device.send_msg.assert_called_once()
+    sent_message = macropad._device.send_msg.call_args[0][0]
+    assert sent_message._activate_filesystem == 2
