@@ -33,6 +33,13 @@ from mutenix.virtual_macropad import VirtualMacropad
 from mutenix.websocket_client import Identifier
 from mutenix.websocket_client import WebSocketClient
 
+try:
+    from pynput.keyboard import Controller
+    from pynput.keyboard import Key
+except ImportError:
+    Controller = None
+    Key = None
+
 _logger = logging.getLogger(__name__)
 
 
@@ -93,10 +100,36 @@ class Macropad:
                 },
             )
 
+        def keypress(extra):
+            if not Controller:
+                _logger.error("pynput not installed, cannot send keypress")
+                return
+            if "sequence" in extra:
+                for sequence in extra["sequence"]:
+                    keypress(sequence)
+                return
+
+            keyboard = Controller()
+            for key in extra.get("modifiers", []):
+                keyboard.press(getattr(Key, key))
+            keyboard.press(getattr(Key, extra["key"]))
+            keyboard.release(getattr(Key, extra["key"]))
+            for key in extra.get("modifiers", []):
+                keyboard.release(getattr(Key, key))
+
+        def keytype(extra):
+            if not Controller:
+                _logger.error("pynput not installed, cannot send keypress")
+                return
+            keyboard = Controller()
+            keyboard.type(extra)
+
         action_map: dict[ActionEnum, Callable] = {
             ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
             ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
             ActionEnum.WEBHOOK: perform_webhook,
+            ActionEnum.KEYPRESS: keypress,
+            ActionEnum.TYPE: keytype,
         }
 
         if status.triggered:
@@ -114,7 +147,12 @@ class Macropad:
                 mapped_action = action_map.get(action.action, None)
             if mapped_action:
                 if callable(mapped_action):
-                    if action.action in [ActionEnum.CMD, ActionEnum.WEBHOOK]:
+                    if action.action in [
+                        ActionEnum.CMD,
+                        ActionEnum.WEBHOOK,
+                        ActionEnum.KEYPRESS,
+                        ActionEnum.TYPE,
+                    ]:
                         mapped_action(action.extra)  # pragma: no cover
                     else:
                         mapped_action()

@@ -19,6 +19,8 @@ class ActionEnum(str, Enum):
     ACTIVATE_TEAMS = "activate-teams"
     CMD = "cmd"
     WEBHOOK = "webhook"
+    KEYPRESS = "keypress"
+    TYPE = "type"
 
 
 class LedStatusSource(str, Enum):
