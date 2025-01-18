@@ -32,6 +32,7 @@ dependencies = [
      "pystray>=0.19.5",
      "pyyaml>=6.0.2",
      "markdown>=3.7",
+     "pynput>=1.7.7",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

@@ -101,6 +101,10 @@ double_tap_action:
     - Additional Options:
       - `activate-teams` to trigger an action to bring teams into the foreground
       - `cmd` to run an arbitrary command. This is to be used with case, as no check is performed on the output or what command is run. Specify the command in `extra`.
+      - `type`: Type the text in `extra` using keyboard emulation
+      - `keypress`: Press keys. In extra you can specify one or many keys or key combinations
+        - **one key**: `key` like 'A', B', ... and `modifiers` with modifiers as `shift`, `alt`, ... see [pynput](https://pynput.readthedocs.io/en/latest/keyboard.html#pynput.keyboard.Key)
+        - **multiple keys**: a list of the one key settings in sequence
       - `webhook` to make a user defined webhook call, make sure `extra has the following information:
         - `url`: the url endpoint
         - `method`: (optional, default: GET) the method to use
