@@ -681,3 +681,36 @@ def test_mousemove_invalid_action():
         mock_mouse.click.assert_not_called()
         mock_mouse.press.assert_not_called()
         mock_mouse.release.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "color, expected_led_color",
+    [
+        ("red", LedColor.RED),
+        ("green", LedColor.GREEN),
+        ("blue", LedColor.BLUE),
+        ("yellow", LedColor.YELLOW),
+        ("invalid_color", LedColor.GREEN),  # Default to GREEN for invalid colors
+    ],
+)
+def test_map_led_color(color, expected_led_color):
+    macropad = Macropad()
+    result = macropad._map_led_color(color)
+    assert result == expected_led_color
+
+
+@pytest.mark.asyncio
+async def test_reload_config(macropad):
+    with (
+        patch("mutenix.macropad.load_config") as mock_load_config,
+        patch("mutenix.macropad._logger.info") as mock_logger_info,
+        patch.object(macropad, "_setup_buttons") as mock_setup_buttons,
+        patch.object(macropad, "_update_device_status") as mock_update_device_status,
+    ):
+        mock_load_config.return_value = create_default_config()
+        macropad.reload_config()
+        mock_load_config.assert_called_once()
+        mock_setup_buttons.assert_called_once()
+        mock_update_device_status.assert_called_once_with(force=True)
+        mock_logger_info.assert_any_call("Reloading config")
+        mock_logger_info.assert_any_call("Config reloaded")
