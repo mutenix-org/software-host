@@ -100,7 +100,7 @@ def test_main_with_update_file(mock_macropad, mock_check_for_self_update, mock_s
         mock_asyncio_run.assert_called_once()
 
 
-def test_main_list_devices(mock_macropad, mock_signal):
+def test_main_list_devices(mock_signal):
     args = argparse.Namespace(update_file=None, list_devices=True, config=None)
 
     with patch("hid.enumerate", autospec=True) as mock_hid_enumerate:
