@@ -361,3 +361,81 @@ async def test_wait_for_device_failure(hid_device):
         await hid_device._wait_for_device()
         assert mock_search.called
         assert hid_device._device is None
+
+
+@pytest.mark.asyncio
+async def test_open_device_with_info_bt_success(hid_device):
+    device_info = {
+        "product_id": 0,
+        "vendor_id": 0,
+        "serial_number": "122345",
+    }
+    with patch("hid.device") as MockHidDevice:
+        mock_device = Mock()
+        MockHidDevice.return_value = mock_device
+        device = hid_device._open_device_with_info(device_info)
+        assert device is not None
+        mock_device.open.assert_called_once_with(
+            product_id=0,
+            vendor_id=0,
+            serial_number="122345",
+        )
+
+
+@pytest.mark.asyncio
+async def test_open_device_with_info_bt_failure(hid_device):
+    device_info = {
+        "product_id": 0,
+        "vendor_id": 0,
+        "serial_number": "122345",
+    }
+    with patch("hid.device") as MockHidDevice:
+        mock_device = Mock()
+        MockHidDevice.return_value = mock_device
+        mock_device.open.side_effect = Exception("BT Connection error")
+        with patch("mutenix.hid_device._logger.warning") as mock_logger:
+            device = hid_device._open_device_with_info(device_info)
+            assert device is None
+            mock_logger.assert_called_once_with(
+                "Could not open BT Connection (%s)",
+                ANY,
+            )
+
+
+@pytest.mark.asyncio
+async def test_open_device_with_info_usb_success(hid_device):
+    device_info = {
+        "product_id": 0x1234,
+        "vendor_id": 0x5678,
+        "serial_number": "122345",
+    }
+    with patch("hid.device") as MockHidDevice:
+        mock_device = Mock()
+        MockHidDevice.return_value = mock_device
+        device = hid_device._open_device_with_info(device_info)
+        assert device is not None
+        mock_device.open.assert_called_once_with(
+            product_id=0x1234,
+            vendor_id=0x5678,
+            serial_number="122345",
+        )
+
+
+@pytest.mark.asyncio
+async def test_open_device_with_info_usb_failure(hid_device):
+    device_info = {
+        "product_id": 0x1234,
+        "vendor_id": 0x5678,
+        "serial_number": "122345",
+    }
+    with patch("hid.device") as MockHidDevice:
+        mock_device = Mock()
+        MockHidDevice.return_value = mock_device
+        mock_device.open.side_effect = Exception("USB Connection error")
+        with patch("mutenix.hid_device._logger.warning") as mock_logger:
+            device = hid_device._open_device_with_info(device_info)
+            assert device is None
+            mock_logger.assert_called_once_with(
+                "Could not open USB Connection (%s)",
+                ANY,
+            )

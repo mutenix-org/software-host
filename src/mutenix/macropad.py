@@ -218,14 +218,15 @@ class Macropad:
             save_config(self._config)
         await self._update_device_status()
 
+    def _map_led_color(self, color):
+        color = color.upper()
+        if not hasattr(LedColor, color):
+            return LedColor.GREEN
+        return getattr(LedColor, color)
+
     async def _update_device_status(self, force=False):
         msg = self._current_state
         msgs = {}
-
-        def map_led_color(color):
-            if not hasattr(LedColor, color.upper()):
-                return LedColor.GREEN
-            return getattr(LedColor, color.upper())
 
         for ledstatus in self._config.leds:
             if ledstatus.source == LedStatusSource.TEAMS:
@@ -243,12 +244,12 @@ class Macropad:
                     color = ledstatus.color_on if mapped_state else ledstatus.color_off
                     msgs[ledstatus.button_id] = SetLed(
                         ledstatus.button_id,
-                        map_led_color(color),
+                        self._map_led_color(color),
                     )
                 else:
                     msgs[ledstatus.button_id] = SetLed(
                         ledstatus.button_id,
-                        map_led_color("black"),
+                        self._map_led_color("black"),
                     )
             elif ledstatus.source == LedStatusSource.CMD:
                 if (
@@ -263,7 +264,7 @@ class Macropad:
                     )
                     msgs[ledstatus.button_id] = SetLed(
                         ledstatus.button_id,
-                        map_led_color(result.strip()),
+                        self._map_led_color(result.strip()),
                     )
                 else:
                     result = await asyncio.to_thread(
@@ -272,7 +273,7 @@ class Macropad:
                     )
                     msgs[ledstatus.button_id] = SetLed(
                         ledstatus.button_id,
-                        map_led_color(
+                        self._map_led_color(
                             ledstatus.color_on if result == 0 else ledstatus.color_off,
                         ),
                     )
@@ -339,11 +340,11 @@ class Macropad:
         _logger.info("Virtual Device stopped")
 
     @property
-    def virtual_keypad_address(self):
+    def virtual_keypad_address(self):  # pragma: no cover
         return self._config.virtual_keypad.bind_address
 
     @property
-    def virtual_keypad_port(self):
+    def virtual_keypad_port(self):  # pragma: no cover
         return self._config.virtual_keypad.bind_port
 
     def activate_serial_console(self):
@@ -362,11 +363,11 @@ class Macropad:
         self._device.send_msg(message)
 
     @property
-    def teams_connected(self) -> bool:
+    def teams_connected(self) -> bool:  # pragma: no cover
         return self._websocket.connected
 
     @property
-    def device_connected(self) -> bool:
+    def device_connected(self) -> bool:  # pragma: no cover
         return self._device.connected
 
     def reload_config(self):

@@ -47,6 +47,30 @@ class HidDevice:
         self._device = None
         self._device = await self._search_for_device_loop()
 
+    def _open_device_with_info(self, device_info: DeviceInfo):
+        device = hid.device()
+        if device_info["product_id"] == 0 and device_info["vendor_id"] == 0:
+            try:
+                device.open(
+                    product_id=0,
+                    vendor_id=0,
+                    serial_number=device_info["serial_number"],
+                )
+                return device
+            except Exception as e:
+                _logger.warning("Could not open BT Connection (%s)", e)
+        else:
+            try:
+                device.open(
+                    product_id=device_info["product_id"],
+                    vendor_id=device_info["vendor_id"],
+                    serial_number=device_info["serial_number"],
+                )
+                return device
+            except Exception as e:
+                _logger.warning("Could not open USB Connection (%s)", e)
+        return None
+
     async def _search_for_device(self):
         try:
 
@@ -72,26 +96,8 @@ class HidDevice:
             device = hid.device()
             # We are sorting the devices by vendor_id to make sure we try to open BT device first
             for device_info in sorted(available_devices, key=lambda x: x["vendor_id"]):
-                if device_info["product_id"] == 0 and device_info["vendor_id"] == 0:
-                    try:
-                        device.open(
-                            product_id=0,
-                            vendor_id=0,
-                            serial_number=device_info["serial_number"],
-                        )
-                        break
-                    except Exception as e:
-                        _logger.warning("Could not open BT Connection (%s)", e)
-                else:
-                    try:
-                        device.open(
-                            product_id=device_info["product_id"],
-                            vendor_id=device_info["vendor_id"],
-                            serial_number=device_info["serial_number"],
-                        )
-                        break
-                    except Exception as e:
-                        _logger.warning("Could not open USB Connection (%s)", e)
+                if device := self._open_device_with_info(device_info):
+                    break
             else:
                 return None
             device.set_nonblocking(1)
