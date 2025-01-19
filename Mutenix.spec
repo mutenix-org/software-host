@@ -42,7 +42,6 @@ if onefile:
           runtime_tmpdir=None,
           console=False,
           icon="src/mutenix/assets/mutenix.ico",
-        disable_windowed_traceback=False,
         argv_emulation=False,
         target_arch=None,
         codesign_identity=None,
