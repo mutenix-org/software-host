@@ -66,8 +66,8 @@ jobs:
       if: runner.os == 'Windows'
       id: create_tag_win
       run: |
-        TAG_NAME=pre-release-$(git rev-parse --short HEAD | tr -d '\n')
-        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        $TAG_NAME = "pre-release-$(git rev-parse --short HEAD | tr -d '\n')"
+        echo "TAG_NAME=$TAG_NAME" >> $env:GITHUB_ENV
         git tag $TAG_NAME
         git push origin $TAG_NAME
 
