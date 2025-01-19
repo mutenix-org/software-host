@@ -11,6 +11,7 @@ from mutenix.hid_commands import Reset
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 from mutenix.hid_commands import StatusRequest
+from mutenix.hid_commands import UpdateConfig
 from mutenix.hid_commands import VersionInfo
 
 
@@ -70,3 +71,63 @@ def test_from_buffer_not_implemented():
     buffer = bytes([0, 0xFF, 0, 0, 0, 0, 0, 0])
     with pytest.raises(NotImplementedError):
         HidInputMessage.from_buffer(buffer)
+
+
+def test_update_config_to_buffer_default():
+    update_config = UpdateConfig()
+    buffer = update_config.to_buffer()
+    assert (
+        buffer[:-1] == bytes([HidOutCommands.UPDATE_CONFIG, 0, 0, 0, 0, 0, 0, 0])[:-1]
+    )
+
+
+def test_update_config_to_buffer_debug():
+    update_config = UpdateConfig()
+    update_config.activate_debug(True)
+    buffer = update_config.to_buffer()
+    assert (
+        buffer[:-1] == bytes([HidOutCommands.UPDATE_CONFIG, 2, 0, 0, 0, 0, 0, 0])[:-1]
+    )
+
+
+def test_update_config_to_buffer_filesystem():
+    update_config = UpdateConfig()
+    update_config.activate_filesystem(True)
+    buffer = update_config.to_buffer()
+    assert (
+        buffer[:-1] == bytes([HidOutCommands.UPDATE_CONFIG, 0, 2, 0, 0, 0, 0, 0])[:-1]
+    )
+
+
+def test_update_config_to_buffer_debug_and_filesystem():
+    update_config = UpdateConfig()
+    update_config.activate_debug(True)
+    update_config.activate_filesystem(True)
+    buffer = update_config.to_buffer()
+    assert (
+        buffer[:-1] == bytes([HidOutCommands.UPDATE_CONFIG, 2, 2, 0, 0, 0, 0, 0])[:-1]
+    )
+
+
+def test_update_config_str_default():
+    update_config = UpdateConfig()
+    assert str(update_config) == "UpdateConfig { debug: 0, filesystem: 0 }"
+
+
+def test_update_config_str_debug():
+    update_config = UpdateConfig()
+    update_config.activate_debug(True)
+    assert str(update_config) == "UpdateConfig { debug: 2, filesystem: 0 }"
+
+
+def test_update_config_str_filesystem():
+    update_config = UpdateConfig()
+    update_config.activate_filesystem(True)
+    assert str(update_config) == "UpdateConfig { debug: 0, filesystem: 2 }"
+
+
+def test_update_config_str_debug_and_filesystem():
+    update_config = UpdateConfig()
+    update_config.activate_debug(True)
+    update_config.activate_filesystem(True)
+    assert str(update_config) == "UpdateConfig { debug: 2, filesystem: 2 }"

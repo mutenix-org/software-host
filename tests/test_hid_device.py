@@ -10,6 +10,7 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
+from mutenix.config import DeviceInfo
 from mutenix.hid_commands import HidOutputMessage
 from mutenix.hid_commands import Ping
 from mutenix.hid_commands import PrepareUpdate
@@ -322,10 +323,26 @@ async def test_search_for_device_prefer_bluetooth(hid_device):
 
 
 @pytest.mark.asyncio
+async def test_search_for_device_no_device_found_device_info(hid_device):
+    hid_device._device_info = [DeviceInfo()]
+    with patch("hid.enumerate", return_value=[]):
+        device = await hid_device._search_for_device()
+        assert device is None
+
+
+@pytest.mark.asyncio
 async def test_search_for_device_no_device_found(hid_device):
     with patch("hid.enumerate", return_value=[]):
         device = await hid_device._search_for_device()
         assert device is None
+
+
+@pytest.mark.asyncio
+async def test_search_for_device_no_device_found_open_fails(hid_device):
+    with patch("hid.enumerate", return_value=[]):
+        with patch.object(hid_device, "_open_device_with_info", return_value=None):
+            device = await hid_device._search_for_device()
+            assert device is None
 
 
 @pytest.mark.asyncio
@@ -439,3 +456,12 @@ async def test_open_device_with_info_usb_failure(hid_device):
                 "Could not open USB Connection (%s)",
                 ANY,
             )
+
+
+@pytest.mark.asyncio
+async def test_send_report_device_not_connected(hid_device):
+    msg = PrepareUpdate()
+
+    hid_device._device = None
+    with pytest.raises(ValueError, match="Device not connected"):
+        hid_device._send_report(msg)

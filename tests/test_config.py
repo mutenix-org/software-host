@@ -2,12 +2,14 @@
 # Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import mock_open
 from unittest.mock import patch
 
 import yaml
 from mutenix.config import ActionEnum
+from mutenix.config import button_action_details_descriminator
 from mutenix.config import ButtonAction
 from mutenix.config import Config
 from mutenix.config import CONFIG_FILENAME
@@ -233,3 +235,51 @@ def test_button_action_with_webhook_extra():
     assert action.button_id == 1
     assert action.action == ActionEnum.WEBHOOK
     assert action.extra == webhook
+
+
+def test_button_action_details_descriminator_cmd():
+    assert button_action_details_descriminator("some_command") == "cmd"
+
+
+def test_button_action_details_descriminator_key():
+    keypress = {"key": "a", "modifiers": ["ctrl"]}
+    assert button_action_details_descriminator(keypress) == "key"
+
+
+def test_button_action_details_descriminator_mouse():
+    mouse_action = {"x": 100, "y": 200, "button": "left"}
+    assert button_action_details_descriminator(mouse_action) == "mouse"
+
+
+def test_button_action_details_descriminator_webhook():
+    webhook_action = {"url": "http://example.com", "method": "POST"}
+    assert button_action_details_descriminator(webhook_action) == "webhook"
+
+
+def test_button_action_details_descriminator_empty_dict():
+    assert button_action_details_descriminator({}) == ""
+
+
+def test_button_action_details_descriminator_invalid_type():
+    assert button_action_details_descriminator(123) == ""
+
+
+def test_find_config_file_in_current_directory():
+    with patch("pathlib.Path.exists", side_effect=[True, False]):
+        config_path = find_config_file()
+        assert config_path == Path(CONFIG_FILENAME)
+
+
+def test_find_config_file_in_home_directory():
+    with patch("pathlib.Path.exists", side_effect=[False, True]):
+        home_config_path = (
+            Path.home() / os.environ.get("XDG_CONFIG_HOME", ".config") / CONFIG_FILENAME
+        )
+        config_path = find_config_file()
+        assert config_path == home_config_path
+
+
+def test_find_config_file_not_found_anywhere():
+    with patch("pathlib.Path.exists", return_value=False):
+        config_path = find_config_file()
+        assert config_path == Path(CONFIG_FILENAME)

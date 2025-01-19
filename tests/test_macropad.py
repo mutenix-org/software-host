@@ -714,3 +714,137 @@ async def test_reload_config(macropad):
         mock_update_device_status.assert_called_once_with(force=True)
         mock_logger_info.assert_any_call("Reloading config")
         mock_logger_info.assert_any_call("Config reloaded")
+
+
+@pytest.mark.parametrize(
+    "extra, expected_method, expected_url, expected_json, expected_headers",
+    [
+        (
+            {
+                "method": "POST",
+                "url": "http://example.com",
+                "data": {"key": "value"},
+                "headers": {"Content-Type": "application/json"},
+            },
+            "POST",
+            "http://example.com",
+            {"key": "value"},
+            {"Content-Type": "application/json"},
+        ),
+        (
+            {"url": "http://example.com"},
+            "GET",
+            "http://example.com",
+            None,
+            {},
+        ),
+        (
+            {
+                "method": "PUT",
+                "url": "http://example.com",
+                "headers": {"Authorization": "Bearer token"},
+            },
+            "PUT",
+            "http://example.com",
+            None,
+            {"Authorization": "Bearer token"},
+        ),
+    ],
+)
+def test_perform_webhook(
+    extra,
+    expected_method,
+    expected_url,
+    expected_json,
+    expected_headers,
+    macropad,
+):
+    with patch("mutenix.macropad.requests.request") as mock_request:
+        macropad._perform_webhook(extra)
+        mock_request.assert_called_once_with(
+            expected_method,
+            expected_url,
+            json=expected_json,
+            headers=expected_headers,
+        )
+
+
+@pytest.mark.asyncio
+async def test_teams_callback_meeting_update(macropad):
+    msg = ServerMessage(
+        meetingUpdate=MeetingUpdate(
+            meetingState=MeetingState(
+                isInMeeting=True,
+                isMuted=False,
+                isHandRaised=False,
+                isVideoOn=True,
+            ),
+            meetingPermissions=MeetingPermissions(canLeave=True),
+        ),
+    )
+    macropad._current_state = None
+    await macropad._teams_callback(msg)
+    assert macropad._current_state == msg
+
+
+@pytest.mark.asyncio
+async def test_teams_callback_update_device_status_called(macropad):
+    msg = ServerMessage(
+        meetingUpdate=MeetingUpdate(
+            meetingState=MeetingState(
+                isInMeeting=True,
+                isMuted=False,
+                isHandRaised=False,
+                isVideoOn=True,
+            ),
+            meetingPermissions=MeetingPermissions(canLeave=True),
+        ),
+    )
+    macropad._current_state = None
+    with patch.object(macropad, "_update_device_status") as mock_update_device_status:
+        await macropad._teams_callback(msg)
+        mock_update_device_status.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_webhook_source_with_color(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.WEBHOOK,
+            button_id=1,
+            extra=None,
+            color_on="red",
+            color_off="green",
+        ),
+    ]
+    macropad._virtual_macropad.get_led_status = Mock(return_value="red")
+    macropad._device.send_msg = Mock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.RED))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(SetLed(1, LedColor.RED))
+
+
+@pytest.mark.asyncio
+async def test_update_device_status_webhook_source_with_invalid_color(macropad):
+    macropad._config.leds = [
+        Mock(
+            source=LedStatusSource.WEBHOOK,
+            button_id=1,
+            extra=None,
+            color_on="red",
+            color_off="green",
+        ),
+    ]
+    macropad._virtual_macropad.get_led_status = Mock(return_value="invalid_color")
+    macropad._device.send_msg = Mock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
+
+    await macropad._update_device_status()
+
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.GREEN))
+    macropad._virtual_macropad.send_msg.assert_called_once_with(
+        SetLed(1, LedColor.GREEN),
+    )

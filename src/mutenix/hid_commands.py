@@ -200,7 +200,7 @@ class UpdateConfig(HidCommand):
         )
 
     def __str__(self):
-        return f"UpdateConfig {{ debug: {self.activate_debug}, filesystem: {self.activate_filesystem} }}"
+        return f"UpdateConfig {{ debug: {self._activate_debug}, filesystem: {self._activate_filesystem} }}"
 
 
 class SimpleHidCommand(HidCommand):
