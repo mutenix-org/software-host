@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from mutenix.__main__ import list_devices
 from mutenix.__main__ import main
 from mutenix.__main__ import parse_arguments
 
@@ -108,3 +109,26 @@ def test_main_list_devices(mock_signal):
 
         mock_signal.assert_not_called()
         mock_hid_enumerate.assert_called_once()
+
+
+def test_list_devices(capsys):
+    with patch("hid.enumerate", autospec=True) as mock_hid:
+        # Mock the return value of hid.enumerate
+        mock_hid.return_value = [
+            {"path": "device1", "vendor_id": 1234, "product_id": 5678},
+            {"path": "device2", "vendor_id": 8765, "product_id": 4321},
+        ]
+
+        # Call the function
+        list_devices()
+
+        # Capture the output
+        captured = capsys.readouterr()
+
+        # Check if the output contains the mocked devices
+        assert "device1" in captured.out
+        assert "device2" in captured.out
+        assert "1234" in captured.out
+        assert "5678" in captured.out
+        assert "8765" in captured.out
+        assert "4321" in captured.out

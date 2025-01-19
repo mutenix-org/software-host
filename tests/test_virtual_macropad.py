@@ -187,3 +187,21 @@ class TestVirtualMacropad(AioHTTPTestCase):
         assert "error" in msg
         assert msg["error"] == "unknown message"
         await ws.close()
+
+    async def test_led_handler(self):
+        data = {"button": 1, "color": "blue"}
+        request = await self.client.request("POST", "/led", json=data)
+        assert request.status == 200
+        assert self.macropad._led_input_status[1] == "blue"
+
+    async def test_led_handler_invalid_data(self):
+        data = {"button": "invalid", "color": "blue"}
+        request = await self.client.request("POST", "/led", json=data)
+        assert (
+            request.status == 500
+        )  # Assuming the handler does not handle invalid data gracefully
+
+    async def test_get_led_status(self):
+        self.macropad._led_input_status[1] = "blue"
+        assert self.macropad.get_led_status(1) == "blue"
+        assert self.macropad.get_led_status(2) == "black"

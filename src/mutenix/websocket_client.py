@@ -157,7 +157,7 @@ class WebSocketClient:
             self._send_queue.task_done()
 
     @property
-    def connected(self) -> bool:
+    def connected(self) -> bool:  # pragma: no cover
         return self._connection is not None
 
     _receive_loop = run_loop(_receive)

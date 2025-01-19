@@ -22,6 +22,7 @@ from mutenix.updates import FileStart
 from mutenix.updates import MAX_CHUNK_SIZE
 from mutenix.updates import perform_hid_upgrade
 from mutenix.updates import TransferFile
+from mutenix.updates import UpdateError
 from mutenix.updates import VersionInfo
 
 
@@ -137,6 +138,20 @@ class TestUpdates(unittest.TestCase):
         check_for_self_update(1, 0, 0)
 
         mock_get.assert_called_once()
+
+    @patch("mutenix.updates.requests.get")
+    def test_check_for_device_update_request_exception(self, mock_get):
+        mock_get.side_effect = requests.RequestException("Network error")
+        device_version = VersionInfo(
+            buffer=bytes([1, 0, 0, HardwareTypes.UNKNOWN.value, 0, 0, 0, 0]),
+        )
+        mock_device = MagicMock()
+
+        with self.assertLogs("mutenix.updates", level="ERROR") as log:
+            check_for_device_update(mock_device, device_version)
+
+        mock_get.assert_called_once()
+        self.assertIn("Failed to check for device update availability", log.output[0])
 
     @patch("mutenix.updates.requests.get")
     @patch("mutenix.updates.semver.compare")
@@ -385,3 +400,42 @@ class TestTransferFileInit(unittest.TestCase):
         self.assertEqual(len(transfer_file._chunks), 1)
         self.assertIsInstance(transfer_file._chunks[0], FileDelete)
         os.remove(delete_file_path)
+
+
+class TestChunkAck(unittest.TestCase):
+    def test_chunk_ack_str_valid(self):
+        data = (
+            b"AK"
+            + (1).to_bytes(2, "little")
+            + (2).to_bytes(2, "little")
+            + (3).to_bytes(1, "little")
+        )
+        chunk_ack = ChunkAck(data)
+        self.assertTrue(chunk_ack.is_valid)
+        self.assertEqual(str(chunk_ack), "File: 1, Type: 3, Package: 2")
+
+    def test_chunk_ack_str_invalid(self):
+        data = (
+            b"XX"
+            + (1).to_bytes(2, "little")
+            + (2).to_bytes(2, "little")
+            + (3).to_bytes(1, "little")
+        )
+        chunk_ack = ChunkAck(data)
+        self.assertFalse(chunk_ack.is_valid)
+        self.assertEqual(str(chunk_ack), "Invalid Request")
+        self.assertEqual(str(chunk_ack), "Invalid Request")
+
+
+class TestUpdateError(unittest.TestCase):
+    def test_update_error_str_valid(self):
+        data = b"ER" + (5).to_bytes(1, "little") + b"Error"
+        update_error = UpdateError(data)
+        self.assertTrue(update_error.is_valid)
+        self.assertEqual(str(update_error), "Error: Error")
+
+    def test_update_error_str_invalid(self):
+        data = b"XX" + (5).to_bytes(1, "little") + b"Error"
+        update_error = UpdateError(data)
+        self.assertFalse(update_error.is_valid)
+        self.assertEqual(str(update_error), "Invalid Request")
