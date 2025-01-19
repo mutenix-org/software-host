@@ -23,6 +23,7 @@ from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
 from mutenix.teams_messages import ClientMessage
 from mutenix.teams_messages import ClientMessageParameter
+from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
 from mutenix.teams_messages import ServerMessage
 from mutenix.updates import check_for_device_update
@@ -38,7 +39,7 @@ try:
     from pynput.keyboard import Key
     from pynput.mouse import Button
     from pynput.mouse import Controller as MouseController
-except ImportError:
+except ImportError:  # pragma: no cover
     Controller = None
     Key = None
     Button = None
@@ -88,80 +89,80 @@ class Macropad:
             entry.button_id: entry for entry in self._config.double_tap_action
         }
 
+    def _perform_webhook(self, extra):
+        requests.request(
+            extra.get("method", "GET"),
+            extra["url"],
+            json=extra.get("data", None),
+            headers={
+                str(key): str(value) for key, value in extra.get("headers", {}).items()
+            },
+        )
+
+    def _keypress(self, extra):
+        if not Controller:
+            _logger.error("pynput not supported, cannot send keypress")
+            return
+        if isinstance(extra, list):  # pragma: no cover
+            for sequence in extra:
+                self._keypress(sequence)
+            return
+
+        keyboard = Controller()
+        if "key" in extra:
+
+            def do_key(*keys):
+                if len(keys) == 1:
+                    keyboard.tap(keys[0])
+                else:
+                    with keyboard.pressed(keys[0]):
+                        do_key(*keys[1:])
+
+            try:
+                do_key(
+                    *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
+                    extra["key"]
+                    if len(extra["key"]) == 1
+                    else getattr(Key, extra["key"]),
+                )
+            except AttributeError:
+                print("Key not found")
+        elif "string" in extra:
+            keyboard.type(extra["string"])
+
+    def _mousemove(self, extra):
+        if not MouseController:
+            _logger.error("pynput not supported, cannot send mousemove")
+            return
+        if isinstance(extra, list):  # pragma: no cover
+            for sequence in extra:
+                self._mousemove(sequence)
+            return
+        mouse = MouseController()
+        action = extra.get("action", "move")
+        match action:
+            case "move":
+                mouse.move(extra.get("x", 0), extra.get("y", 0))
+            case "set":
+                mouse.position = (extra.get("x", 0), extra.get("y", 0))
+            case "click":
+                mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
+            case "press":
+                mouse.press(getattr(Button, extra["button"]))
+            case "release":
+                mouse.release(getattr(Button, extra["button"]))
+
     async def _send_status(self, status: Status):
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
         mapped_action: Callable | None | MeetingAction = None
 
-        def perform_webhook(extra):
-            requests.request(
-                extra.get("method", "GET"),
-                extra["url"],
-                json=extra.get("data", None),
-                headers={
-                    str(key): str(value)
-                    for key, value in extra.get("headers", {}).items()
-                },
-            )
-
-        def keypress(extra):
-            if not Controller:
-                _logger.error("pynput not installed, cannot send keypress")
-                return
-            if "sequence" in extra:
-                for sequence in extra["sequence"]:
-                    keypress(sequence)
-                return
-
-            keyboard = Controller()
-            if "key" in extra:
-
-                def do_key(*keys):
-                    if len(keys) > 1:
-                        keyboard.press(keys[0])
-                    with keyboard.pressed(keys[0]):
-                        do_key(*keys[1:])
-
-                try:
-                    do_key(
-                        *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
-                        extra["key"]
-                        if len(extra["key"]) == 1
-                        else getattr(Key, extra["key"]),
-                    )
-                except AttributeError:
-                    print("Key not found")
-            elif "string" in extra:
-                keyboard.type(extra["string"])
-
-        def mousemove(extra):
-            if not MouseController:
-                _logger.error("pynput not installed, cannot send mousemove")
-                return
-            if "sequence" in extra:
-                for sequence in extra["sequence"]:
-                    mousemove(sequence)
-                return
-            mouse = MouseController()
-            action = extra.get("action", "move")
-            match action:
-                case "move":
-                    mouse.move(extra.get("x", 0), extra.get("y", 0))
-                case "set":
-                    mouse.position = (extra.get("x", 0), extra.get("y", 0))
-                case "click":
-                    mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
-                case "press":
-                    mouse.press(getattr(Button, extra["button"]))
-                case "release":
-                    mouse.release(getattr(Button, extra["button"]))
-
         action_map: dict[ActionEnum, Callable] = {
-            ActionEnum.ACTIVATE_TEAMS: bring_teams_to_foreground,
+            ActionEnum.ACTIVATE_TEAMS: lambda _: bring_teams_to_foreground(),
             ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
-            ActionEnum.WEBHOOK: perform_webhook,
-            ActionEnum.KEYPRESS: keypress,
-            ActionEnum.MOUSE: mousemove,
+            ActionEnum.WEBHOOK: self._perform_webhook,
+            ActionEnum.KEYPRESS: self._keypress,
+            ActionEnum.MOUSE: self._mousemove,
         }
 
         if status.triggered:
@@ -174,31 +175,23 @@ class Macropad:
             if not action:
                 return
             if isinstance(action.action, MeetingAction):
-                mapped_action = action.action
+                if action.action == MeetingAction.React and isinstance(
+                    action.extra,
+                    ClientMessageParameterType,
+                ):
+                    client_message = ClientMessage.create(
+                        action=MeetingAction.React,
+                    )
+                    client_message.parameters = ClientMessageParameter(
+                        type_=action.extra,
+                    )
+                else:
+                    client_message = ClientMessage.create(action=action.action)
+                await self._websocket.send_message(client_message)
             else:
                 mapped_action = action_map.get(action.action, None)
-            if mapped_action:
                 if callable(mapped_action):
-                    if action.action in [
-                        ActionEnum.CMD,
-                        ActionEnum.WEBHOOK,
-                        ActionEnum.KEYPRESS,
-                        ActionEnum.MOUSE,
-                    ]:
-                        mapped_action(action.extra)  # pragma: no cover
-                    else:
-                        mapped_action()
-                else:
-                    if action.action == MeetingAction.React:
-                        client_message = ClientMessage.create(
-                            action=MeetingAction.React,
-                        )
-                        client_message.parameters = ClientMessageParameter(
-                            type_=action.extra,
-                        )
-                    else:
-                        client_message = ClientMessage.create(action=mapped_action)
-                    await self._websocket.send_message(client_message)
+                    mapped_action(action.extra)  # pragma: no cover
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:

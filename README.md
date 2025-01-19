@@ -82,21 +82,21 @@ actions:
 - action: key-press
   button_id: 1
   extra:
-    sequence:
-      - modifiers: [cmd_l, shift]
-        key: p
-      - string: Reload Window
-      - key: enter
+    - modifiers: [cmd_l, shift]
+      key: p
+    - string: Reload Window
+    - key: enter
 - action: mouse
   button_id: 2
   extra:
-    sequence:
-      - x: 100
-        y: 100
-      - action: click
-        button: left
-      - x: 200
-        y: 200
+    - action: move
+      x: 100
+      y: 100
+    - action: click
+      button: left
+    - action: move
+      x: 200
+      y: 200
 - action: cmd
   button_id: 3
   extra: net send * Please call me
@@ -120,12 +120,17 @@ double_tap_action:
       - `activate-teams` to trigger an action to bring teams into the foreground
       - `cmd` to run an arbitrary command. This is to be used with case, as no check is performed on the output or what command is run. Specify the command in `extra`.
       - `type`: Type the text in `extra` using keyboard emulation
-      - `keypress`: Press keys. In extra you can specify one or many keys or key combinations
-        - **one key**: `key` like 'A', B', ... and `modifiers` with modifiers as `shift`, `alt`, ... see [pynput](https://pynput.readthedocs.io/en/latest/keyboard.html#pynput.keyboard.Key)
-        - **multiple keys**: a list of the one key settings in sequence
-      - `mouse`: Simulate mouse
-        - **single action**: One of the following actions: `move`, `set`, `click`, `press`, `release`. Parameters are `x`, `y` for position, `button` for click actions and `count` for click
-        - **sequence**: multiple actions as a list
+      - `keypress`: Press keys. In extra you can specify one or many keys or key combinations (can be one or a list)
+        - `key`: like 'A', B', ...
+        - `modifiers`: with modifiers as `shift`, `alt`, ... see [pynput](https://pynput.readthedocs.io/en/latest/keyboard.html#pynput.keyboard.Key)
+        - `string`: a string to type
+      - `mouse`: Simulate mouse (can be one or a list)
+        - One of the following actions:
+          - `action`: `move` (can be omitted), `set`, `click`, `press`, `release`
+          - `x`: Relative or Absolute Position
+          - `y`: Relative or Absolute Position
+          - `button`: Mouse button: `left`, `middle`, `right`
+          - `count`: for click, the times to click
       - `webhook` to make a user defined webhook call, make sure `extra has the following information:
         - `url`: the url endpoint
         - `method`: (optional, default: GET) the method to use
