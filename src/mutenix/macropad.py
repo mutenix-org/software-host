@@ -278,6 +278,12 @@ class Macropad:
                         ),
                     )
                 self._last_status_check[ledstatus.button_id] = time.time()
+            elif ledstatus.source == LedStatusSource.WEBHOOK:
+                color = self._virtual_macropad.get_led_status(ledstatus.button_id)
+                msgs[ledstatus.button_id] = SetLed(
+                    ledstatus.button_id,
+                    self._map_led_color(color),
+                )
 
         for key, message in msgs.items():
             try:

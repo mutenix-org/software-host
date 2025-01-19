@@ -31,12 +31,14 @@ class VirtualMacropad(WebServer):
         self._callbacks: list[Callable[[HidOutputMessage], asyncio.Future]] = []
         self._websockets: set[web.WebSocketResponse] = set()
         self._led_status: dict[int, str] = {}
+        self._led_input_status: dict[int, str] = {}
         self._led_status_lock = asyncio.Lock()
 
         self.app.add_routes(
             [
                 web.post("/button", self.button_handler),
                 web.get("/ws", self.websocket_handler),
+                web.post("/led", self.led_handler),
             ],
         )
 
@@ -103,3 +105,11 @@ class VirtualMacropad(WebServer):
         else:
             raise UnsupportedMessageTypeError("Unsupported message type")
         _logger.debug("Sent message: %s", msg)
+
+    async def led_handler(self, request: web.Request):
+        data = await request.json()
+        self._led_input_status[int(data["button"])] = data["color"]
+        return web.Response(status=200)
+
+    def get_led_status(self, button: int) -> str:
+        return self._led_input_status.get(button, "black")
