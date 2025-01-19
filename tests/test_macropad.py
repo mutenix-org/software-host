@@ -32,7 +32,8 @@ try:
     from pynput.keyboard import Key
     from pynput.mouse import Button
 except ImportError:
-    Key = Button = None
+    Key = Mock()
+    Button = Mock()
 
 
 @pytest.fixture
@@ -569,7 +570,7 @@ def test_activate_filesystem(macropad):
         ({"string": "hello"}, [("type", "hello")]),
     ],
 )
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
 def test_keypress(extra, expected_calls):
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
@@ -593,7 +594,7 @@ def test_keypress(extra, expected_calls):
                 mock_keyboard.type.assert_any_call(call[1])
 
 
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
 def test_keypress_pynput_not_supported():
     with patch("mutenix.macropad.Controller", None):
         macropad = Macropad()
@@ -604,7 +605,7 @@ def test_keypress_pynput_not_supported():
             )
 
 
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
 def test_keypress_invalid_key():
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
@@ -629,7 +630,10 @@ def test_keypress_invalid_key():
         ({"action": "release", "button": "middle"}, [("release", Button.middle)]),
     ],
 )
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
 def test_mousemove(extra, expected_calls):
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
@@ -649,7 +653,10 @@ def test_mousemove(extra, expected_calls):
                 mock_mouse.release.assert_called_once_with(call[1])
 
 
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
 def test_mousemove_pynput_not_supported():
     with patch("mutenix.macropad.MouseController", None):
         macropad = Macropad()
@@ -660,7 +667,10 @@ def test_mousemove_pynput_not_supported():
             )
 
 
-@pytest.mark.skipif(Key is None, reason="pynput not installed")
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
 def test_mousemove_invalid_action():
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
