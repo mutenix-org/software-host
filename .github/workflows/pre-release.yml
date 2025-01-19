@@ -63,13 +63,19 @@ jobs:
         uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix win64
 
     - name: Create Tag
-      id: create_tag
+      if: runner.os == 'Windows'
+      id: create_tag_win
       run: |
-        if [ "$(uname)" = "Linux" ] || [ "$(uname)" = "Darwin" ]; then
-          TAG_NAME=pre-release-$(git rev-parse --short HEAD)
-        else
-          TAG_NAME=pre-release-$(powershell -Command "(git rev-parse --short HEAD).Trim()")
-        fi
+        TAG_NAME=pre-release-$(powershell -Command "(git rev-parse --short HEAD).Trim()")
+        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        git tag $TAG_NAME
+        git push origin $TAG_NAME
+
+    - name: Create Tag
+      if: runner.os != 'Windows'
+      id: create_tag_nix
+      run: |
+        TAG_NAME=pre-release-$(git rev-parse --short HEAD)
         echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
         git tag $TAG_NAME
         git push origin $TAG_NAME
