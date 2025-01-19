@@ -22,6 +22,10 @@ CONFIG_FILENAME = "mutenix.yaml"
 
 
 class ActionEnum(str, Enum):
+    """
+    ActionEnum is an enumeration that represents different types of actions that can be performed.
+    """
+
     TEAMS = "teams"
     ACTIVATE_TEAMS = "activate-teams"
     CMD = "cmd"
@@ -33,6 +37,7 @@ class ActionEnum(str, Enum):
 class LedStatusSource(str, Enum):
     TEAMS = "teams"
     CMD = "cmd"
+    WEBHOOK = "webhook"
 
 
 class LedColor(str, Enum):

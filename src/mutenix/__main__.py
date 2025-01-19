@@ -45,23 +45,36 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def main(args: argparse.Namespace):
+def register_signal_handler(macropad: Macropad):
+    """
+    Registers a signal handler to shut down the Macropad gracefully on SIGINT.
+    Args:
+        macropad (Macropad): The Macropad instance to be shut down on SIGINT.
+    """
+
     def signal_handler(signal, frame):  # pragma: no cover
         print("Shuting down...")
         _logger.info("SIGINT received, shutting down...")
         asyncio.create_task(macropad.stop())
 
-    if args.list_devices:
-        import hid
+    signal.signal(signal.SIGINT, signal_handler)
 
-        for device in hid.enumerate():
-            print(device)
-        return
+
+def list_devices():
+    import hid
+
+    for device in hid.enumerate():
+        print(device)
+
+
+def main(args: argparse.Namespace):
+    if args.list_devices:
+        return list_devices()
 
     check_for_self_update(MAJOR, MINOR, PATCH)
 
-    signal.signal(signal.SIGINT, signal_handler)
     macropad = Macropad(args.config)
+    register_signal_handler(macropad)
 
     if args.update_file:
         _logger.info("Starting manual update with file: %s", args.update_file)
