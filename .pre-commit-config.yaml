@@ -7,17 +7,6 @@ repos:
       - id: check-yaml
       - id: check-json
         exclude: ^\.vscode/
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.8.4
-    hooks:
-      - id: ruff
-        args: [ --fix ]
-      - id: ruff-format
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        args: ["--install-types", "--non-interactive", "--ignore-missing-imports"]
   - repo: https://github.com/whtsky/pre-commit-pretty-format-json5
     rev: "1.0.0"
     hooks:
@@ -38,6 +27,19 @@ repos:
     rev: v3.1.0
     hooks:
     -   id: add-trailing-comma
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        args: ["--install-types", "--non-interactive", "--ignore-missing-imports"]
+        fail_fast: true
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+        fail_fast: true
+      - id: ruff-format
   - repo: local
     hooks:
     - id: pytest
@@ -47,3 +49,4 @@ repos:
       types: [python]
       pass_filenames: false
       always_run: true
+      verbose: true
