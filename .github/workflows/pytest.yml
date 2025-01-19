@@ -26,6 +26,9 @@ jobs:
         run: |
           uv venv
           uv sync
+      - name: Run pre-commit
+        run: |
+          SKIP=pytest uv run pre-commit run --all-files --verbose --show-diff-on-failure
       - name: Test with pytest
         run: |
           uv run pytest

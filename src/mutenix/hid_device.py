@@ -62,7 +62,7 @@ class HidDevice:
                 available_devices = find_device()
             else:
                 available_devices = list(
-                    map(lambda x: x.model_dump(), self._device_info)
+                    map(lambda x: x.model_dump(), self._device_info),
                 )
             if len(available_devices) == 0:
                 _logger.debug("No device available, no config")
