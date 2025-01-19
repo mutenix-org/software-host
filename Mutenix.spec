@@ -46,7 +46,26 @@ if onefile:
         argv_emulation=False,
         target_arch=None,
         codesign_identity=None,
-        entitlements_file=None, )
+        disable_windowed_traceback=True,
+        entitlements_file=None,hide_console="hide-early")
+    exe = EXE(pyz,
+          a.scripts,
+          a.binaries,
+          a.zipfiles,
+          a.datas,
+          name=f'Mutenix.cli.{suffix}',
+          debug=False,
+          strip=False,
+          upx=True,
+          runtime_tmpdir=None,
+          console=True,
+          icon=["src/mutenix/assets/icon_all_red_apple_touch.png", "src/mutenix/assets/mutenix.ico"],
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        argv_emulation=True )
 else:
     exe = EXE(
         pyz,

@@ -1,0 +1,69 @@
+name: Pre-Release
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    - uses: actions/checkout@v4
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: "pyproject.toml"
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync
+
+    - name: build the package
+      run: |
+        uv build
+    - name: Upload distributions
+      uses: actions/upload-artifact@v4
+      with:
+        name: pre-release-dists
+        path: dist/
+
+  build-binary:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync
+
+    - name: build release
+      if: runner.os != 'Windows'
+      run: |
+        OS_NAME=$(echo ${{ matrix.os }} | sed -e 's/ubuntu-latest/x86_64-linux/' -e 's/macos-13/x86_64-darwin/' -e 's/macos-latest/aarch64-darwin/')
+        uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix $OS_NAME
+
+    - name: build release (windows)
+      if: runner.os == 'Windows'
+      run: |
+        uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix win64
+
+    - name: Pre-Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        prerelease: true
