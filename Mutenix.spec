@@ -61,7 +61,6 @@ if onefile:
           console=True,
           icon=["src/mutenix/assets/icon_all_red_apple_touch.png", "src/mutenix/assets/mutenix.ico"],
         disable_windowed_traceback=False,
-        argv_emulation=False,
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
