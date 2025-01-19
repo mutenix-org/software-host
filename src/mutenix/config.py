@@ -4,11 +4,17 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Annotated
 from typing import Any
+from typing import Literal
+from typing import Union
 
 import yaml
+from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
 from pydantic import BaseModel
+from pydantic import Discriminator
+from pydantic import Tag
 
 _logger = logging.getLogger(__name__)
 
@@ -16,6 +22,7 @@ CONFIG_FILENAME = "mutenix.yaml"
 
 
 class ActionEnum(str, Enum):
+    TEAMS = "teams"
     ACTIVATE_TEAMS = "activate-teams"
     CMD = "cmd"
     WEBHOOK = "webhook"
@@ -52,10 +59,116 @@ class TeamsState(str, Enum):
     VIDEO_ON = "is-video-on"
 
 
+class TeamsReact(str, Enum):
+    reaction: ClientMessageParameterType
+
+
+class KeyPress(BaseModel):
+    modifiers: list[str] | None = None
+    key: str | None = None
+    string: str | None = None
+
+
+class MouseActionPosition(BaseModel):
+    x: int
+    y: int
+
+
+class MouseActionMove(MouseActionPosition):
+    action: Literal["move", None] = "move"
+
+
+class MouseActionSetPosition(MouseActionPosition):
+    action: Literal["set"] = "set"
+
+
+class MouseActionClick(BaseModel):
+    action: Literal["click"] = "click"
+    button: str
+    count: int = 1
+
+
+class MouseActionPress(BaseModel):
+    action: Literal["press"] = "press"
+    button: str
+
+
+class MouseActionRelease(BaseModel):
+    action: Literal["release"] = "release"
+    button: str
+
+
+MouseMove = Annotated[
+    Union[
+        Annotated[MouseActionMove, Tag("move")],
+        Annotated[MouseActionSetPosition, Tag("set")],
+        Annotated[MouseActionClick, Tag("click")],
+        Annotated[MouseActionPress, Tag("press")],
+        Annotated[MouseActionRelease, Tag("release")],
+    ],
+    Discriminator(lambda v: v["action"] if "action" in v else "move"),
+]
+
+
+class WebhookAction(BaseModel):
+    method: str | None = None
+    url: str
+    headers: dict[str, str] | None = None
+    data: dict[str, Any] | None = None
+
+
+def button_action_details_descriminator(v: Any) -> str:
+    if isinstance(v, str):
+        return "cmd"
+    if not isinstance(v, dict):
+        return ""
+    if "key" in v or "modifiers" in v or "string" in v:
+        return "key"
+    if "x" in v or "y" in v or "button" in v:
+        return "mouse"
+    if "url" in v:
+        return "webhook"
+    return ""
+
+
+SequenceElementType = Annotated[
+    Union[
+        Annotated[KeyPress, Tag("key")],
+        Annotated[MouseMove, Tag("mouse")],
+        Annotated[str, Tag("cmd")],
+        Annotated[WebhookAction, Tag("webhook")],
+    ],
+    Discriminator(button_action_details_descriminator),
+]
+
+SequenceType = list[SequenceElementType]
+
+
+def button_action_discriminator(v: Any) -> str:
+    if v is None:
+        return "none"
+    if isinstance(v, str):
+        if str(v).lower() in [e.value for e in ClientMessageParameterType]:
+            return "react"
+    if isinstance(v, (list)):
+        return "sequence"
+    if isinstance(v, (dict)):
+        return "single"
+    return "none"
+
+
 class ButtonAction(BaseModel):
     button_id: int
     action: MeetingAction | ActionEnum
-    extra: str | dict[str, Any] | None = None
+    extra: Annotated[
+        Union[
+            Annotated[None, Tag("none")],  # Teams activation and default actions
+            Annotated[ClientMessageParameterType, Tag("react")],
+            Annotated[SequenceType, Tag("sequence")],
+            Annotated[SequenceElementType, Tag("single")],
+        ],
+        Discriminator(button_action_discriminator),
+    ] = None
 
 
 class LedStatus(BaseModel):

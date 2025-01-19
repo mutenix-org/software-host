@@ -28,6 +28,13 @@ from mutenix.teams_messages import MeetingState
 from mutenix.teams_messages import MeetingUpdate
 from mutenix.teams_messages import ServerMessage
 
+try:
+    from pynput.keyboard import Key
+    from pynput.mouse import Button
+except ImportError:
+    Key = Mock()
+    Button = Mock()
+
 
 @pytest.fixture
 def macropad():
@@ -549,3 +556,128 @@ def test_activate_filesystem(macropad):
     macropad._device.send_msg.assert_called_once()
     sent_message = macropad._device.send_msg.call_args[0][0]
     assert sent_message._activate_filesystem == 2
+
+
+@pytest.mark.parametrize(
+    "extra, expected_calls",
+    [
+        ({"key": "a"}, [("tap", "a")]),
+        ({"key": "enter"}, [("tap", Key.enter)]),
+        (
+            {"modifiers": ["ctrl", "shift"], "key": "a"},
+            [("pressed", Key.ctrl), ("pressed", Key.shift), ("tap", "a")],
+        ),
+        ({"string": "hello"}, [("type", "hello")]),
+    ],
+)
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
+def test_keypress(extra, expected_calls):
+    with patch("mutenix.macropad.Controller") as MockController:
+        mock_keyboard = MockController.return_value
+        macropad = Macropad()
+        macropad._keypress(extra)
+
+        if "key" in extra:
+            if len(extra["key"]) == 1:
+                mock_keyboard.tap.assert_any_call(extra["key"])
+            else:
+                mock_keyboard.tap.assert_any_call(getattr(Key, extra["key"]))
+        elif "string" in extra:
+            mock_keyboard.type.assert_called_once_with(extra["string"])
+
+        for call in expected_calls:
+            if call[0] == "pressed":
+                mock_keyboard.pressed.assert_any_call(call[1])
+            elif call[0] == "tap":
+                mock_keyboard.tap.assert_any_call(call[1])
+            elif call[0] == "type":
+                mock_keyboard.type.assert_any_call(call[1])
+
+
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
+def test_keypress_pynput_not_supported():
+    with patch("mutenix.macropad.Controller", None):
+        macropad = Macropad()
+        with patch("mutenix.macropad._logger.error") as mock_logger_error:
+            macropad._keypress({"key": "a"})
+            mock_logger_error.assert_called_once_with(
+                "pynput not supported, cannot send keypress",
+            )
+
+
+@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
+def test_keypress_invalid_key():
+    with patch("mutenix.macropad.Controller") as MockController:
+        mock_keyboard = MockController.return_value
+        macropad = Macropad()
+        with patch("builtins.print") as mock_print:
+            macropad._keypress({"key": "invalid_key"})
+            mock_print.assert_called_once_with("Key not found")
+            mock_keyboard.press.assert_not_called()
+            mock_keyboard.release.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "extra, expected_calls",
+    [
+        ({"action": "move", "x": 10, "y": 20}, [("move", 10, 20)]),
+        ({"action": "set", "x": 30, "y": 40}, [("position", (30, 40))]),
+        (
+            {"action": "click", "button": "left", "count": 2},
+            [("click", Button.left, 2)],
+        ),
+        ({"action": "press", "button": "right"}, [("press", Button.right)]),
+        ({"action": "release", "button": "middle"}, [("release", Button.middle)]),
+    ],
+)
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
+def test_mousemove(extra, expected_calls):
+    with patch("mutenix.macropad.MouseController") as MockMouseController:
+        mock_mouse = MockMouseController.return_value
+        macropad = Macropad()
+        macropad._mousemove(extra)
+
+        for call in expected_calls:
+            if call[0] == "move":
+                mock_mouse.move.assert_called_once_with(call[1], call[2])
+            elif call[0] == "position":
+                assert mock_mouse.position == call[1]
+            elif call[0] == "click":
+                mock_mouse.click.assert_called_once_with(call[1], call[2])
+            elif call[0] == "press":
+                mock_mouse.press.assert_called_once_with(call[1])
+            elif call[0] == "release":
+                mock_mouse.release.assert_called_once_with(call[1])
+
+
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
+def test_mousemove_pynput_not_supported():
+    with patch("mutenix.macropad.MouseController", None):
+        macropad = Macropad()
+        with patch("mutenix.macropad._logger.error") as mock_logger_error:
+            macropad._mousemove({"action": "move", "x": 10, "y": 20})
+            mock_logger_error.assert_called_once_with(
+                "pynput not supported, cannot send mousemove",
+            )
+
+
+@pytest.mark.skipif(
+    isinstance(Button, Mock),
+    reason="pynput not supported on plattform",
+)
+def test_mousemove_invalid_action():
+    with patch("mutenix.macropad.MouseController") as MockMouseController:
+        mock_mouse = MockMouseController.return_value
+        macropad = Macropad()
+        macropad._mousemove({"action": "invalid_action"})
+        mock_mouse.move.assert_not_called()
+        mock_mouse.position = (0, 0)
+        mock_mouse.click.assert_not_called()
+        mock_mouse.press.assert_not_called()
+        mock_mouse.release.assert_not_called()
