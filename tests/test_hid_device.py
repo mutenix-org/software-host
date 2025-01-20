@@ -72,6 +72,7 @@ async def test_write_failure(hid_device):
 @pytest.mark.asyncio
 async def test_write_device_disconnected(hid_device):
     msg = HidOutputMessage()
+    hid_device._wait_for_device = AsyncMock(return_value=None)
     future = hid_device.send_msg(msg)
     with patch.object(
         hid_device,
@@ -79,20 +80,21 @@ async def test_write_device_disconnected(hid_device):
         side_effect=OSError("Device disconnected"),
     ):
         await hid_device._write()
-    assert not future.done()
+    assert future._exception is not None
 
 
 @pytest.mark.asyncio
 async def test_write_value_error(hid_device):
     msg = HidOutputMessage()
     future = hid_device.send_msg(msg)
+    hid_device._wait_for_device = AsyncMock(return_value=None)
     with patch.object(
         hid_device,
         "_send_report",
         side_effect=ValueError("Invalid message"),
     ):
         await hid_device._write()
-    assert not future.done()
+    assert future._exception is not None
 
 
 @pytest.mark.asyncio

@@ -99,9 +99,10 @@ class HidDevice:
                 if device := self._open_device_with_info(device_info):
                     break
             else:
+                _logger.info("Device not found %s", device)
                 return None
-            device.set_nonblocking(1)
             _logger.info("Device found %s", device)
+            device.set_nonblocking(1)
             return device
         except Exception as e:
             _logger.debug("Failed to get device: %s", e)
@@ -156,7 +157,7 @@ class HidDevice:
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
             else:
-                await asyncio.sleep(0)  # pragma: no cover
+                await asyncio.sleep(0.1)  # pragma: no cover
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
             await self._wait_for_device()
@@ -179,8 +180,12 @@ class HidDevice:
             self._send_buffer.task_done()
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
+            future.set_exception(e)
+            await self._wait_for_device()
         except ValueError as e:
             _logger.error("Error sending message: %s", e)
+            future.set_exception(e)
+            await self._wait_for_device()
 
     async def _ping(self):
         """
@@ -196,8 +201,10 @@ class HidDevice:
             try:
                 self._last_ping_time = asyncio.get_event_loop().time()
                 await future
+                _logger.debug("ping finally sent")
             except Exception as e:
                 self._log_failed_to_send("Failed to send ping: %s", e)
+            self._last_ping_time = asyncio.get_event_loop().time()
 
     async def _process(self):  # pragma: no cover
         await self._wait_for_device()
