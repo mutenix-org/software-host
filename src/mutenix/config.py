@@ -9,6 +9,7 @@ from typing import Any
 from typing import Literal
 from typing import Union
 
+import pydantic
 import yaml
 from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
@@ -183,7 +184,8 @@ class LedStatus(BaseModel):
     color_on: LedColor | None = None
     color_off: LedColor | None = None
     read_result: bool = False
-    interval: float = 0.0
+    interval: float = 5.0
+    timeout: float = 0.5
 
 
 class VirtualKeypadConfig(BaseModel):
@@ -198,6 +200,7 @@ class DeviceInfo(BaseModel):
 
 
 class Config(BaseModel):
+    _internal_state: Any = pydantic.PrivateAttr()
     actions: list[ButtonAction]
     double_tap_action: list[ButtonAction] = []
     leds: list[LedStatus] = []
@@ -205,11 +208,14 @@ class Config(BaseModel):
     file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
     auto_update: bool = True
-    device_identifications: list[DeviceInfo] = []
+    device_identifications: list[DeviceInfo] = [
+        DeviceInfo(vendor_id=7504, product_id=24774, serial_number=None),
+        DeviceInfo(vendor_id=4617, product_id=1, serial_number=None),
+    ]
 
 
 def create_default_config() -> Config:
-    return Config(
+    config = Config(
         actions=[
             ButtonAction(button_id=1, action=MeetingAction.ToggleMute),
             ButtonAction(button_id=2, action=MeetingAction.ToggleHand),
@@ -287,6 +293,8 @@ def create_default_config() -> Config:
         teams_token=None,
         virtual_keypad=VirtualKeypadConfig(bind_address="127.0.0.1", bind_port=12909),
     )
+    config._internal_state = "default"
+    return config
 
 
 def find_config_file() -> Path:
@@ -311,13 +319,24 @@ def load_config(file_path: Path | None = None) -> Config:
             config_data = yaml.safe_load(file)
         if config_data is None:
             raise yaml.YAMLError("No data in file")
-    except (FileNotFoundError, yaml.YAMLError, IOError) as e:
-        print(e)
-
+    except FileNotFoundError:
+        _logger.info("No config file found, creating default one")
         config = create_default_config()
         config.file_path = str(file_path)
         save_config(config)
         return config
+
+    except (yaml.YAMLError, IOError) as e:
+        _logger.info("Error in configuration file: %s", e)
+        config = create_default_config()
+        config._internal_state = "default_fallback"
+        config.file_path = str(file_path)
+        return config
+
+    except pydantic.ValidationError as e:
+        _logger.info("Configuration errors:")
+        for error in e.errors():
+            _logger.info(error)
 
     config_data["file_path"] = str(file_path)
     return Config(**config_data)
@@ -327,10 +346,12 @@ def save_config(config: Config, file_path: Path | str | None = None):
     if file_path is None:
         if config.file_path is None:
             raise ValueError("No file path provided")  # pragma: no cover
-
         file_path = config.file_path
 
-    config.file_path = None
+    config.file_path = file_path  # type: ignore
+    if config._internal_state == "default_fallback":
+        _logger.error("Not saving default config")
+        return
     try:
         with open(file_path, "w") as file:
             yaml.dump(config.model_dump(mode="json"), file)

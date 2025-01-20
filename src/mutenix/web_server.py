@@ -44,6 +44,7 @@ class WebServer:
     def __init__(self, host: str = HOST, port: int = PORT):
         self.host = host
         self.port = port
+        self._running = False
         self.app = web.Application()
         self.app.router.add_static(
             "/static/",
@@ -134,11 +135,16 @@ class WebServer:
         return render_template("about.html", request, context)
 
     async def process(self):
-        runner = web.AppRunner(self.app, access_log=None)
-        await runner.setup()
-        site = web.TCPSite(runner, self.host, self.port)
-        await site.start()
-        _logger.info("WebServer running at http://%s:%s", self.host, self.port)
+        try:
+            runner = web.AppRunner(self.app, access_log=None)
+            await runner.setup()
+            site = web.TCPSite(runner, self.host, self.port)
+            await site.start()
+            _logger.info("WebServer running at http://%s:%s", self.host, self.port)
+            self._running = True
+        except Exception as e:
+            _logger.error("Error starting WebServer: %s", e)
+            self._running = False
 
     async def stop(self):
         await self.app.shutdown()

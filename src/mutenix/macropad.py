@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import asyncio
 import logging
-import os
+import shlex
 import subprocess
 import time
 from collections import defaultdict
@@ -152,6 +152,24 @@ class Macropad:
             case "release":
                 mouse.release(getattr(Button, extra["button"]))
 
+    def _run_command(self, extra):
+        def run_command(command):
+            _logger.debug("Running command: %s", command)
+            result = subprocess.run(
+                shlex.split(command),
+                capture_output=True,
+                text=True,
+            )
+            _logger.debug("Command output: %s", result.stdout)
+            _logger.debug("Command error: %s", result.stderr)
+            _logger.debug("Command return code: %s", result.returncode)
+
+        for command in extra:
+            try:
+                asyncio.create_task(asyncio.to_thread(run_command, command))
+            except Exception as e:
+                _logger.error("Error running command: %s", e)
+
     async def _send_status(self, status: Status):
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
@@ -159,7 +177,7 @@ class Macropad:
 
         action_map: dict[ActionEnum, Callable] = {
             ActionEnum.ACTIVATE_TEAMS: lambda _: bring_teams_to_foreground(),
-            ActionEnum.CMD: lambda extra: os.system(extra) if extra else None,
+            ActionEnum.CMD: self._run_command,
             ActionEnum.WEBHOOK: self._perform_webhook,
             ActionEnum.KEYPRESS: self._keypress,
             ActionEnum.MOUSE: self._mousemove,
@@ -258,25 +276,29 @@ class Macropad:
                 ):
                     continue
                 if ledstatus.read_result:
-                    result = await asyncio.to_thread(
-                        subprocess.check_output,
-                        ledstatus.extra,
-                    )
-                    msgs[ledstatus.button_id] = SetLed(
-                        ledstatus.button_id,
-                        self._map_led_color(result.strip()),
-                    )
+                    async with asyncio.timeout(ledstatus.timeout):
+                        result = await asyncio.to_thread(
+                            subprocess.check_output,
+                            ledstatus.extra,
+                        )
+                        msgs[ledstatus.button_id] = SetLed(
+                            ledstatus.button_id,
+                            self._map_led_color(result.strip()),
+                        )
                 else:
-                    result = await asyncio.to_thread(
-                        subprocess.check_call,
-                        ledstatus.extra,
-                    )
-                    msgs[ledstatus.button_id] = SetLed(
-                        ledstatus.button_id,
-                        self._map_led_color(
-                            ledstatus.color_on if result == 0 else ledstatus.color_off,
-                        ),
-                    )
+                    async with asyncio.timeout(ledstatus.timeout):
+                        result = await asyncio.to_thread(
+                            subprocess.check_call,
+                            ledstatus.extra,
+                        )
+                        msgs[ledstatus.button_id] = SetLed(
+                            ledstatus.button_id,
+                            self._map_led_color(
+                                ledstatus.color_on
+                                if result == 0
+                                else ledstatus.color_off,
+                            ),
+                        )
                 self._last_status_check[ledstatus.button_id] = time.time()
             elif ledstatus.source == LedStatusSource.WEBHOOK:
                 color = self._virtual_macropad.get_led_status(ledstatus.button_id)

@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import mock_open
 from unittest.mock import patch
 
-import pytest
 from mutenix.tray_icon import load_image
 
 
@@ -25,5 +24,4 @@ def test_load_image_success():
 
 def test_load_image_file_not_found():
     file_name = "non_existent_image.png"
-    with pytest.raises(FileNotFoundError):
-        load_image(file_name)
+    load_image(file_name)

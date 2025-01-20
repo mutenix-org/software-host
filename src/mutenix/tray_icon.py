@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import asyncio
+import logging
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -9,11 +10,16 @@ from mutenix.macropad import Macropad
 from PIL import Image
 
 my_icon: Any | None = None
+_logger = logging.getLogger(__name__)
 
 
 def load_image(file_name):
-    file_path = Path(__file__).parent / "assets" / file_name
-    return Image.open(file_path)
+    try:
+        file_path = Path(__file__).parent / "assets" / file_name
+        return Image.open(file_path)
+    except Exception as e:
+        _logger.error("Error loading image: %s", e)
+        return Image.new("RGB", (64, 64), "red")
 
 
 def run_trayicon(macropad: Macropad):  # pragma: no cover

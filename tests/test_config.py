@@ -58,7 +58,7 @@ def test_load_config_file_not_found():
                 with patch("mutenix.config.save_config") as mock_save_config:
                     config = load_config()
                     assert config == mock_create_default_config.return_value
-                    mock_save_config.assert_called_once()
+                    mock_save_config.assert_not_called()
 
 
 def test_load_config_yaml_error():
@@ -72,7 +72,7 @@ def test_load_config_yaml_error():
                     with patch("mutenix.config.save_config") as mock_save_config:
                         config = load_config()
                         assert config == mock_create_default_config.return_value
-                        mock_save_config.assert_called_once()
+                    mock_save_config.assert_not_called()
 
 
 def test_load_config_success():
@@ -140,19 +140,6 @@ def test_load_config_with_valid_file():
                 assert config.auto_update is True
 
 
-def test_load_config_with_missing_file():
-    with patch("pathlib.Path.exists", return_value=False):
-        with patch("builtins.open", mock_open(read_data="")):
-            with patch(
-                "mutenix.config.create_default_config",
-            ) as mock_create_default_config:
-                mock_create_default_config.return_value = create_default_config()
-                with patch("mutenix.config.save_config") as mock_save_config:
-                    config = load_config()
-                    assert config == mock_create_default_config.return_value
-                    mock_save_config.assert_called_once()
-
-
 def test_load_config_with_invalid_yaml():
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data="invalid_yaml")):
@@ -164,7 +151,7 @@ def test_load_config_with_invalid_yaml():
                     with patch("mutenix.config.save_config") as mock_save_config:
                         config = load_config()
                         assert config == mock_create_default_config.return_value
-                        mock_save_config.assert_called_once()
+                        mock_save_config.assert_not_called()
 
 
 def test_save_config():
