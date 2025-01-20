@@ -152,21 +152,21 @@ class Macropad:
             case "release":
                 mouse.release(getattr(Button, extra["button"]))
 
-    def _run_command(self, extra):
-        def run_command(command):
-            _logger.debug("Running command: %s", command)
-            result = subprocess.run(
-                shlex.split(command),
-                capture_output=True,
-                text=True,
-            )
-            _logger.debug("Command output: %s", result.stdout)
-            _logger.debug("Command error: %s", result.stderr)
-            _logger.debug("Command return code: %s", result.returncode)
+    def _do_run_command(self, command):
+        _logger.debug("Running command: %s", command)
+        result = subprocess.run(
+            shlex.split(command),
+            capture_output=True,
+            text=True,
+        )
+        _logger.debug("Command output: %s", result.stdout)
+        _logger.debug("Command error: %s", result.stderr)
+        _logger.debug("Command return code: %s", result.returncode)
 
+    def _run_command(self, extra):  # pragma: no cover
         for command in extra:
             try:
-                asyncio.create_task(asyncio.to_thread(run_command, command))
+                asyncio.create_task(asyncio.to_thread(self._do_run_command, command))
             except Exception as e:
                 _logger.error("Error running command: %s", e)
 

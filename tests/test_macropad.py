@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import pathlib
+import shlex
 import time
 from collections import defaultdict
 from unittest.mock import ANY
@@ -850,3 +851,38 @@ async def test_update_device_status_webhook_source_with_invalid_color(macropad):
     macropad._virtual_macropad.send_msg.assert_called_once_with(
         SetLed(1, LedColor.GREEN),
     )
+
+
+@pytest.mark.parametrize(
+    "command, expected_stdout, expected_stderr, expected_returncode",
+    [
+        ("echo Hello", "Hello\n", "", 0),
+        ("exit 1", "", "", 1),
+    ],
+)
+def test_do_run_command(
+    command,
+    expected_stdout,
+    expected_stderr,
+    expected_returncode,
+    macropad,
+):
+    with patch("mutenix.macropad.subprocess.run") as mock_run:
+        mock_run.return_value.stdout = expected_stdout
+        mock_run.return_value.stderr = expected_stderr
+        mock_run.return_value.returncode = expected_returncode
+        with patch("mutenix.macropad._logger.debug") as mock_logger_debug:
+            macropad._do_run_command(command)
+
+            mock_run.assert_called_once_with(
+                shlex.split(command),
+                capture_output=True,
+                text=True,
+            )
+            mock_logger_debug.assert_any_call("Running command: %s", command)
+            mock_logger_debug.assert_any_call("Command output: %s", expected_stdout)
+            mock_logger_debug.assert_any_call("Command error: %s", expected_stderr)
+            mock_logger_debug.assert_any_call(
+                "Command return code: %s",
+                expected_returncode,
+            )
