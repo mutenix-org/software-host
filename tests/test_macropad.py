@@ -448,6 +448,7 @@ async def test_update_device_status_cmd_source_with_result(macropad):
             extra="echo blue",
             interval=0,
             read_result=True,
+            timeout=1.0,
         ),
     ]
     macropad._last_status_check = defaultdict(int)
@@ -474,6 +475,7 @@ async def test_update_device_status_cmd_source_without_result(macropad):
             read_result=False,
             color_on="yellow",
             color_off="black",
+            timeout=1.0,
         ),
     ]
     macropad._last_status_check = defaultdict(int)

@@ -3,8 +3,10 @@
 import argparse  # Added import for argparse
 import asyncio
 import logging
+import os
 import pathlib
 import signal
+import tempfile
 import threading
 
 from mutenix.macropad import Macropad
@@ -17,7 +19,7 @@ from mutenix.version import PATCH
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "mutenix.log"
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     filename=log_file_path,
     filemode="a",
     format="%(asctime)s - %(name)-25s [%(levelname)-8s]: %(message)s",
@@ -67,6 +69,41 @@ def list_devices():
         print(device)
 
 
+def ensure_only_once(func):
+    def wrapper(*args, **kwargs):
+        lock_file = pathlib.Path(tempfile.gettempdir()) / "mutenix.lock"
+        _logger.info("Using Lock file: %s", lock_file)
+        if lock_file.exists():
+            _logger.error("Lock file exists. Another instance might be running.")
+            try:
+                with lock_file.open("r") as f:
+                    pid = int(f.read().strip())
+                os.kill(pid, 0)
+                _logger.error(
+                    "The other instance %s is still runnning, exiting this one",
+                    pid,
+                )
+                exit(1)
+            except (OSError, ValueError):
+                _logger.info("Stale lock file found. Removing and continuing.")
+                lock_file.unlink()
+                with lock_file.open("w") as f:
+                    f.write(str(os.getpid()))
+                lock_file.touch()
+                return func(*args, **kwargs)
+        else:
+            with lock_file.open("w") as f:
+                f.write(str(os.getpid()))
+            lock_file.touch()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                lock_file.unlink()
+
+    return wrapper
+
+
+@ensure_only_once
 def main(args: argparse.Namespace):
     if args.list_devices:
         return list_devices()
