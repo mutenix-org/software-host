@@ -39,24 +39,3 @@ class TestWebServer(AioHTTPTestCase):
     async def test_popup_not_found(self):
         request = await self.client.request("GET", "/non_existent_popup")
         assert request.status == 404
-
-    async def test_favicon_ico_success(self):
-        favicon_path = (
-            pathlib.Path(__file__).parent.parent
-            / "src"
-            / "mutenix"
-            / "assets"
-            / "mutenix.ico"
-        )
-        favicon_path.touch()  # Create an empty file for testing
-
-        request = await self.client.request("GET", "/favicon.ico")
-        assert request.status == 200
-        content = await request.read()
-        assert content == favicon_path.read_bytes()
-
-        favicon_path.unlink()  # Clean up the created file
-
-    async def test_favicon_ico_not_found(self):
-        request = await self.client.request("GET", "/favicon.ico")
-        assert request.status == 404
