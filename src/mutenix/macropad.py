@@ -79,6 +79,7 @@ class Macropad:
             self._config.virtual_keypad.bind_address,
             self._config.virtual_keypad.bind_port,
         )
+        self._virtual_macropad.update_config(self._config)
         self._websocket.register_callback(self._teams_callback)
         self._device.register_callback(self._hid_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
@@ -171,6 +172,7 @@ class Macropad:
                 _logger.error("Error running command: %s", e)
 
     async def _send_status(self, status: Status):
+        _logger.info("Button %s,", status.button)
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
         mapped_action: Callable | None | MeetingAction = None
@@ -330,7 +332,7 @@ class Macropad:
         await asyncio.sleep(0.1)
         if int(time.time() - self._checktime) > 10:
             try:
-                if my_icon:
+                if my_icon:  # pragma: no cover
                     my_icon.update_menu()
                 self._checktime = time.time()
             except Exception as e:  # pragma: no cover
@@ -403,4 +405,5 @@ class Macropad:
         self._config = load_config()
         self._setup_buttons()
         self._update_device_status(force=True)
+        self._virtual_macropad.update_config(self._config)
         _logger.info("Config reloaded")

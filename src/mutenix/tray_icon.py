@@ -80,6 +80,10 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                 enabled=False,
             ),
             item(
+                "Show Config",
+                open_url("/config"),
+            ),
+            item(
                 "Help",
                 open_url("/help"),
             ),

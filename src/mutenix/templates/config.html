@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Mutenix - Configuration{% endblock %}
+{% block content %}
+<header>
+    <h1>Configuration</h1>
+</header>
+<main>
+    <section>
+        <h2>Button Actions</h2>
+        <table>
+            <thead>
+            <tr>
+                <th style="padding-right: 20px;">Button ID</th>
+                <th style="padding-right: 20px;">Action</th>
+                <th style="padding-right: 20px;">Extra</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for action in button_actions %}
+            <tr>
+                <td style="padding-right: 20px;">{{ action.button_id }}</td>
+                <td style="padding-right: 20px;">{{ action.action }}</td>
+                <td style="padding-right: 20px;">{{ action.extra }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h2>LED Configurations</h2>
+        <table>
+            <thead>
+            <tr>
+                <th style="padding-right: 20px;">Button ID</th>
+                <th style="padding-right: 20px;">Source</th>
+                <th style="padding-right: 20px;">Color On</th>
+                <th style="padding-right: 20px;">Color Off</th>
+                <th style="padding-right: 20px;">Extra</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for led in leds %}
+            <tr>
+                <td style="padding-right: 20px;">{{ led.button_id }}</td>
+                <td style="padding-right: 20px;">{{ led.source }}</td>
+                <td style="padding-right: 20px;">{{ led.color_on }}</td>
+                <td style="padding-right: 20px;">{{ led.color_off }}</td>
+                <td style="padding-right: 20px;">{{ led.extra }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h2>YAML Configuration</h2>
+        <button onclick="toggleYaml()">Show/Hide YAML</button>
+        <pre id="yamlConfig" style="display: none; background-color: #f8f8f8; padding: 10px; border: 1px solid #ccc;">
+    {{ yaml_config }}
+        </pre>
+    </section>
+    <script>
+        function toggleYaml() {
+            var yamlSection = document.getElementById("yamlConfig");
+            if (yamlSection.style.display === "none") {
+                yamlSection.style.display = "block";
+            } else {
+                yamlSection.style.display = "none";
+            }
+        }
+    </script>
+</main>
+{% endblock %}

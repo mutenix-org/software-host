@@ -261,7 +261,7 @@ class TransferFile:
         return next((chunk for chunk in self._chunks if not chunk.acked))
 
     def ack_chunk(self, chunk: ChunkAck):
-        if chunk.id != self.id:
+        if chunk.id != self.id:  # pragma: no cover
             return
 
         acked_chunk = next(
@@ -271,11 +271,11 @@ class TransferFile:
             ),
             None,
         )
-        if acked_chunk:
-            acked_chunk._acked = True
-            _logger.info("Acked chunk %s", chunk.package)
-        else:
-            _logger.warning("Chunk not found %s: %s", chunk.type_, chunk.package)
+        if not acked_chunk:  # pragma: no cover
+            _logger.warning("No chunk found for ack")
+            return
+        acked_chunk._acked = True
+        _logger.info("Acked chunk %s", chunk.package)
 
     @property
     def chunks(self):

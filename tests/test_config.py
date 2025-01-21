@@ -270,3 +270,28 @@ def test_find_config_file_not_found_anywhere():
     with patch("pathlib.Path.exists", return_value=False):
         config_path = find_config_file()
         assert config_path == Path(CONFIG_FILENAME)
+
+
+def test_load_config_with_file_path():
+    config_data = {
+        "actions": [
+            {"button_id": 1, "action": "toggle-mute"},
+            {"button_id": 2, "action": "toggle-hand"},
+        ],
+        "double_tap_action": [],
+        "leds": [],
+        "teams_token": None,
+        "file_path": None,
+        "virtual_keypad": {"bind_address": "127.0.0.1", "bind_port": 12909},
+        "auto_update": True,
+        "device_identifications": [],
+    }
+    with patch("pathlib.Path.exists", return_value=True):
+        with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
+            with patch("yaml.safe_load", return_value=config_data):
+                config = load_config(Path("custom_config.yaml"))
+                assert config.actions[0].button_id == 1
+                assert config.actions[0].action == "toggle-mute"
+                assert config.virtual_keypad.bind_address == "127.0.0.1"
+                assert config.virtual_keypad.bind_port == 12909
+                assert config.auto_update is True

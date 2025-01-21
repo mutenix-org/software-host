@@ -105,3 +105,9 @@ footer a {
 footer a:hover {
     color: #ddd;
 }
+
+header::before {
+  content: url('/images/mutenix_logo_finallogo_active.png');
+  display: block;
+  margin-bottom: 10px;
+}

@@ -5,6 +5,7 @@ import pathlib
 
 import jinja2
 import markdown
+import yaml
 from aiohttp import web
 from aiohttp_jinja2 import render_template
 from aiohttp_jinja2 import setup as jinja2_setup
@@ -58,6 +59,7 @@ class WebServer:
         self.app.router.add_route("GET", "/images/{name}", self.serve_image)
         self.app.router.add_route("GET", "/help", self.help)
         self.app.router.add_route("GET", "/about", self.about)
+        self.app.router.add_route("GET", "/config", self.config)
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -65,6 +67,9 @@ class WebServer:
             ],
         )
         jinja2_setup(self.app, loader=jinja2.PackageLoader("mutenix", "templates"))
+
+    def update_config(self, config):
+        self._config = config
 
     async def index(self, request: web.Request):
         return render_template("index.html", request, {})
@@ -91,7 +96,7 @@ class WebServer:
             raise web.HTTPNotFound()
         return web.FileResponse(icon_path)
 
-    async def favicon_ico(self, request: web.Request):
+    async def favicon_ico(self, request: web.Request):  # pragma: no cover
         return web.FileResponse(
             pathlib.Path(__file__).parent / "assets" / "mutenix.ico",
         )
@@ -133,6 +138,14 @@ class WebServer:
             "license_content": html_license_content,
         }
         return render_template("about.html", request, context)
+
+    async def config(self, request: web.Request):
+        context = {
+            "button_actions": self._config.actions,
+            "leds": self._config.leds,
+            "yaml_config": yaml.dump(self._config.model_dump(mode="json")),
+        }
+        return render_template("config.html", request, context)
 
     async def process(self):
         try:
