@@ -15,6 +15,7 @@ from mutenix.config import ButtonAction
 from mutenix.config import LedStatusSource
 from mutenix.config import load_config
 from mutenix.config import save_config
+from mutenix.config import WebhookAction
 from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
@@ -90,15 +91,17 @@ class Macropad:
             entry.button_id: entry for entry in self._config.double_tap_action
         }
 
-    def _perform_webhook(self, extra):
-        requests.request(
-            extra.get("method", "GET"),
-            extra["url"],
-            json=extra.get("data", None),
-            headers={
-                str(key): str(value) for key, value in extra.get("headers", {}).items()
-            },
-        )
+    def _perform_webhook(self, extra: WebhookAction):
+        try:
+            result = requests.request(
+                extra.method,
+                extra.url,
+                json=extra.data,
+                headers={str(key): str(value) for key, value in extra.headers.items()},
+            )
+            _logger.info("Webhook result: %i %s", result.status_code, result.text)
+        except Exception as e:
+            _logger.warn("Webhook resulted in an exeption %s", e)
 
     def _keypress(self, extra):
         if not Controller:

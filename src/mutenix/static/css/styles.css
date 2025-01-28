@@ -111,3 +111,9 @@ header::before {
   display: block;
   margin-bottom: 10px;
 }
+table tbody tr:nth-child(odd) {
+    background-color: #f2f2f2;
+}
+table tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}

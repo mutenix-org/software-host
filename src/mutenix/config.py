@@ -117,9 +117,9 @@ MouseMove = Annotated[
 
 
 class WebhookAction(BaseModel):
-    method: str | None = None
+    method: str = "GET"
     url: str
-    headers: dict[str, str] | None = None
+    headers: dict[str, str] = {}
     data: dict[str, Any] | None = None
 
 
