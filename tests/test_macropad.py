@@ -16,6 +16,7 @@ from unittest.mock import patch
 import pytest
 from mutenix.config import create_default_config
 from mutenix.config import LedStatusSource
+from mutenix.config import WebhookAction
 from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
@@ -763,6 +764,7 @@ def test_perform_webhook(
     macropad,
 ):
     with patch("mutenix.macropad.requests.request") as mock_request:
+        extra = WebhookAction(**extra)
         macropad._perform_webhook(extra)
         mock_request.assert_called_once_with(
             expected_method,

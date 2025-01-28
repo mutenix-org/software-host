@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import time
 
+import psutil
+
 _logger = logging.getLogger(__name__)
 
 if platform.system().lower() == "windows":  # pragma: no cover
@@ -188,19 +190,20 @@ def ensure_process_run_once(
                 try:
                     with lock_file.open("r") as f:
                         pid = int(f.read().strip())
-                    os.kill(pid, 0)
-                    _logger.error(
-                        "The other instance %s is still runnning, exiting this one",
-                        pid,
-                    )
-                    exit(1)
+                    if psutil.pid_exists(pid):
+                        print("The other instance is still running, exiting this one")
+                        _logger.error(
+                            "The other instance %s is still running, exiting this one",
+                            pid,
+                        )
+                        exit(1)
                 except (OSError, ValueError):
                     _logger.info("Stale lock file found. Removing and continuing.")
-                    lock_file.unlink()
-                    with lock_file.open("w") as f:
-                        f.write(str(os.getpid()))
-                    lock_file.touch()
-                    return func(*args, **kwargs)
+                lock_file.unlink()
+                with lock_file.open("w") as f:
+                    f.write(str(os.getpid()))
+                lock_file.touch()
+                return func(*args, **kwargs)
             else:
                 with lock_file.open("w") as f:
                     f.write(str(os.getpid()))
