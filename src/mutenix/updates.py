@@ -141,7 +141,7 @@ class ChunkType(IntEnum):
     FILE_START = 1
     FILE_CHUNK = 2
     FILE_END = 3
-    COMPLETE = 3
+    COMPLETE = 4
     FILE_DELETE = 5
 
 
