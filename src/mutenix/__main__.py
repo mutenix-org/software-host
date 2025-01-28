@@ -56,7 +56,7 @@ def register_signal_handler(macropad: Macropad):
     def signal_handler(signal, frame):  # pragma: no cover
         print("Shuting down...")
         _logger.info("SIGINT received, shutting down...")
-        asyncio.create_task(macropad.stop())
+        asyncio.run(macropad.stop())
 
     signal.signal(signal.SIGINT, signal_handler)
 
