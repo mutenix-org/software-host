@@ -168,7 +168,8 @@ class ButtonAction(BaseModel):
     action: MeetingAction | ActionEnum
     extra: Annotated[
         Union[
-            Annotated[None, Tag("none")],  # Teams activation and default actions
+            # Teams activation and default actions
+            Annotated[None, Tag("none")],
             Annotated[ClientMessageParameterType, Tag("react")],
             Annotated[SequenceType, Tag("sequence")],
             Annotated[SequenceElementType, Tag("single")],
@@ -209,6 +210,7 @@ class Config(BaseModel):
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
     auto_update: bool = True
     device_identifications: list[DeviceInfo] = [
+        DeviceInfo(vendor_id=0x1D50, product_id=0x6189, serial_number=None),
         DeviceInfo(vendor_id=7504, product_id=24774, serial_number=None),
         DeviceInfo(vendor_id=4617, product_id=1, serial_number=None),
     ]
@@ -220,12 +222,20 @@ def create_default_config() -> Config:
             ButtonAction(button_id=1, action=MeetingAction.ToggleMute),
             ButtonAction(button_id=2, action=MeetingAction.ToggleHand),
             ButtonAction(button_id=3, action=ActionEnum.ACTIVATE_TEAMS),
-            ButtonAction(button_id=4, action=MeetingAction.React, extra="like"),
+            ButtonAction(
+                button_id=4,
+                action=MeetingAction.React,
+                extra="like",
+            ),
             ButtonAction(button_id=5, action=MeetingAction.LeaveCall),
             ButtonAction(button_id=6, action=MeetingAction.ToggleMute),
             ButtonAction(button_id=7, action=MeetingAction.ToggleHand),
             ButtonAction(button_id=8, action=ActionEnum.ACTIVATE_TEAMS),
-            ButtonAction(button_id=9, action=MeetingAction.React, extra="like"),
+            ButtonAction(
+                button_id=9,
+                action=MeetingAction.React,
+                extra="like",
+            ),
             ButtonAction(button_id=10, action=MeetingAction.LeaveCall),
         ],
         double_tap_action=[
@@ -291,7 +301,10 @@ def create_default_config() -> Config:
             ),
         ],
         teams_token=None,
-        virtual_keypad=VirtualKeypadConfig(bind_address="127.0.0.1", bind_port=12909),
+        virtual_keypad=VirtualKeypadConfig(
+            bind_address="127.0.0.1",
+            bind_port=12909,
+        ),
     )
     config._internal_state = "default"
     return config
