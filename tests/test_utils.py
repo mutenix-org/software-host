@@ -209,17 +209,44 @@ def test_ensure_only_once_subsequent_run(mock_lock_file):
         mock_kill.assert_called_once_with(os.getpid(), 0)
 
 
-def test_ensure_only_once_stale_lock_file(mock_lock_file):
-    @ensure_process_run_once()
+@pytest.mark.parametrize("lockfile_exists", [True, False])
+def test_ensure_process_run_once(lockfile_exists, mock_lock_file):
+    @ensure_process_run_once(lockfile_path=mock_lock_file.parent)
+    def test_func():
+        return "Function executed"
+
+    if lockfile_exists:
+        with mock_lock_file.open("w") as f:
+            f.write(str(os.getpid()))
+
+    if lockfile_exists:
+        with patch("psutil.pid_exists", return_value=True):
+            with pytest.raises(SystemExit):
+                test_func()
+    else:
+        result = test_func()
+        assert result == "Function executed"
+        assert not mock_lock_file.exists()
+
+
+def test_ensure_process_run_once_stale_lockfile(mock_lock_file):
+    @ensure_process_run_once(lockfile_path=mock_lock_file.parent)
     def test_func():
         return "Function executed"
 
     with mock_lock_file.open("w") as f:
-        f.write("99999")  # Assuming 99999 is a stale PID
+        f.write("invalid_pid")
 
-    with patch("os.kill", side_effect=OSError):
-        result = test_func()
-        assert result == "Function executed"
-        assert mock_lock_file.exists()
-        with mock_lock_file.open("r") as f:
-            assert f.read().strip() == str(os.getpid())
+    result = test_func()
+    assert result == "Function executed"
+    assert not mock_lock_file.exists()
+
+
+def test_ensure_process_run_once_lockfile_cleanup(mock_lock_file):
+    @ensure_process_run_once(lockfile_path=mock_lock_file.parent)
+    def test_func():
+        return "Function executed"
+
+    result = test_func()
+    assert result == "Function executed"
+    assert not mock_lock_file.exists()

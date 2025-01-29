@@ -200,18 +200,13 @@ def ensure_process_run_once(
                 except (OSError, ValueError):
                     _logger.info("Stale lock file found. Removing and continuing.")
                 lock_file.unlink()
-                with lock_file.open("w") as f:
-                    f.write(str(os.getpid()))
-                lock_file.touch()
+            with lock_file.open("w") as f:
+                f.write(str(os.getpid()))
+            lock_file.touch()
+            try:
                 return func(*args, **kwargs)
-            else:
-                with lock_file.open("w") as f:
-                    f.write(str(os.getpid()))
-                lock_file.touch()
-                try:
-                    return func(*args, **kwargs)
-                finally:
-                    lock_file.unlink()
+            finally:
+                lock_file.unlink()
 
         return wrapper
 
