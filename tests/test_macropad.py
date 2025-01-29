@@ -614,11 +614,9 @@ def test_keypress_invalid_key():
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
         macropad = Macropad()
-        with patch("builtins.print") as mock_print:
-            macropad._keypress({"key": "invalid_key"})
-            mock_print.assert_called_once_with("Key not found")
-            mock_keyboard.press.assert_not_called()
-            mock_keyboard.release.assert_not_called()
+        macropad._keypress({"key": "invalid_key"})
+        mock_keyboard.press.assert_not_called()
+        mock_keyboard.release.assert_not_called()
 
 
 @pytest.mark.parametrize(

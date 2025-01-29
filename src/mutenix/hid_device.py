@@ -154,6 +154,8 @@ class HidDevice:
             buffer = self._device.read(64)
             if buffer and len(buffer):
                 _logger.debug("Reading message: %s", buffer)
+                if buffer[0] == 2:
+                    _logger.debug("BT Log Message: ", bytes(buffer[1:]).decode("utf-8"))
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
             else:

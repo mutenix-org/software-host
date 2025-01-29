@@ -13,6 +13,7 @@ from enum import IntEnum
 from typing import BinaryIO
 
 import hid
+import python_minifier
 import requests
 import semver
 from mutenix.hid_commands import VersionInfo
@@ -233,8 +234,15 @@ class TransferFile:
             self._chunks = [FileDelete(self.id, self.filename)]
             return
 
-        with open(file, "rb") as f:
-            self.content = f.read()
+        with open(file, "r") as f:
+            if file.suffix == ".py":
+                self.content = python_minifier.minify(
+                    f.read(),
+                    remove_annotations=True,
+                    rename_globals=False,
+                ).encode("utf-8")
+            else:
+                self.content = f.read()
         self.size = len(self.content)
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))

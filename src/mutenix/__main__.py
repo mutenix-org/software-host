@@ -18,7 +18,7 @@ from mutenix.version import PATCH
 # Configure logging to write to a file
 log_file_path = pathlib.Path.cwd() / "mutenix.log"
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     filename=log_file_path,
     filemode="a",
     format="%(asctime)s - %(name)-25s [%(levelname)-8s]: %(message)s",
