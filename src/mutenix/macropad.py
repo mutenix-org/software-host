@@ -113,6 +113,7 @@ class Macropad:
             return
 
         keyboard = Controller()
+        _logger.debug("Keypress: %s", extra)
         if "key" in extra:
 
             def do_key(*keys):
@@ -130,7 +131,7 @@ class Macropad:
                     else getattr(Key, extra["key"]),
                 )
             except AttributeError:
-                print("Key not found")
+                _logger.warning("Key not found")
         elif "string" in extra:
             keyboard.type(extra["string"])
 

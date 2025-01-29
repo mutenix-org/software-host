@@ -467,6 +467,7 @@ dependencies = [
     { name = "pynput" },
     { name = "pystray" },
     { name = "pytest-asyncio" },
+    { name = "python-minifier" },
     { name = "pywin32", marker = "platform_system == 'Windows'" },
     { name = "pywinauto", marker = "platform_system == 'Windows'" },
     { name = "pyyaml" },
@@ -497,6 +498,7 @@ requires-dist = [
     { name = "pynput", specifier = ">=1.7.7" },
     { name = "pystray", specifier = ">=0.19.5" },
     { name = "pytest-asyncio", specifier = ">=0.25.0" },
+    { name = "python-minifier", specifier = ">=2.11.3" },
     { name = "pywin32", marker = "platform_system == 'Windows'" },
     { name = "pywinauto", marker = "platform_system == 'Windows'" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -917,6 +919,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/93/0d/04719abc7a4bdb3a7a1f968f24b0f5253d698c9cc94975330e9d3145befb/pytest-timeout-2.3.1.tar.gz", hash = "sha256:12397729125c6ecbdaca01035b9e5239d4db97352320af155b3f5de1ba5165d9", size = 17697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/27/14af9ef8321f5edc7527e47def2a21d8118c6f329a9342cc61387a0c0599/pytest_timeout-2.3.1-py3-none-any.whl", hash = "sha256:68188cb703edfc6a18fad98dc25a3c61e9f24d644b0b70f33af545219fc7813e", size = 14148 },
+]
+
+[[package]]
+name = "python-minifier"
+version = "2.11.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/63/403fb2d6394b3e455e046d91f64b96072803aaf119027a26e716ed94d63c/python_minifier-2.11.3.tar.gz", hash = "sha256:489133b91212ec9658a7b64d243eb9eb67d7e53faf2ac5166a33301c61b3dcab", size = 64438 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/32/61d20860d18afb81cb7258bb02d4eaf4b09170383c2374514f6aef384fa9/python_minifier-2.11.3-py3-none-any.whl", hash = "sha256:37e10e9e318be701eecb48764942426be73ae9f562d75bea4e29c5f66945ce97", size = 56172 },
 ]
 
 [[package]]

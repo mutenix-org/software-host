@@ -174,7 +174,8 @@ class TestUpdates(unittest.TestCase):
         mock_get.assert_called()
 
     @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_success(self, mock_device):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_perform_hid_upgrade_success(self, mock_device, mock_minify):
         mock_device_instance = MagicMock()
         mock_device.return_value = mock_device_instance
 
@@ -216,7 +217,8 @@ class TestUpdates(unittest.TestCase):
         )  # 3 files * 3 chunks each + 1 state change commands
 
     @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_ack(self, mock_device):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_perform_hid_upgrade_ack(self, mock_device, mock_minify):
         mock_device_instance = MagicMock()
         mock_device.return_value = mock_device_instance
 
@@ -313,17 +315,20 @@ class TestTransferFile(unittest.TestCase):
     def tearDown(self):
         os.remove(self.file_path)
 
-    def test_transfer_file_chunks(self):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_transfer_file_chunks(self, mock_minify):
         transfer_file = TransferFile(1, self.file_path)
         self.assertEqual(transfer_file.size, len(self.file_content))
         self.assertEqual(len(transfer_file._chunks), transfer_file.chunks)
 
-    def test_transfer_file_get_next_chunk(self):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_transfer_file_get_next_chunk(self, mock_minify):
         transfer_file = TransferFile(1, self.file_path)
         chunk = transfer_file.get_next_chunk()
         self.assertIsInstance(chunk, Chunk)
 
-    def test_transfer_file_is_complete(self):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_transfer_file_is_complete(self, mock_minify):
         transfer_file = TransferFile(1, self.file_path)
         while not transfer_file.is_complete():
             chunk = transfer_file.get_next_chunk()
@@ -340,7 +345,8 @@ class TestTransferFile(unittest.TestCase):
                 transfer_file.ack_chunk(dfc)
         self.assertTrue(transfer_file.is_complete())
 
-    def test_transfer_file_from_path(self):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_transfer_file_from_path(self, mock_minify):
         transfer_file = TransferFile(1, pathlib.Path(self.file_path))
         self.assertEqual(transfer_file.filename, "test_file.py")
         self.assertEqual(transfer_file.size, len(self.file_content))
@@ -348,7 +354,8 @@ class TestTransferFile(unittest.TestCase):
 
 class TestPerformHidUpgradeError(unittest.TestCase):
     @patch("mutenix.updates.hid.device")
-    def test_perform_hid_upgrade_error(self, mock_device):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_perform_hid_upgrade_error(self, mock_device, mock_minify):
         mock_device_instance = MagicMock()
         mock_device.return_value = mock_device_instance
 
@@ -383,7 +390,8 @@ class TestTransferFileInit(unittest.TestCase):
     def tearDown(self):
         os.remove(self.file_path)
 
-    def test_transfer_file_init(self):
+    @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
+    def test_transfer_file_init(self, mock_minify):
         transfer_file = TransferFile(1, self.file_path)
         self.assertEqual(transfer_file.id, 1)
         self.assertEqual(transfer_file.filename, "test_file.py")
