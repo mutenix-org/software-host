@@ -1,6 +1,6 @@
 [project]
 name = "mutenix"
-version = "0.5.1"
+version = "0.5.2"
 authors = [
     { name = "Matthias Bilger", email = "matthias@bilger.info" }
 ]
