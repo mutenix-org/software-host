@@ -200,10 +200,34 @@ class DeviceInfo(BaseModel):
     serial_number: str | None = None
 
 
+class LoggingConfig(BaseModel):
+    class LogLevel(str, Enum):
+        DEBUG = "debug"
+        INFO = "info"
+        WARNING = "warning"
+        ERROR = "error"
+        CRITICAL = "critical"
+
+        def to_logging_level(self) -> int:
+            return getattr(logging, self.name)
+
+    level: LogLevel = LogLevel.INFO
+    submomdules: list[str] = []
+    file_enabled: bool = True
+    file_path: str | None = None
+    file_level: LogLevel = LogLevel.INFO
+    file_max_size: int = 3_145_728
+    file_backup_count: int = 5
+    console_enabled: bool = False
+    console_level: LogLevel = LogLevel.INFO
+
+
 class Config(BaseModel):
     _internal_state: Any = pydantic.PrivateAttr()
     actions: list[ButtonAction]
-    double_tap_action: list[ButtonAction] = []
+    longpress_action: list[ButtonAction] = pydantic.Field(
+        validation_alias=pydantic.AliasChoices("longpress_action", "double_tap_action"),
+    )
     leds: list[LedStatus] = []
     teams_token: str | None = None
     file_path: str | None = None
@@ -214,6 +238,7 @@ class Config(BaseModel):
         DeviceInfo(vendor_id=7504, product_id=24774, serial_number=None),
         DeviceInfo(vendor_id=4617, product_id=1, serial_number=None),
     ]
+    logging: LoggingConfig = LoggingConfig()
 
 
 def create_default_config() -> Config:
@@ -238,7 +263,7 @@ def create_default_config() -> Config:
             ),
             ButtonAction(button_id=10, action=MeetingAction.LeaveCall),
         ],
-        double_tap_action=[
+        longpress_action=[
             ButtonAction(button_id=3, action=MeetingAction.ToggleVideo),
             ButtonAction(button_id=8, action=MeetingAction.ToggleVideo),
         ],
@@ -358,7 +383,7 @@ def load_config(file_path: Path | None = None) -> Config:
 def save_config(config: Config, file_path: Path | str | None = None):
     if file_path is None:
         if config.file_path is None:
-            raise ValueError("No file path provided")  # pragma: no cover
+            config.file_path = str(find_config_file())
         file_path = config.file_path
 
     config.file_path = file_path  # type: ignore

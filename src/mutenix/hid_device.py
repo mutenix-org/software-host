@@ -58,7 +58,7 @@ class HidDevice:
                 )
                 return device
             except Exception as e:
-                _logger.warning("Could not open BT Connection (%s)", e)
+                _logger.info("Could not open device by serial number %s", e)
         else:
             try:
                 device.open(
@@ -68,7 +68,7 @@ class HidDevice:
                 )
                 return device
             except Exception as e:
-                _logger.warning("Could not open USB Connection (%s)", e)
+                _logger.info("Could not open HID Connection (%s)", e)
         return None
 
     async def _search_for_device(self):
@@ -76,20 +76,24 @@ class HidDevice:
 
             def find_device():
                 devices = []
-                for device in hid.enumerate():
+                for device in sorted(
+                    hid.enumerate(),
+                    key=lambda x: x["bus_type"],
+                    reverse=True,
+                ):
                     if "mutenix" in device["product_string"].lower():
                         _logger.info("Device found %s", device)
                         devices.append(device)
                 return devices
 
-            if not self._device_info:
+            if not self._device_info or len(self._device_info) == 0:
                 available_devices = find_device()
             else:
                 available_devices = list(
                     map(lambda x: x.model_dump(), self._device_info),
                 )
             if len(available_devices) == 0:
-                _logger.debug("No device available, no config")
+                _logger.error("No device available, no config")
                 await asyncio.sleep(0)
                 return None
             _logger.debug("Looking for device with %s", available_devices)
@@ -98,8 +102,8 @@ class HidDevice:
             for device_info in sorted(available_devices, key=lambda x: x["vendor_id"]):
                 if device := self._open_device_with_info(device_info):
                     break
+                _logger.warning("Device not found %s", device_info)
             else:
-                _logger.info("Device not found %s", device)
                 return None
             _logger.info("Device found %s", device)
             device.set_nonblocking(1)
@@ -151,11 +155,8 @@ class HidDevice:
 
     async def _read(self):
         try:
-            buffer = self._device.read(64)
+            buffer: list = self._device.read(64)
             if buffer and len(buffer):
-                _logger.debug("Reading message: %s", buffer)
-                if buffer[0] == 2:
-                    _logger.debug("BT Log Message: ", bytes(buffer[1:]).decode("utf-8"))
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
             else:

@@ -35,6 +35,7 @@ dependencies = [
      "pynput>=1.7.7",
      "psutil>=6.1.1",
      "python-minifier>=2.11.3",
+     "daiquiri>=3.3.0",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

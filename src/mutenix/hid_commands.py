@@ -65,7 +65,7 @@ class Status(HidInputMessage):
     def __str__(self):
         return (
             f"Status {{ button: {self.button}, triggered: {self.triggered}, "
-            f"doubletap: {self.doubletap}, pressed: {self.pressed}, "
+            f"longpress: {self.longpressed}, pressed: {self.pressed}, "
             f"released: {self.released} }}"
         )
 
@@ -78,7 +78,7 @@ class Status(HidInputMessage):
         return self.buffer[1] != 0
 
     @property
-    def doubletap(self) -> bool:
+    def longpressed(self) -> bool:
         return self.buffer[2] != 0
 
     @property

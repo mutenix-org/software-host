@@ -6,12 +6,12 @@ import shlex
 import subprocess
 import time
 from collections import defaultdict
-from pathlib import Path
 from typing import Callable
 
 import requests
 from mutenix.config import ActionEnum
 from mutenix.config import ButtonAction
+from mutenix.config import Config
 from mutenix.config import LedStatusSource
 from mutenix.config import load_config
 from mutenix.config import save_config
@@ -52,11 +52,11 @@ _logger = logging.getLogger(__name__)
 class Macropad:
     """The main logic for the Macropad."""
 
-    def __init__(self, config_file: Path | None = None):
+    def __init__(self, config: Config):
         self._run = True
         self._version_seen = None
         self._last_status_check: defaultdict[int, int] = defaultdict(int)
-        self._config = load_config(config_file)
+        self._config = config
         self._last_led_update: dict[int, SetLed] = {}
         self._setup()
         self._current_state: ServerMessage | None = None
@@ -87,8 +87,8 @@ class Macropad:
 
     def _setup_buttons(self):
         self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
-        self._double_tap_actions = {
-            entry.button_id: entry for entry in self._config.double_tap_action
+        self._longpress_actions = {
+            entry.button_id: entry for entry in self._config.longpress_action
         }
 
     def _perform_webhook(self, extra: WebhookAction):
@@ -176,7 +176,12 @@ class Macropad:
                 _logger.error("Error running command: %s", e)
 
     async def _send_status(self, status: Status):
-        _logger.info("Button %s,", status.button)
+        _logger.info(
+            "Button %s, Triggered: %s, Longpress: %s",
+            status.button,
+            status.triggered,
+            status.longpressed,
+        )
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
         mapped_action: Callable | None | MeetingAction = None
@@ -192,10 +197,10 @@ class Macropad:
         if status.triggered:
             if not status.released:
                 return
-            if not status.doubletap and status.button in self._tap_actions:
+            if not status.longpressed and status.button in self._tap_actions:
                 action = self._tap_actions.get(status.button, None)
-            elif status.doubletap and status.button in self._double_tap_actions:
-                action = self._double_tap_actions.get(status.button, None)
+            elif status.longpressed and status.button in self._longpress_actions:
+                action = self._longpress_actions.get(status.button, None)
             if not action:
                 return
             if isinstance(action.action, MeetingAction):

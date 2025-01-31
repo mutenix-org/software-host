@@ -20,7 +20,7 @@ def test_status():
     status = Status(buffer)
     assert status.button == 1
     assert status.triggered is True
-    assert status.doubletap is False
+    assert status.longpressed is False
     assert status.pressed is False
     assert status.released is True
 

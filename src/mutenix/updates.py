@@ -138,6 +138,42 @@ class ChunkAck:
         return "Invalid Request"
 
 
+class LogMessage:
+    def __init__(self, data: bytes):
+        self.message = ""
+        self.parse(data)
+
+    def parse(self, data: bytes):
+        self.identifier = data[:2].decode("utf-8")
+        if not self.is_valid:
+            return
+        self.level = "debug" if self.identifier == "LD" else "error"
+        self.message = data[2 : data.index(0)].decode("utf-8")
+
+    @property
+    def is_valid(self):
+        return self.identifier in ("LE", "LD")
+
+    def __str__(self):
+        if self.is_valid:
+            return f"{self.level}: {self.message}"
+        return "Invalid Request"
+
+
+def parse_hid_update_message(data: bytes) -> ChunkAck | UpdateError | LogMessage | None:
+    if len(data) < 2:
+        return None
+    val = data[:2].decode("utf-8")
+    match val:
+        case "AK":
+            return ChunkAck(data)
+        case "ER":
+            return UpdateError(data)
+        case "LD", "LE":
+            return LogMessage(data)
+    return None
+
+
 class ChunkType(IntEnum):
     FILE_START = 1
     FILE_CHUNK = 2
@@ -318,22 +354,25 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
         while True:
             received = device.read(100, 1000)
             if len(received) > 0:
-                rc = ChunkAck(bytes(received[1:]))
-                if rc.is_valid:
-                    _logger.debug("Received Ack")
-                    ack_file = next((f for f in transfer_files if f.id == rc.id), None)
+                rcvd = parse_hid_update_message(bytes(received[1:]))
+
+                if isinstance(rcvd, ChunkAck):
+                    ack_file = next(
+                        (f for f in transfer_files if f.id == rcvd.id),
+                        None,
+                    )
                     if not ack_file:
                         _logger.warning("No file id found for ack")
                         continue
                     fileprogress.update(1)
-                    ack_file.ack_chunk(rc)
-                else:
-                    err = UpdateError(bytes(received[1:]))
-                    if err.is_valid:
-                        print("Error received from device: ", err)
-                        _logger.error("Error received from device: %s", err)
-                        cancelled = True
-                        break
+                    ack_file.ack_chunk(rcvd)
+                elif isinstance(rcvd, UpdateError):
+                    print("Error received from device: ", rcvd)
+                    _logger.error("Error received from device: %s", rcvd)
+                    cancelled = True
+                    break
+                elif isinstance(rcvd, LogMessage):
+                    print(rcvd)
 
             chunk = file.get_next_chunk()
             if not chunk:

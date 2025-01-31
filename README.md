@@ -73,7 +73,7 @@ The file could be used to configure the action triggered by each of the buttons.
 There are are two sections corresponding to trigger types to configure actions:
 
 - `actions`: actions triggered by a single press
-- `double_tap_actions`: actions triggered by a double tap on a button
+- `longpress_actions`: actions triggered by a long press on a button (>400ms)
 
 Each of the buttons can be configured in one of the following ways:
 
@@ -103,7 +103,7 @@ actions:
 - action: send-reaction
   button_id: 4
   extra: like
-double_tap_action:
+longpress_action:
 - action: webhook
   button_id: 5
   extra:

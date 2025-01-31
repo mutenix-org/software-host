@@ -294,6 +294,7 @@ async def test_search_for_device_success(hid_device):
         "vendor_id": 0,
         "serial_number": "122345",
         "product_string": "Mutenix Macropad",
+        "bus_type": 1,
     }
     with patch("hid.device"):
         with patch("hid.enumerate", return_value=[device_info]):
@@ -308,12 +309,14 @@ async def test_search_for_device_prefer_bluetooth(hid_device):
         "vendor_id": 0,
         "serial_number": "122345",
         "product_string": "Mutenix Macropad",
+        "bus_type": 2,
     }
     device_info_usb = {
         "product_id": 0x1234,
         "vendor_id": 0x5678,
         "serial_number": "122345",
         "product_string": "Mutenix Macropad",
+        "bus_type": 1,
     }
     with patch("hid.device") as MockHidDevice:
         with patch("hid.enumerate", return_value=[device_info_bt, device_info_usb]):
@@ -407,16 +410,17 @@ async def test_open_device_with_info_bt_failure(hid_device):
         "product_id": 0,
         "vendor_id": 0,
         "serial_number": "122345",
+        "bus_type": 2,
     }
     with patch("hid.device") as MockHidDevice:
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("BT Connection error")
-        with patch("mutenix.hid_device._logger.warning") as mock_logger:
+        with patch("mutenix.hid_device._logger.info") as mock_logger:
             device = hid_device._open_device_with_info(device_info)
             assert device is None
             mock_logger.assert_called_once_with(
-                "Could not open BT Connection (%s)",
+                "Could not open device by serial number %s",
                 ANY,
             )
 
@@ -451,11 +455,11 @@ async def test_open_device_with_info_usb_failure(hid_device):
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("USB Connection error")
-        with patch("mutenix.hid_device._logger.warning") as mock_logger:
+        with patch("mutenix.hid_device._logger.info") as mock_logger:
             device = hid_device._open_device_with_info(device_info)
             assert device is None
             mock_logger.assert_called_once_with(
-                "Could not open USB Connection (%s)",
+                "Could not open HID Connection (%s)",
                 ANY,
             )
 
