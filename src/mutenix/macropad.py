@@ -388,12 +388,12 @@ class Macropad:
 
     def activate_serial_console(self):
         message = UpdateConfig()
-        message.activate_debug(True)
+        message.activate_serial_console(True)
         self._device.send_msg(message)
 
     def deactivate_serial_console(self):
         message = UpdateConfig()
-        message.activate_debug(False)
+        message.activate_serial_console(False)
         self._device.send_msg(message)
 
     def activate_filesystem(self):

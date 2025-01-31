@@ -83,7 +83,7 @@ def test_update_config_to_buffer_default():
 
 def test_update_config_to_buffer_debug():
     update_config = UpdateConfig()
-    update_config.activate_debug(True)
+    update_config.activate_serial_console(True)
     buffer = update_config.to_buffer()
     assert (
         buffer[:-1] == bytes([HidOutCommands.UPDATE_CONFIG, 2, 0, 0, 0, 0, 0, 0])[:-1]
@@ -101,7 +101,7 @@ def test_update_config_to_buffer_filesystem():
 
 def test_update_config_to_buffer_debug_and_filesystem():
     update_config = UpdateConfig()
-    update_config.activate_debug(True)
+    update_config.activate_serial_console(True)
     update_config.activate_filesystem(True)
     buffer = update_config.to_buffer()
     assert (
@@ -116,7 +116,7 @@ def test_update_config_str_default():
 
 def test_update_config_str_debug():
     update_config = UpdateConfig()
-    update_config.activate_debug(True)
+    update_config.activate_serial_console(True)
     assert str(update_config) == "UpdateConfig { debug: 2, filesystem: 0 }"
 
 
@@ -128,6 +128,6 @@ def test_update_config_str_filesystem():
 
 def test_update_config_str_debug_and_filesystem():
     update_config = UpdateConfig()
-    update_config.activate_debug(True)
+    update_config.activate_serial_console(True)
     update_config.activate_filesystem(True)
     assert str(update_config) == "UpdateConfig { debug: 2, filesystem: 2 }"

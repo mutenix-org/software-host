@@ -178,7 +178,7 @@ class UpdateConfig(HidCommand):
         self._activate_debug = 0
         self._activate_filesystem = 0
 
-    def activate_debug(self, activate: bool):
+    def activate_serial_console(self, activate: bool):
         self._activate_debug = 2 if activate else 1
 
     def activate_filesystem(self, activate: bool):

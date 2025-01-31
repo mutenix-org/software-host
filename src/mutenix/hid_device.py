@@ -102,7 +102,7 @@ class HidDevice:
             for device_info in sorted(available_devices, key=lambda x: x["vendor_id"]):
                 if device := self._open_device_with_info(device_info):
                     break
-                _logger.warning("Device not found %s", device_info)
+                _logger.debug("Device not found %s", device_info)
             else:
                 return None
             _logger.info("Device found %s", device)

@@ -92,6 +92,10 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                 open_url("/about"),
             ),
             item(
+                "Device",
+                open_url("/device"),
+            ),
+            item(
                 "Debug Options",
                 menu(
                     item("Activate Serial Console", activate_serial_console),
