@@ -239,6 +239,7 @@ class Config(BaseModel):
         DeviceInfo(vendor_id=4617, product_id=1, serial_number=None),
     ]
     logging: LoggingConfig = LoggingConfig()
+    proxy: str | None = None
 
 
 def create_default_config() -> Config:

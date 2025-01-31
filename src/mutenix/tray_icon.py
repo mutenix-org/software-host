@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from mutenix.macropad import Macropad
+from mutenix.version import MAJOR
+from mutenix.version import MINOR
+from mutenix.version import PATCH
 from PIL import Image
 
 my_icon: Any | None = None
@@ -106,6 +109,11 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
             item(
                 "Quit",
                 quit_macropad,
+            ),
+            item(
+                f"Version {MAJOR}.{MINOR}.{PATCH}",
+                nothing,
+                enabled=False,
             ),
         ),
     )

@@ -117,7 +117,7 @@ def main(args: argparse.Namespace):
     if args.list_devices:
         return list_devices()
 
-    check_for_self_update(MAJOR, MINOR, PATCH)
+    check_for_self_update(MAJOR, MINOR, PATCH, config.proxy)
     macropad = Macropad(config)
     register_signal_handler(macropad)
 

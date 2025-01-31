@@ -71,7 +71,7 @@ async def test_hid_callback_version_info(macropad):
         "mutenix.macropad.check_for_device_update",
     ) as mock_check_for_device_update:
         await macropad._hid_callback(msg)
-        mock_check_for_device_update.assert_called_once_with(ANY, msg)
+        mock_check_for_device_update.assert_called_once_with(ANY, msg, ANY)
 
 
 @pytest.mark.asyncio
