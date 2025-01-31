@@ -22,11 +22,20 @@ from tqdm import tqdm
 _logger = logging.getLogger(__name__)
 
 
-def check_for_device_update(device: hid.device, device_version: VersionInfo):
+def check_for_device_update(
+    device: hid.device,
+    device_version: VersionInfo,
+    proxy: str | None = None,
+):
+    if proxy:
+        proxies = {"https": proxy}
+    else:
+        proxies = {}
     try:
         result = requests.get(
             "https://api.github.com/repos/mutenix-org/firmware-macroboard/releases/latest",
             timeout=4,
+            proxies=proxies,
         )
         if result.status_code != 200:
             _logger.error(
@@ -394,11 +403,16 @@ def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path])
 
 
 # region: Update Application
-def check_for_self_update(major: int, minor: int, patch: int):
+def check_for_self_update(major: int, minor: int, patch: int, proxy: str | None = None):
+    if proxy:
+        proxies = {"https": proxy}
+    else:
+        proxies = {}
     try:
         result = requests.get(
             "https://api.github.com/repos/mutenix-org/software-host/releases/latest",
             timeout=4,
+            proxies=proxies,
         )
         if result.status_code != 200:
             _logger.error(

@@ -227,7 +227,11 @@ class Macropad:
             _logger.info(version_info)
             self._version_seen = version_info.version
             if self._config.auto_update:
-                check_for_device_update(self._device.raw, version_info)
+                check_for_device_update(
+                    self._device.raw,
+                    version_info,
+                    self._config.proxy,
+                )
         else:
             _logger.debug(version_info)
         await self._update_device_status(force=True)
