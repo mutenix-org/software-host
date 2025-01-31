@@ -223,6 +223,18 @@ wheels = [
 ]
 
 [[package]]
+name = "daiquiri"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-json-logger" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/8d/d421fbd37c7a6d45a8687078ca3f82e8ec3bc5e6c7e9acdfb5ecef3a52d2/daiquiri-3.3.0.tar.gz", hash = "sha256:bb26e0547300ee40c6404111cb0ead18273f697cdc5a0fe2c606723323a7eaf2", size = 19473 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/88/d9c2d5324fc1c320b144de084a3453247978feecc746fabfe7f0648c1b0d/daiquiri-3.3.0-py3-none-any.whl", hash = "sha256:ceb2e7923280a18be3fa6a37cb6da705bb92436607a3ee71bc79cdedae0b9aeb", size = 19268 },
+]
+
+[[package]]
 name = "distlib"
 version = "0.3.9"
 source = { registry = "https://pypi.org/simple" }
@@ -460,6 +472,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiohttp-jinja2" },
+    { name = "daiquiri" },
     { name = "hidapi" },
     { name = "markdown" },
     { name = "psutil" },
@@ -491,6 +504,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.11" },
     { name = "aiohttp-jinja2", specifier = ">=1.6" },
+    { name = "daiquiri", specifier = ">=3.3.0" },
     { name = "hidapi", specifier = ">=0.14.0.post4" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "psutil", specifier = ">=6.1.1" },
@@ -919,6 +933,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/93/0d/04719abc7a4bdb3a7a1f968f24b0f5253d698c9cc94975330e9d3145befb/pytest-timeout-2.3.1.tar.gz", hash = "sha256:12397729125c6ecbdaca01035b9e5239d4db97352320af155b3f5de1ba5165d9", size = 17697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/27/14af9ef8321f5edc7527e47def2a21d8118c6f329a9342cc61387a0c0599/pytest_timeout-2.3.1-py3-none-any.whl", hash = "sha256:68188cb703edfc6a18fad98dc25a3c61e9f24d644b0b70f33af545219fc7813e", size = 14148 },
+]
+
+[[package]]
+name = "python-json-logger"
+version = "3.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/c4/358cd13daa1d912ef795010897a483ab2f0b41c9ea1b35235a8b2f7d15a7/python_json_logger-3.2.1.tar.gz", hash = "sha256:8eb0554ea17cb75b05d2848bc14fb02fbdbd9d6972120781b974380bfa162008", size = 16287 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/72/2f30cf26664fcfa0bd8ec5ee62ec90c03bd485e4a294d92aabc76c5203a5/python_json_logger-3.2.1-py3-none-any.whl", hash = "sha256:cdc17047eb5374bd311e748b42f99d71223f3b0e186f4206cc5d52aefe85b090", size = 14924 },
 ]
 
 [[package]]

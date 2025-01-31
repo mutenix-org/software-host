@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import pathlib
 import shlex
 import time
 from collections import defaultdict
@@ -44,14 +43,12 @@ def macropad():
         patch("mutenix.macropad.HidDevice") as MockHidDevice,
         patch("mutenix.macropad.WebSocketClient") as MockWebSocketClient,
         patch("mutenix.macropad.VirtualMacropad") as MockVirtualMacropad,
-        patch("mutenix.config.load_config") as MockLoadConfigFile,
         patch("mutenix.config.save_config"),
     ):
         MockHidDevice.return_value = Mock()
         MockWebSocketClient.return_value = Mock()
         MockVirtualMacropad.return_value = Mock()
-        MockLoadConfigFile.return_value = create_default_config()
-        return Macropad(pathlib.Path(__file__).parent / "mutenix.yaml")
+        return Macropad(create_default_config())
 
 
 @pytest.mark.asyncio
@@ -96,7 +93,7 @@ async def test_teams_callback_token_refresh(macropad):
     with patch("builtins.open", mock_open()) as mock_file:
         await macropad._teams_callback(msg)
         mock_file.assert_called_once()
-        assert mock_file.call_args[0][0].endswith("mutenix.yaml")
+        assert str(mock_file.call_args[0][0]).endswith("mutenix.yaml")
         mock_file().write.assert_any_call("new_token")
 
 
@@ -111,8 +108,7 @@ async def test_teams_callback_token_refresh_save_failed(macropad):
         mock_file().write.side_effect = IOError
         await macropad._teams_callback(msg)
         mock_file.assert_called()
-        assert mock_file.call_args[0][0].endswith("mutenix.yaml")
-        # mock_logger_error.assert_called_once()
+        assert str(mock_file.call_args[0][0]).endswith("mutenix.yaml")
 
 
 @pytest.mark.asyncio
@@ -230,7 +226,7 @@ async def test_setup_without_existing_token():
         with patch("mutenix.macropad.HidDevice"):
             with patch("mutenix.macropad.WebSocketClient") as MockWebSocketClient:
                 with patch("mutenix.macropad.VirtualMacropad"):
-                    macropad = Macropad()
+                    macropad = Macropad(create_default_config())
                     macropad._setup()
                     MockWebSocketClient.assert_called_with(
                         ANY,
@@ -246,7 +242,11 @@ async def test_setup_without_existing_token():
         (Status(bytes([2, 1, 0, 0, 1])), MeetingAction.ToggleHand, None),
         # bring_teams_to_foreground
         (Status(bytes([3, 1, 0, 0, 1])), None, None),
-        (Status(bytes([3, 1, 1, 0, 1])), MeetingAction.ToggleVideo, None),  # doubletap
+        (
+            Status(bytes([3, 1, 1, 0, 1])),
+            MeetingAction.ToggleVideo,
+            None,
+        ),  # longpressed
         (
             Status(bytes([4, 1, 0, 0, 1])),
             MeetingAction.React,
@@ -363,7 +363,7 @@ async def test_manual_update_io_error(macropad):
 
 @pytest.mark.asyncio
 async def test_stop():
-    macropad = Macropad()
+    macropad = Macropad(create_default_config())
     macropad._device = AsyncMock()
     macropad._websocket = AsyncMock()
     macropad._virtual_macropad = AsyncMock()
@@ -578,7 +578,7 @@ def test_activate_filesystem(macropad):
 def test_keypress(extra, expected_calls):
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         macropad._keypress(extra)
 
         if "key" in extra:
@@ -601,7 +601,7 @@ def test_keypress(extra, expected_calls):
 @pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
 def test_keypress_pynput_not_supported():
     with patch("mutenix.macropad.Controller", None):
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         with patch("mutenix.macropad._logger.error") as mock_logger_error:
             macropad._keypress({"key": "a"})
             mock_logger_error.assert_called_once_with(
@@ -613,7 +613,7 @@ def test_keypress_pynput_not_supported():
 def test_keypress_invalid_key():
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         macropad._keypress({"key": "invalid_key"})
         mock_keyboard.press.assert_not_called()
         mock_keyboard.release.assert_not_called()
@@ -639,7 +639,7 @@ def test_keypress_invalid_key():
 def test_mousemove(extra, expected_calls):
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         macropad._mousemove(extra)
 
         for call in expected_calls:
@@ -661,7 +661,7 @@ def test_mousemove(extra, expected_calls):
 )
 def test_mousemove_pynput_not_supported():
     with patch("mutenix.macropad.MouseController", None):
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         with patch("mutenix.macropad._logger.error") as mock_logger_error:
             macropad._mousemove({"action": "move", "x": 10, "y": 20})
             mock_logger_error.assert_called_once_with(
@@ -676,7 +676,7 @@ def test_mousemove_pynput_not_supported():
 def test_mousemove_invalid_action():
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
-        macropad = Macropad()
+        macropad = Macropad(create_default_config())
         macropad._mousemove({"action": "invalid_action"})
         mock_mouse.move.assert_not_called()
         mock_mouse.position = (0, 0)
@@ -696,7 +696,7 @@ def test_mousemove_invalid_action():
     ],
 )
 def test_map_led_color(color, expected_led_color):
-    macropad = Macropad()
+    macropad = Macropad(create_default_config())
     result = macropad._map_led_color(color)
     assert result == expected_led_color
 

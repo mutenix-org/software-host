@@ -115,8 +115,18 @@ def test_list_devices(capsys):
     with patch("hid.enumerate", autospec=True) as mock_hid:
         # Mock the return value of hid.enumerate
         mock_hid.return_value = [
-            {"path": "device1", "vendor_id": 1234, "product_id": 5678},
-            {"path": "device2", "vendor_id": 8765, "product_id": 4321},
+            {
+                "path": "device1",
+                "vendor_id": 1234,
+                "product_id": 5678,
+                "product_string": "mutenix",
+            },
+            {
+                "path": "device2",
+                "vendor_id": 8765,
+                "product_id": 4321,
+                "product_string": "selse",
+            },
         ]
 
         # Call the function
