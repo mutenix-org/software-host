@@ -1,0 +1,19 @@
+
+{% extends "base.html" %}
+{% block title %}Mutenix - Configuration{% endblock %}
+{% block content %}
+<header>
+    <h1>DeviceInfo</h1>
+</header>
+<main>
+    <section>
+        <h2>Device Info</h2>
+        <p><strong>Version:</strong> {{ version }}</p>
+        <p><strong>Hardware Type:</strong> {{ hardware }}</p>
+    </section>
+    <section>
+        <h2>App Version</h2>
+        <p><strong>Version:</strong> {{ mutenix_version }}</p>
+    </section>
+</main>
+{% endblock %}

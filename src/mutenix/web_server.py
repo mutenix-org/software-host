@@ -9,6 +9,9 @@ import yaml
 from aiohttp import web
 from aiohttp_jinja2 import render_template
 from aiohttp_jinja2 import setup as jinja2_setup
+from mutenix.version import MAJOR
+from mutenix.version import MINOR
+from mutenix.version import PATCH
 
 HOST = "127.0.0.1"
 PORT = 12909
@@ -43,6 +46,8 @@ class WebServer:
     ]
 
     def __init__(self, host: str = HOST, port: int = PORT):
+        self._hardware = ""
+        self._version = ""
         self.host = host
         self.port = port
         self._running = False
@@ -60,6 +65,7 @@ class WebServer:
         self.app.router.add_route("GET", "/help", self.help)
         self.app.router.add_route("GET", "/about", self.about)
         self.app.router.add_route("GET", "/config", self.config)
+        self.app.router.add_route("GET", "/device", self.device)
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -68,14 +74,18 @@ class WebServer:
         )
         jinja2_setup(self.app, loader=jinja2.PackageLoader("mutenix", "templates"))
 
+    def _render_template(self, template_name, request, context):
+        context["mutenix_version"] = f"{MAJOR}.{MINOR}.{PATCH}"
+        return render_template(template_name, request, context)
+
     def update_config(self, config):
         self._config = config
 
     async def index(self, request: web.Request):
-        return render_template("index.html", request, {})
+        return self._render_template("index.html", request, {})
 
     async def popup(self, request: web.Request):
-        return render_template("popup.html", request, {})
+        return self._render_template("popup.html", request, {})
 
     async def serve_image(self, request: web.Request):
         name = request.match_info["name"]
@@ -119,7 +129,7 @@ class WebServer:
         return web.json_response(manifest)
 
     async def help(self, request: web.Request):
-        return render_template("help.html", request, {})
+        return self._render_template("help.html", request, {})
 
     async def about(self, request: web.Request):
         readme_path = pathlib.Path(__file__).parent / "README.md"
@@ -137,7 +147,7 @@ class WebServer:
             "readme_content": html_readme_content,
             "license_content": html_license_content,
         }
-        return render_template("about.html", request, context)
+        return self._render_template("about.html", request, context)
 
     async def config(self, request: web.Request):
         context = {
@@ -145,7 +155,18 @@ class WebServer:
             "leds": self._config.leds,
             "yaml_config": yaml.dump(self._config.model_dump(mode="json")),
         }
-        return render_template("config.html", request, context)
+        return self._render_template("config.html", request, context)
+
+    def set_version(self, version: str, hardware: str):
+        self._version = version
+        self._hardware = hardware
+
+    async def device(self, request: web.Request):
+        return self._render_template(
+            "version.html",
+            request,
+            {"version": self._version, "hardware": self._hardware},
+        )
 
     async def process(self):
         try:
