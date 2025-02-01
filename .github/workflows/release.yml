@@ -93,8 +93,8 @@ jobs:
     - name: build release (windows)
       if: runner.os == 'Windows'
       run: |
-        copy /y README.md src\\mutenix\\
-        copy /y LICENSE src\\mutenix\\
+        Copy-Item -Path README.md -Destination src\mutenix\ -Force
+        Copy-Item -Path License -Destination src\mutenix\ -Force
         uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix win64
 
     - name: Release
