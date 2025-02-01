@@ -61,6 +61,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
+required-version = ">=0.5.26"
 dev-dependencies = [
     "pytest-cov>=6.0.0",
     "pytest-timeout>=2.3.1",
