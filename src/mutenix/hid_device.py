@@ -58,7 +58,7 @@ class HidDevice:
                 )
                 return device
             except Exception as e:
-                _logger.info("Could not open device by serial number %s", e)
+                _logger.debug("Could not open device by serial number %s", e)
         else:
             try:
                 device.open(
@@ -68,7 +68,7 @@ class HidDevice:
                 )
                 return device
             except Exception as e:
-                _logger.info("Could not open HID Connection (%s)", e)
+                _logger.debug("Could not open HID Connection (%s)", e)
         return None
 
     async def _search_for_device(self):
@@ -214,20 +214,9 @@ class HidDevice:
         await asyncio.gather(self._read_loop(), self._write_loop(), self._ping_loop())
 
     async def process(self):  # pragma: no cover
-        """
-        Processes the HID device by running the internal process loop.
-
-        Returns:
-            None
-        """
         await self._process_loop()
 
     async def stop(self):  # pragma: no cover
-        """
-        Stops the HID device by setting the internal run flag to False.
-
-        Signals the processing loops to stop.
-        """
         self._run = False
 
     # create the run loops

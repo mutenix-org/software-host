@@ -87,6 +87,8 @@ jobs:
     - name: build release
       if: runner.os != 'Windows'
       run: |
+        cp README.md src/mutenix/
+        cp LICENSE src/mutenix/
         OS_NAME=$(echo ${{ matrix.os }} | sed -e 's/ubuntu-latest/x86_64-linux/' -e 's/macos-13/x86_64-darwin/' -e 's/macos-latest/aarch64-darwin/')
         uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix $OS_NAME
 
