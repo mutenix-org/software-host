@@ -60,6 +60,8 @@ jobs:
     - name: build release (windows)
       if: runner.os == 'Windows'
       run: |
+        copy /y README.md src\\mutenix\\
+        copy /y LICENSE src\\mutenix\\
         uv run pyinstaller --noconfirm Mutenix.spec -- --os-suffix win64
 
     - name: Create Tag
