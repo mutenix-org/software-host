@@ -1,5 +1,5 @@
 *token.txt
-mutenix.log
+mutenix.log*
 .venv
 .pytest_cache
 .mypy_cache
