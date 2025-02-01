@@ -13,17 +13,17 @@ import requests
 from mutenix.hid_commands import HardwareTypes
 from mutenix.updates import check_for_device_update
 from mutenix.updates import check_for_self_update
-from mutenix.updates import Chunk
-from mutenix.updates import ChunkAck
-from mutenix.updates import FileChunk
-from mutenix.updates import FileDelete
-from mutenix.updates import FileEnd
-from mutenix.updates import FileStart
-from mutenix.updates import MAX_CHUNK_SIZE
-from mutenix.updates import perform_hid_upgrade
-from mutenix.updates import TransferFile
-from mutenix.updates import UpdateError
 from mutenix.updates import VersionInfo
+from mutenix.updates.chunks import Chunk
+from mutenix.updates.chunks import FileChunk
+from mutenix.updates.chunks import FileDelete
+from mutenix.updates.chunks import FileEnd
+from mutenix.updates.chunks import FileStart
+from mutenix.updates.constants import MAX_CHUNK_SIZE
+from mutenix.updates.device_messages import ChunkAck
+from mutenix.updates.device_messages import UpdateError
+from mutenix.updates.device_update import perform_hid_upgrade
+from mutenix.updates.device_update import TransferFile
 
 
 class TestUpdates(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestUpdates(unittest.TestCase):
 
     @patch("mutenix.updates.requests.get")
     @patch("mutenix.updates.semver.compare")
-    @patch("mutenix.updates.perform_hid_upgrade")
+    @patch("mutenix.updates.device_update.perform_hid_upgrade")
     def test_check_for_device_update_needs_update(
         self,
         mock_upgrade,
@@ -92,7 +92,7 @@ class TestUpdates(unittest.TestCase):
 
     @patch("mutenix.updates.requests.get")
     @patch("mutenix.updates.semver.compare")
-    @patch("mutenix.updates.perform_hid_upgrade")
+    @patch("mutenix.updates.device_update.perform_hid_upgrade")
     def test_check_for_device_update_needs_update_but_fails(
         self,
         mock_upgrade,
@@ -173,7 +173,7 @@ class TestUpdates(unittest.TestCase):
 
         mock_get.assert_called()
 
-    @patch("mutenix.updates.hid.device")
+    @patch("mutenix.updates.device_update.hid.device")
     @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
     def test_perform_hid_upgrade_success(self, mock_device, mock_minify):
         mock_device_instance = MagicMock()
@@ -198,8 +198,8 @@ class TestUpdates(unittest.TestCase):
             bytes(),
         ]
 
-        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
+        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
+            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
                 with patch("builtins.open", mock_open(read_data=b"fake content")):
                     with patch("pathlib.Path.is_file", return_value=True):
                         with patch(
@@ -216,7 +216,7 @@ class TestUpdates(unittest.TestCase):
             10,
         )  # 3 files * 3 chunks each + 1 state change commands
 
-    @patch("mutenix.updates.hid.device")
+    @patch("mutenix.updates.device_update.hid.device")
     @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
     def test_perform_hid_upgrade_ack(self, mock_device, mock_minify):
         mock_device_instance = MagicMock()
@@ -235,8 +235,8 @@ class TestUpdates(unittest.TestCase):
             bytes(),  # No more requests
         ]
 
-        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
+        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
+            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
                 with patch("builtins.open", mock_open(read_data=b"fake content")):
                     with patch("pathlib.Path.is_file", return_value=True):
                         with patch(
@@ -342,7 +342,7 @@ class TestTransferFile(unittest.TestCase):
                 )
                 dfc.type_ = chunk.type_
                 dfc.package = chunk.package
-                transfer_file.ack_chunk(dfc)
+                transfer_file.acknowledge_chunk(dfc)
         self.assertTrue(transfer_file.is_complete())
 
     @patch("python_minifier.minify", side_effect=lambda x, *args, **kwargs: str(x))
@@ -363,8 +363,8 @@ class TestPerformHidUpgradeError(unittest.TestCase):
             bytes([2, 69, 82, 5, 69, 114, 114, 111, 114]),  # Error
         ]
 
-        with patch("mutenix.updates.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.STATE_CHANGE_SLEEP_TIME", 0.0001):
+        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
+            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
                 with patch("builtins.open", mock_open(read_data=b"fake content")):
                     with patch("pathlib.Path.is_file", return_value=True):
                         with patch(
