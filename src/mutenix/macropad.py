@@ -234,6 +234,7 @@ class Macropad:
                 )
         else:
             _logger.debug(version_info)
+        self._virtual_macropad.set_version(version_info.version, version_info.type)
         await self._update_device_status(force=True)
 
     async def _hid_callback(self, msg):

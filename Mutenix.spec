@@ -17,7 +17,9 @@ a = Analysis(
         ('src/mutenix/static/*', 'mutenix/static'),
         ('src/mutenix/static/js/*', 'mutenix/static/js'),
         ('src/mutenix/static/css/*', 'mutenix/static/css'),
-        ('src/mutenix/templates/*', 'mutenix/templates')
+        ('src/mutenix/templates/*', 'mutenix/templates'),
+        ('src/mutenix/README.md', 'mutenix'),
+        ('src/mutenix/LICENSE', 'mutenix'),
     ],
     hiddenimports=[ "hidapi" ],
     hookspath=[],

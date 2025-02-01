@@ -416,7 +416,7 @@ async def test_open_device_with_info_bt_failure(hid_device):
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("BT Connection error")
-        with patch("mutenix.hid_device._logger.info") as mock_logger:
+        with patch("mutenix.hid_device._logger.debug") as mock_logger:
             device = hid_device._open_device_with_info(device_info)
             assert device is None
             mock_logger.assert_called_once_with(
@@ -455,7 +455,7 @@ async def test_open_device_with_info_usb_failure(hid_device):
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("USB Connection error")
-        with patch("mutenix.hid_device._logger.info") as mock_logger:
+        with patch("mutenix.hid_device._logger.debug") as mock_logger:
             device = hid_device._open_device_with_info(device_info)
             assert device is None
             mock_logger.assert_called_once_with(

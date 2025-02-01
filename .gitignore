@@ -9,3 +9,5 @@ build/
 .coverage.*
 __pycache__
 mutenix*.yaml
+src/mutenix/README.md
+src/mutenix/LICENSE
