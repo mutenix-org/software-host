@@ -91,10 +91,6 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                 open_url("/help"),
             ),
             item(
-                "About",
-                open_url("/about"),
-            ),
-            item(
                 "Device",
                 open_url("/device"),
             ),
@@ -105,6 +101,14 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
                     item("Deactivate Serial Console", deactivate_serial_console),
                     item("Activate Filesystem", activate_filesystem),
                 ),
+            ),
+            item(
+                "About",
+                open_url("/about"),
+            ),
+            item(
+                "Source Code",
+                open_url("https://github.com/mutenix-org/software-host"),
             ),
             item(
                 "Quit",
