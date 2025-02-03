@@ -418,6 +418,6 @@ class Macropad:
         _logger.info("Reloading config")
         self._config = load_config()
         self._setup_buttons()
-        self._update_device_status(force=True)
+        asyncio.create_task(self._update_device_status(force=True))
         self._virtual_macropad.update_config(self._config)
         _logger.info("Config reloaded")

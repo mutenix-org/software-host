@@ -229,7 +229,6 @@ class Config(BaseModel):
         validation_alias=pydantic.AliasChoices("longpress_action", "double_tap_action"),
     )
     leds: list[LedStatus] = []
-    teams_token: str | None = None
     file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
     auto_update: bool = True
@@ -240,6 +239,7 @@ class Config(BaseModel):
     ]
     logging: LoggingConfig = LoggingConfig()
     proxy: str | None = None
+    teams_token: str | None = None
 
 
 def create_default_config() -> Config:

@@ -70,7 +70,12 @@ def test_main_no_update_file(
     mock_run_trayicon,
     mock_signal,
 ):
-    args = argparse.Namespace(update_file=None, list_devices=False, config=None)
+    args = argparse.Namespace(
+        update_file=None,
+        list_devices=False,
+        config=None,
+        dump_config=False,
+    )
 
     with (
         patch("threading.Thread.start", autospec=True) as mock_thread_start,
@@ -91,6 +96,7 @@ def test_main_with_update_file(mock_macropad, mock_check_for_self_update, mock_s
         update_file="path/to/update.tar.gz",
         list_devices=False,
         config=None,
+        dump_config=False,
     )
 
     with patch("asyncio.run", autospec=True) as mock_asyncio_run:
@@ -102,7 +108,12 @@ def test_main_with_update_file(mock_macropad, mock_check_for_self_update, mock_s
 
 
 def test_main_list_devices(mock_signal):
-    args = argparse.Namespace(update_file=None, list_devices=True, config=None)
+    args = argparse.Namespace(
+        update_file=None,
+        list_devices=True,
+        config=None,
+        dump_config=False,
+    )
 
     with patch("hid.enumerate", autospec=True) as mock_hid_enumerate:
         main(args)

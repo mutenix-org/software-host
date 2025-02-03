@@ -8,6 +8,7 @@ import signal
 import threading
 
 import daiquiri
+import yaml
 from mutenix.config import load_config
 from mutenix.config import LoggingConfig
 from mutenix.macropad import Macropad
@@ -29,6 +30,11 @@ def parse_arguments():
         "--config",
         type=pathlib.Path,
         help="Path to the configuration file",
+    )
+    parser.add_argument(
+        "--dump-config",
+        action="store_true",
+        help="Dump the configuration",
     )
     parser.add_argument(
         "--update-file",
@@ -110,9 +116,12 @@ def setup_logging(logging_config: LoggingConfig):
 @ensure_process_run_once()
 def main(args: argparse.Namespace):
     config = load_config(args.config)
-    print(config.logging)
 
     setup_logging(config.logging)
+
+    if args.dump_config:
+        print(yaml.dump(config.model_dump(mode="json")))
+        return
 
     if args.list_devices:
         return list_devices()
