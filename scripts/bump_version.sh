@@ -114,12 +114,13 @@ gh pr create --fill
 gh pr merge --auto -r
 
 for i in {1..12}; do
-    pr_status=$(gh pr view --json merged --jq '.merged')
+    pr_status=$(gh pr view --json mergedAt --jq '.mergedAt')
+    echo "PR Status: pr_status"
     if [[ "$pr_status" == "true" ]]; then
         break
     fi
     echo "Waiting for PR to be merged..."
-    sleep 5
+    sleep 10
 done
 
 # Check if the PR has been merged
