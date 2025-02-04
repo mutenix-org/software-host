@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
+import json
 import logging
 import math
 import os
@@ -74,7 +75,12 @@ class TransferFile:
                 ).encode("utf-8")
             else:
                 self.content = f.read().encode("utf-8")
+        # Workaround for update issue
+        self.content = self.content + b"\x20" * (
+            MAX_CHUNK_SIZE - (len(self.content) % MAX_CHUNK_SIZE)
+        )
         self.size = len(self.content)
+        _logger.info("Size %s, %s", self.size, json.dumps(self.content.decode("utf-8")))
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
 
