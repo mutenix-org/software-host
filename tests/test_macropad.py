@@ -45,7 +45,9 @@ def macropad():
         patch("mutenix.macropad.VirtualMacropad") as MockVirtualMacropad,
         patch("mutenix.config.save_config"),
     ):
-        MockHidDevice.return_value = Mock()
+        mock_device = Mock()
+        mock_device.connected = True
+        MockHidDevice.return_value = mock_device
         MockWebSocketClient.return_value = Mock()
         MockVirtualMacropad.return_value = Mock()
         return Macropad(create_default_config())
@@ -132,7 +134,7 @@ async def test_update_device_status(macropad):
         return future
 
     macropad._device.send_msg = Mock(side_effect=send_msg)
-    macropad._virtual_macropad.send_msg = Mock()
+    macropad._virtual_macropad.send_msg = AsyncMock()
     await macropad._update_device_status()
     assert macropad._device.send_msg.call_count == 8
     assert macropad._virtual_macropad.send_msg.call_count == 8
@@ -457,7 +459,7 @@ async def test_update_device_status_cmd_source_with_result(macropad):
     macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 
-    with patch("asyncio.to_thread", return_value="blue"):
+    with patch("asyncio.to_thread", return_value=b"blue"):
         await macropad._update_device_status()
 
     macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.BLUE))
