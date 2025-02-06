@@ -258,86 +258,81 @@ class Macropad:
             return LedColor.GREEN
         return getattr(LedColor, color)
 
-    async def _update_device_status(self, force=False):
+    async def _update_led(self, ledstatus):
         msg = self._current_state
-        msgs = {}
-
-        for ledstatus in self._config.leds:
-            if ledstatus.source == LedStatusSource.TEAMS:
-                color = "black"
-                if (
-                    msg
-                    and msg.meeting_update
-                    and msg.meeting_update.meeting_state
-                    and msg.meeting_update.meeting_state.is_in_meeting
-                ):
-                    mapped_state = getattr(
-                        msg.meeting_update.meeting_state,
-                        ledstatus.extra.replace("-", "_").lower(),
-                    )
-                    color = ledstatus.color_on if mapped_state else ledstatus.color_off
-                    msgs[ledstatus.button_id] = SetLed(
-                        ledstatus.button_id,
-                        self._map_led_color(color),
-                    )
-                else:
-                    msgs[ledstatus.button_id] = SetLed(
-                        ledstatus.button_id,
-                        self._map_led_color("black"),
-                    )
-            elif ledstatus.source == LedStatusSource.CMD:
-                if (
-                    self._last_status_check[ledstatus.button_id] + ledstatus.interval
-                    > time.time()
-                ):
-                    continue
+        color = "black"
+        if ledstatus.source == LedStatusSource.TEAMS:
+            if (
+                msg
+                and msg.meeting_update
+                and msg.meeting_update.meeting_state
+                and msg.meeting_update.meeting_state.is_in_meeting
+            ):
+                mapped_state = getattr(
+                    msg.meeting_update.meeting_state,
+                    ledstatus.extra.replace("-", "_").lower(),
+                )
+                color = ledstatus.color_on if mapped_state else ledstatus.color_off
+        elif ledstatus.source == LedStatusSource.CMD:
+            if (
+                self._last_status_check[ledstatus.button_id] + ledstatus.interval
+                > time.time()
+            ):
+                return
+            self._last_status_check[ledstatus.button_id] = time.time()
+            try:
+                command = shlex.split(ledstatus.extra)
                 if ledstatus.read_result:
                     async with asyncio.timeout(ledstatus.timeout):
                         result = await asyncio.to_thread(
                             subprocess.check_output,
-                            ledstatus.extra,
+                            command,
                         )
-                        msgs[ledstatus.button_id] = SetLed(
-                            ledstatus.button_id,
-                            self._map_led_color(result.strip()),
-                        )
+                        result = result.decode("utf-8")
+                        color = result.strip()
                 else:
                     async with asyncio.timeout(ledstatus.timeout):
                         result = await asyncio.to_thread(
                             subprocess.check_call,
-                            ledstatus.extra,
+                            command,
                         )
-                        msgs[ledstatus.button_id] = SetLed(
-                            ledstatus.button_id,
-                            self._map_led_color(
-                                ledstatus.color_on
-                                if result == 0
-                                else ledstatus.color_off,
-                            ),
+                        color = (
+                            ledstatus.color_on if result == 0 else ledstatus.color_off
                         )
-                self._last_status_check[ledstatus.button_id] = time.time()
-            elif ledstatus.source == LedStatusSource.WEBHOOK:
-                color = self._virtual_macropad.get_led_status(ledstatus.button_id)
-                msgs[ledstatus.button_id] = SetLed(
-                    ledstatus.button_id,
-                    self._map_led_color(color),
-                )
-
-        for key, message in msgs.items():
-            try:
-                if not force and (
-                    key in self._last_led_update
-                    and self._last_led_update[key] == message
-                ):
-                    continue
-                _logger.debug(
-                    f"Sending message: {message}, prev: {self._last_led_update.get(key, None)}",
-                )
-                self._device.send_msg(message)
-                await self._virtual_macropad.send_msg(message)
-                self._last_led_update[key] = message
             except Exception as e:
-                _logger.exception(e)
+                _logger.warning("Error running command: %s %s", ledstatus.extra, e)
+        elif ledstatus.source == LedStatusSource.WEBHOOK:
+            color = self._virtual_macropad.get_led_status(ledstatus.button_id)
+
+        await self._send_led_message(
+            ledstatus.button_id,
+            SetLed(
+                ledstatus.button_id,
+                self._map_led_color(color),
+            ),
+        )
+
+    async def _send_led_message(self, key, message, force=False):
+        try:
+            if not force and (
+                key in self._last_led_update and self._last_led_update[key] == message
+            ):
+                return
+            _logger.debug(
+                f"Sending message: {message}, prev: {self._last_led_update.get(key, None)}",
+            )
+            if self._device.connected:
+                self._device.send_msg(message)
+            await self._virtual_macropad.send_msg(message)
+            self._last_led_update[key] = message
+        except Exception as e:
+            _logger.exception(e)
+
+    async def _update_device_status(self, force=False):
+        led_updata_work = [
+            self._update_led(ledstatus) for ledstatus in self._config.leds
+        ]
+        await asyncio.gather(*led_updata_work)
 
     async def _do_check_status(self):
         from mutenix.tray_icon import my_icon
@@ -418,6 +413,6 @@ class Macropad:
         _logger.info("Reloading config")
         self._config = load_config()
         self._setup_buttons()
-        self._update_device_status(force=True)
+        asyncio.create_task(self._update_device_status(force=True))
         self._virtual_macropad.update_config(self._config)
         _logger.info("Config reloaded")
