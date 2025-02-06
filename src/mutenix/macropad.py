@@ -63,8 +63,11 @@ class Macropad:
         self._setup_buttons()
         self._checktime = time.time()
 
-    def _setup(self):
+    def _setup_device(self):
         self._device = HidDevice(self._config.device_identifications)
+
+    def _setup(self):
+        self._setup_device()
         token = self._config.teams_token
         self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",
@@ -227,11 +230,12 @@ class Macropad:
             _logger.info(version_info)
             self._version_seen = version_info.version
             if self._config.auto_update:
-                check_for_device_update(
+                if check_for_device_update(
                     self._device.raw,
                     version_info,
                     self._config.proxy,
-                )
+                ):
+                    self._setup_device()
         else:
             _logger.debug(version_info)
         self._virtual_macropad.set_version(version_info.version, version_info.type.name)

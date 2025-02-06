@@ -33,7 +33,7 @@ def check_for_device_update(
                 "Failed to fetch latest release info, status code: %s",
                 result.status_code,
             )
-            return
+            return False
 
         releases = result.json()
         latest_version = releases.get("tag_name", "v0.0.0")[1:]
@@ -42,7 +42,7 @@ def check_for_device_update(
         local_version = semver.Version.parse(device_version.version)
         if online_version.compare(local_version) <= 0:
             _logger.info("Device is up to date")
-            return
+            return False
 
         print("Device update available, starting update, please be patient")
         assets = releases.get("assets", [])
@@ -52,7 +52,7 @@ def check_for_device_update(
                 result = requests.get(update_url)
                 result.raise_for_status()
                 perform_upgrade_with_file(device, io.BytesIO(result.content))
-                return
+                return True
     except requests.RequestException as e:
         _logger.error("Failed to check for device update availability %s", e)
 
