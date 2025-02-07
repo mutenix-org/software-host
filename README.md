@@ -29,12 +29,16 @@ Mutenix is ideal for software teams looking to enhance their project management 
 
 ## Installation
 
+The prefered way is to use [uv](https://docs.astral.sh/uv/getting-started/installation/). The packages tend to not work without hassle.
+
 ### Executable
 
 Download the executable here: [Releases](https://github.com/mutenix-org/software-host/releases/latest)
 Run it.
 
 ### Using uv
+
+Get [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ```bash
 uv tool mutenix
@@ -62,6 +66,7 @@ Using the configuration file several things could be configured:
 - led states/colors
 - virtual keypad binding (address and port)
 - device identification to connect to
+- logging
 
 Mutenix tries to find a file called `mutenix.yaml` in the directory it is run from or `$HOME/.config/`. It it does not find one, it will create one in the current directory.
 
