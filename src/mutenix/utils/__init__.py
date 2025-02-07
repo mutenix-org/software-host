@@ -40,6 +40,10 @@ def run_loop(func):
             while self._run:
                 await func(self, *args, **kwargs)
                 await asyncio.sleep(0)
+            _logger.debug(
+                "run_loop %s finished",
+                func.__module__ + "." + func.__qualname__,
+            )
 
     else:
         raise Exception("only for async functions")  # pragma: no cover
@@ -54,8 +58,16 @@ def block_parallel(func):
     async def wrapper(self, *args, **kwargs):
         _logger.debug("block_parallel %s %s", func.__name__, func._already_running)
         if func._already_running:
+            _logger.debug(
+                "blocking %s parallel",
+                func.__module__ + "." + func.__qualname__,
+            )
             while func._already_running:
                 await asyncio.sleep(0.1)
+            _logger.debug(
+                "blocking %s parallel released",
+                func.__module__ + "." + func.__qualname__,
+            )
             return
         func._already_running = True
         result = await func(self, *args, **kwargs)

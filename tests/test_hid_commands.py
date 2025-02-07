@@ -43,7 +43,7 @@ def test_set_led():
     buffer = led.to_buffer()
     assert (
         buffer[:-1]
-        == bytes([HidOutCommands.SET_LED, 1, 0x00, 0x0A, 0x00, 0x00, 0, 0])[:-1]
+        == bytes([HidOutCommands.SET_LED, 1, 0x0A, 0x00, 0x00, 0x00, 0, 0])[:-1]
     )
 
 

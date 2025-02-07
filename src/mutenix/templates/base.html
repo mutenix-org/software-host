@@ -16,6 +16,20 @@
     <title>{% block title %}Mutenix{% endblock %}</title>
 </head>
 <body>
+    {% if show_default_header is not defined or show_default_header %}
+    <header>
+        <h1>{% block header %}{% endblock %}</h1>
+        <nav>
+            <div>
+                <a href="/">Virtual Keypad</a> &middot;
+                <a href="/about">About</a> &middot;
+                <a href="/config">Config</a> &middot;
+                <a href="/device">Device</a> &middot;
+                <a href="/help">Help</a>
+            </div>
+        </nav>
+    </header>
+    {% endif %}
     {% block content %}{% endblock %}
     <footer>
         <a href="/">Virtual Macropad</a> &middot; <a href="/about">About</a> &middot; <a href="/config">Config</a> &middot; <a href="/device">Device</a> &middot; <a href="/help">Help</a><br />

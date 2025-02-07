@@ -117,3 +117,23 @@ table tbody tr:nth-child(odd) {
 table tbody tr:nth-child(even) {
     background-color: #ffffff;
 }
+nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+
+nav a {
+  margin: 0 1rem;
+  color: #fff;
+  padding: 0.5rem 1rem;
+}
+
+nav a:hover {
+  background-color: #555;
+  border-radius: 4px;
+}
