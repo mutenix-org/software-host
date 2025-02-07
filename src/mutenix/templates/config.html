@@ -10,17 +10,45 @@
         <table>
             <thead>
             <tr>
-                <th style="padding-right: 20px;">Button ID</th>
+                <th style="padding-right: 20px;">Button</th>
                 <th style="padding-right: 20px;">Action</th>
-                <th style="padding-right: 20px;">Extra</th>
+                <th style="padding-right: 20px;">Longpress Action</th>
             </tr>
             </thead>
             <tbody>
-            {% for action in button_actions %}
+            {% for button_id, action in button_actions.items() %}
             <tr>
-                <td style="padding-right: 20px;">{{ action.button_id }}</td>
-                <td style="padding-right: 20px;">{{ action.action }}</td>
-                <td style="padding-right: 20px;">{{ action.extra }}</td>
+                <td style="padding-right: 20px; text-align: right;">{{ button_id }}
+                    <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color:
+                        {% if button_id in [1, 6] %} green
+                        {% elif button_id in [5, 10] %} red
+                        {% elif button_id in [2, 7] %} yellow
+                        {% elif button_id in [3, 8] %} black
+                        {% elif button_id in [4, 9] %} blue
+                        {% endif %};"></span>
+                </td>
+                {% if action.action %}
+                <td style="padding-right: 20px;">{{ action.action.action }}
+                    {% if action.action.extra %}
+                    <br /> <small>
+                    {{ action.action.extra }}
+                    </small>
+                    {% endif %}
+                </td>
+                {% else %}
+                <td style="padding-right: 20px;">N/A</td>
+                {% endif %}
+                {% if action.longpress_action %}
+                <td style="padding-right: 20px;">{{ action.longpress_action.action }}
+                    {% if action.longpress_action.extra %}
+                    <br /> <small>
+                    {{ action.action.extra }}
+                    </small>
+                    {% endif %}
+                </td>
+                {% else %}
+                <td style="padding-right: 20px;">N/A</td>
+                {% endif %}
             </tr>
             {% endfor %}
             </tbody>
