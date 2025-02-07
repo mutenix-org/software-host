@@ -55,7 +55,9 @@ class Macropad:
     def __init__(self, config: Config):
         self._run = True
         self._version_seen = None
-        self._last_status_check: defaultdict[int, int] = defaultdict(int)
+        self._last_status_check: defaultdict[int, float] = defaultdict(
+            lambda: time.time(),
+        )
         self._config = config
         self._last_led_update: dict[int, SetLed] = {}
         self._setup()
@@ -283,7 +285,12 @@ class Macropad:
                 > time.time()
             ):
                 return
-            self._last_status_check[ledstatus.button_id] = time.time()
+            self._last_status_check[ledstatus.button_id] += ledstatus.interval
+            _logger.debug(
+                "Running command to check status for led %d: %s",
+                ledstatus.button_id,
+                ledstatus.extra,
+            )
             try:
                 command = shlex.split(ledstatus.extra)
                 if ledstatus.read_result:
@@ -293,6 +300,7 @@ class Macropad:
                             command,
                         )
                         result = result.decode("utf-8")
+                        _logger.debug("Result for %d: %s", ledstatus.button_id, result)
                         color = result.strip()
                 else:
                     async with asyncio.timeout(ledstatus.timeout):
@@ -302,6 +310,12 @@ class Macropad:
                         )
                         color = (
                             ledstatus.color_on if result == 0 else ledstatus.color_off
+                        )
+                        _logger.debug(
+                            "Result for %d: %d -> %s",
+                            ledstatus.button_id,
+                            result,
+                            color,
                         )
             except Exception as e:
                 _logger.warning("Error running command: %s %s", ledstatus.extra, e)
