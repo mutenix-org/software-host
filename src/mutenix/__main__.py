@@ -70,6 +70,7 @@ def list_devices():
 def setup_logging(logging_config: LoggingConfig):
     log_file_path = logging_config.file_path or pathlib.Path.cwd() / "mutenix.log"
     log_level = logging_config.level.to_logging_level()
+    all_levels = [log_level]
     outputs = []
     if logging_config.file_enabled:
         file_log_level = (
@@ -85,6 +86,7 @@ def setup_logging(logging_config: LoggingConfig):
                 backup_count=logging_config.file_backup_count,
             ),
         )
+        all_levels.append(file_log_level)
     if logging_config.console_enabled:
         console_log_level = (
             logging_config.console_level.to_logging_level()
@@ -99,8 +101,9 @@ def setup_logging(logging_config: LoggingConfig):
                 ),
             ),
         )
+        all_levels.append(console_log_level)
     daiquiri.setup(
-        level=log_level,
+        level=min(all_levels),
         outputs=outputs,
     )
     daiquiri.parse_and_set_default_log_levels(logging_config.submomdules)
