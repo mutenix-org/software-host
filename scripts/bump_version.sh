@@ -114,8 +114,8 @@ gh pr create --fill
 gh pr merge --auto -r
 
 for i in {1..12}; do
-    pr_status=$(gh pr view --json merged --jq '.merged')
-    if [[ "$pr_status" == "true" ]]; then
+    pr_status=$(gh pr view --json mergedAt --jq '.mergedAt')
+    if [[ "$pr_status" == "null" ]]; then
         break
     fi
     echo "Waiting for PR to be merged..."
@@ -123,7 +123,7 @@ for i in {1..12}; do
 done
 
 # Check if the PR has been merged
-pr_status=$(gh pr view --json merged --jq '.mergedAt')
+pr_status=$(gh pr view --json mergedAt --jq '.mergedAt')
 
 if [[ "$pr_status" != "null" ]]; then
     echo "PR has been merged. Pushing the tag."
