@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import logging
 import pathlib
+from collections import defaultdict
 
 import jinja2
 import markdown
@@ -9,6 +10,7 @@ import yaml
 from aiohttp import web
 from aiohttp_jinja2 import render_template
 from aiohttp_jinja2 import setup as jinja2_setup
+from mutenix.config import Config
 from mutenix.version import MAJOR
 from mutenix.version import MINOR
 from mutenix.version import PATCH
@@ -79,7 +81,7 @@ class WebServer:
         return render_template(template_name, request, context)
 
     def update_config(self, config):
-        self._config = config
+        self._config: Config = config
 
     async def index(self, request: web.Request):
         return self._render_template("index.html", request, {})
@@ -155,8 +157,15 @@ class WebServer:
         return self._render_template("about.html", request, context)
 
     async def config(self, request: web.Request):
+        button_actions: defaultdict[int, dict] = defaultdict(dict)
+        for action in self._config.actions:
+            button_actions[action.button_id]["action"] = action
+        for longpress_action in self._config.longpress_action:
+            button_actions[longpress_action.button_id]["longpress_action"] = (
+                longpress_action
+            )
         context = {
-            "button_actions": self._config.actions,
+            "button_actions": button_actions,
             "leds": self._config.leds,
             "yaml_config": yaml.dump(self._config.model_dump(mode="json")),
         }
