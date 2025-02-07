@@ -76,10 +76,10 @@ class TransferFile:
             else:
                 self.content = f.read().encode("utf-8")
         # Workaround for update issue
+        self.size = len(self.content)
         self.content = self.content + b"\x20" * (
             MAX_CHUNK_SIZE - (len(self.content) % MAX_CHUNK_SIZE)
         )
-        self.size = len(self.content)
         _logger.info("Size %s, %s", self.size, json.dumps(self.content.decode("utf-8")))
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
@@ -134,7 +134,7 @@ class TransferFile:
             _logger.warning("No chunk found for ack")
             return
         acked_chunk._acked = True
-        _logger.info("Acked chunk %s", chunk.package)
+        _logger.debug("Acked chunk %s", chunk)
 
     @property
     def chunks(self):

@@ -65,6 +65,7 @@ class Macropad:
 
     def _setup_device(self):
         self._device = HidDevice(self._config.device_identifications)
+        self._device.register_callback(self._hid_callback)
 
     def _setup(self):
         self._setup_device()
@@ -85,7 +86,6 @@ class Macropad:
         )
         self._virtual_macropad.update_config(self._config)
         self._websocket.register_callback(self._teams_callback)
-        self._device.register_callback(self._hid_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
 
     def _setup_buttons(self):

@@ -40,7 +40,6 @@ class ChunkAck:
         self.id = int.from_bytes(data[2:4], "little")
         self.package = int.from_bytes(data[4:6], "little")
         self.type_ = int.from_bytes(data[6:7], "little")
-        _logger.info("Ack: %s", self)
 
     @property
     def is_valid(self):
