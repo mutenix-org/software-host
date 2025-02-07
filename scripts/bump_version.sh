@@ -123,9 +123,9 @@ for i in {1..12}; do
 done
 
 # Check if the PR has been merged
-pr_status=$(gh pr view --json merged --jq '.merged')
+pr_status=$(gh pr view --json merged --jq '.mergedAt')
 
-if [[ "$pr_status" == "true" ]]; then
+if [[ "$pr_status" != "null" ]]; then
     echo "PR has been merged. Pushing the tag."
     git push origin "v$VERSION"
 else
