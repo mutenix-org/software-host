@@ -108,7 +108,7 @@ def setup_logging(logging_config: LoggingConfig):
         level=min(all_levels),
         outputs=outputs,
     )
-    daiquiri.parse_and_set_default_log_levels(logging_config.submomdules)
+    daiquiri.parse_and_set_default_log_levels(logging_config.submodules)
     global _logger
 
 

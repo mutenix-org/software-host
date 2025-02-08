@@ -11,6 +11,7 @@ from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 from mutenix.web_server import WebServer
 
+
 HOST = "127.0.0.1"
 PORT = 12909
 
