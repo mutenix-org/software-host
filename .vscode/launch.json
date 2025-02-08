@@ -22,6 +22,13 @@
             ]
         },
         {
+            "name": "Run config.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/mutenix/config.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "MacroPad Host SW",
             "type": "debugpy",
             "request": "launch",

@@ -68,6 +68,7 @@ class Key(BaseModel):
     key: str | None = Field(
         default=None,
         description="The key to be pressed. This field has precedence over 'string'.",
+        examples=["a", "F1", "Enter"],
     )
 
 
@@ -75,10 +76,12 @@ class KeyTap(BaseModel):
     key: str | None = Field(
         default=None,
         description="The key to be pressed. This field has precedence over 'string'.",
+        examples=["a", "F1", "Enter"],
     )
     modifiers: list[str] | None = Field(
         default=None,
         description="List of modifier keys to be held down during the key press.",
+        examples=[["ctrl", "shift"], ["alt"]],
     )
 
 
@@ -86,6 +89,7 @@ class KeyType(BaseModel):
     string: str | None = Field(
         default=None,
         description="The string to be typed. This field is only used if 'key' is not set.",
+        examples=["Hello", "World"],
     )
 
 
@@ -111,12 +115,21 @@ class Keyboard(BaseModel, AtLeastOneOption):
 
 
 class MousePosition(BaseModel):
-    x: int = Field(description="The x-coordinate of the mouse action position.")
-    y: int = Field(description="The y-coordinate of the mouse action position.")
+    x: int = Field(
+        description="The x-coordinate of the mouse action position.",
+        examples=[0, 100],
+    )
+    y: int = Field(
+        description="The y-coordinate of the mouse action position.",
+        examples=[0, 100],
+    )
 
 
 class MouseButton(BaseModel):
-    button: str = Field(description="The mouse button to be clicked.")
+    button: str = Field(
+        description="The mouse button to be clicked.",
+        examples=["left", "right"],
+    )
 
 
 class Mouse(BaseModel, AtLeastOneOption):
@@ -147,15 +160,23 @@ class WebhookAction(BaseModel):
     method: str = Field(
         default="GET",
         description="The HTTP method to use for the webhook action.",
+        examples=["GET", "POST"],
     )
     url: str = Field(..., description="The URL to send the webhook request to.")
     headers: dict[str, str] = Field(
         default_factory=dict,
         description="Optional headers to include in the webhook request.",
+        examples=[{"Content-Type": "application/json"}],
+    )
+    parameters: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional parameters to include as url params in the web request.",
+        examples=[{"key": "value"}],
     )
     data: dict[str, Any] | None = Field(
         default=None,
         description="Optional data to include in the webhook request.",
+        examples=[{"key": "value"}],
     )
 
 
@@ -206,10 +227,44 @@ class ButtonAction(BaseModel):
         ge=1,
         le=10,
         description="The ID of the button, must be between 1 and 10 inclusive.",
+        examples=[1, 2, 3],
     )
     actions: list[ActionDetails] = Field(
         default_factory=list,
         description="The actions to be performed when the button is pressed.",
+        examples=[
+            """
+                    "webhook": {
+                        "method": "POST",
+                        "url": "https://example.com/webhook",
+                        "headers": {"Content-Type": "application/json"},
+                        "parameters": {"key": "value"},
+                        "data": {"key": "value"},
+                    }
+            """,
+            """
+                    "keyboard": {
+                        "press": {"key": "a"},
+                    },
+            """,
+            """
+                    "mouse": {
+                        "set": {"x": 300, "y": 400},
+                    },
+            """,
+            """
+                    "teams_reaction": {"reaction": "like"}
+            """,
+            """
+                    "meeting_action": "toggle-mute"
+            """,
+            """
+                    "activate_teams": True
+            """,
+            """
+                    "command": "echo 'Hello World'"
+            """,
+        ],
     )
 
 
@@ -217,10 +272,12 @@ class LedStatusColoredCheck(BaseModel):
     color_on: LedColor = Field(
         default=LedColor.GREEN,
         description="The color of the LED when result is `0` or the value is true",
+        examples=["green", "red"],
     )
     color_off: LedColor = Field(
         default=LedColor.RED,
         description="The color of the LED when result is not `0` or the value is false.",
+        examples=["green", "red"],
     )
 
 
@@ -228,14 +285,17 @@ class LedStatusColorCommand(BaseModel):
     command: str = Field(
         ...,
         description="The command to be executed. It must output a color name.",
+        examples=["echo green", "echo red"],
     )
     interval: float = Field(
         default=5.0,
         description="The interval to run the command in, default is 5.0 seconds.",
+        examples=[5.0, 15.0],
     )
     timeout: float = Field(
         default=0.5,
         description="Maximum allowed runtime for the command, color will be set to 'black' if timeout occurs, default is 0.5 seconds.",
+        examples=[0.5, 1.0],
     )
 
 
@@ -247,15 +307,17 @@ class LedStatusTeamsState(LedStatusColoredCheck):
     teams_state: TeamsState = Field(
         ...,
         description="The Teams state to be used for the LED status.",
+        examples=["is-muted", "is-hand-raised"],
     )
 
 
-class LedStatus(BaseModel):
+class LedStatus(BaseModel, AtLeastOneOption):
     button_id: int = Field(
         ...,
         ge=1,
         le=10,
         description="The ID of the button, must be between 1 and 10.",
+        examples=[1, 2, 3],
     )
     teams_state: LedStatusTeamsState | None = Field(
         default=None,
@@ -278,32 +340,27 @@ class LedStatus(BaseModel):
         description="Flag to disable the LED.",
     )
 
-    @pydantic.model_validator(mode="before")
-    def check_at_least_one_set(cls, values):
-        required_fields = [
-            "teams_state",
-            "result_command",
-            "color_command",
-            "webhook",
-            "off",
-        ]
-        if not any(values.get(field) for field in required_fields):
-            raise ValueError(
-                f"At least one source ({', '.join(f'\'{field}\'' for field in required_fields)}) must be set.",
-            )
-        return values
+    OPTION_FIELDS: ClassVar[list[str]] = [
+        "teams_state",
+        "result_command",
+        "color_command",
+        "webhook",
+        "off",
+    ]
 
 
 class VirtualKeypadConfig(BaseModel):
     bind_address: str = Field(
         default="127.0.0.1",
         description="The IP address to bind the virtual keypad server to. Defaults to '127.0.0.1'.",
+        examples=["0.0.0.0"],
     )
     bind_port: int = Field(
         default=12909,
         description="The port number to bind the virtual keypad server to. Defaults to 12909.",
         le=65535,
         ge=1024,
+        examples=[12909, 8080],
     )
 
 
@@ -313,16 +370,19 @@ class DeviceInfo(BaseModel):
         description="The vendor ID of the device.",
         ge=0,
         lt=2**24,
+        examples=[0x1D50, 0x4617],
     )
     product_id: int | None = Field(
         default=None,
         description="The product ID of the device.",
         ge=0,
         lt=2**16,
+        examples=[0x6189, 0x1],
     )
     serial_number: str | None = Field(
         default=None,
         description="The serial number of the device.",
+        examples=["123456", "ABCDEF"],
     )
 
 
@@ -340,10 +400,12 @@ class LoggingConfig(BaseModel):
     level: LogLevel = Field(
         default=LogLevel.INFO,
         description="The logging level for the application.",
+        examples=["debug", "info"],
     )
     submodules: list[str] = Field(
         default_factory=list,
         description="List of submodules to apply specific logging configurations.",
+        examples=["mutenix.hid_device=debug", "mutenix.macropad=info"],
     )
     file_enabled: bool = Field(
         default=True,
@@ -352,18 +414,22 @@ class LoggingConfig(BaseModel):
     file_path: str | None = Field(
         default=None,
         description="The file path for the log file.",
+        examples=["/var/log/mutenix.log"],
     )
     file_level: LogLevel = Field(
         default=LogLevel.INFO,
         description="The logging level for the log file.",
+        examples=["debug", "info"],
     )
     file_max_size: int = Field(
         default=3_145_728,
         description="The maximum size of the log file in bytes before it is rotated.",
+        examples=[3_145_728, 10_485_760],
     )
     file_backup_count: int = Field(
         default=5,
         description="The number of backup log files to keep.",
+        examples=[0, 5, 10],
     )
     console_enabled: bool = Field(
         default=False,
@@ -372,11 +438,17 @@ class LoggingConfig(BaseModel):
     console_level: LogLevel = Field(
         default=LogLevel.INFO,
         description="The logging level for the console output.",
+        examples=["debug", "info"],
     )
 
 
 class Config(BaseModel):
+    """
+    Mutenix configuration parameters for actions, leds keypad and more.
+    """
+
     _internal_state: Any = pydantic.PrivateAttr()
+    _file_path: str = pydantic.PrivateAttr(default=None)
     actions: list[ButtonAction] = [ButtonAction(button_id=i) for i in range(1, 11)]
     longpress_action: list[ButtonAction] = pydantic.Field(
         default_factory=lambda: [ButtonAction(button_id=i) for i in range(1, 11)],
@@ -384,7 +456,6 @@ class Config(BaseModel):
     )
     leds: list[LedStatus] = [LedStatus(button_id=i, off=True) for i in range(1, 11)]
     teams_token: str | None = None
-    file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
     auto_update: bool = True
     device_identifications: list[DeviceInfo] = [
@@ -394,6 +465,16 @@ class Config(BaseModel):
     ]
     logging: LoggingConfig = LoggingConfig()
     proxy: str | None = None
+
+    @pydantic.model_validator(mode="after")
+    def validate_unique_button_ids(cls, values):
+        button_ids = [action.button_id for action in values.actions]
+        if len(button_ids) != len(set(button_ids)):
+            raise ValueError("All button_ids must be unique.")
+        button_ids = [led.button_id for led in values.leds]
+        if len(button_ids) != len(set(button_ids)):
+            raise ValueError("All button_ids must be unique.")
+        return values
 
 
 def create_default_config() -> Config:
@@ -560,7 +641,7 @@ def load_config(file_path: Path | None = None) -> Config:
     except FileNotFoundError:
         _logger.info("No config file found, creating default one")
         config = create_default_config()
-        config.file_path = str(file_path)
+        config._file_path = str(file_path)
         save_config(config)
         return config
 
@@ -568,7 +649,7 @@ def load_config(file_path: Path | None = None) -> Config:
         _logger.info("Error in configuration file: %s", e)
         config = create_default_config()
         config._internal_state = "default_fallback"
-        config.file_path = str(file_path)
+        config._file_path = str(file_path)
         return config
 
     except pydantic.ValidationError as e:
@@ -576,22 +657,23 @@ def load_config(file_path: Path | None = None) -> Config:
         for error in e.errors():
             _logger.info(error)
 
-    config_data["file_path"] = str(file_path)
+    config_data["_file_path"] = str(file_path)
     return Config(**config_data)
 
 
 def save_config(config: Config, file_path: Path | str | None = None):
     if file_path is None:
-        if config.file_path is None:
-            config.file_path = str(find_config_file())
-        file_path = config.file_path
+        if config._file_path is None:
+            config._file_path = str(find_config_file())
+        file_path = config._file_path
+    else:
+        config._file_path = file_path  # type: ignore
 
-    config.file_path = file_path  # type: ignore
     if config._internal_state == "default_fallback":
         _logger.error("Not saving default config")
         return
     try:
-        file_path = Path(file_path)
+        file_path = Path(config._file_path)
         with file_path.open("w") as file:
             yaml.dump(
                 config.model_dump(mode="json", exclude_none=True, exclude_unset=True),
@@ -607,5 +689,7 @@ def save_config(config: Config, file_path: Path | str | None = None):
 if __name__ == "__main__":
     print(json.dumps(Config.model_json_schema()))
 
-    config = load_config()
-    print(config.model_dump_json(indent=2))
+    # config = load_config()
+    # print(config.model_dump_json(indent=2))
+
+    # print(generate_example_config_markdown())

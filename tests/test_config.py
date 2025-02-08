@@ -35,7 +35,7 @@ def test_load_config_default():
                 "mutenix.config.create_default_config",
             ) as mock_create_default_config:
                 default_config = create_default_config()
-                default_config.file_path = str(Path(CONFIG_FILENAME))
+                default_config._file_path = str(Path(CONFIG_FILENAME))
                 mock_create_default_config.return_value = default_config
                 config = load_config()
                 assert config == mock_create_default_config.return_value
