@@ -140,6 +140,7 @@ class Macropad:
         self._current_state: ServerMessage | None = None
         self._setup_buttons()
         self._checktime = time.time()
+        self._trigger_reload_config = False
 
     def _setup(self):
         self._setup_device()
@@ -415,6 +416,9 @@ class Macropad:
                 self._checktime = time.time()
             except Exception as e:  # pragma: no cover
                 _logger.error("Error updating tray icon: %s", e)
+        if self._trigger_reload_config:
+            await self._reload_config_async()
+            self._trigger_reload_config = False
 
     _check_status = run_loop(_do_check_status)
 
@@ -478,12 +482,12 @@ class Macropad:
         return self._device.connected
 
     def reload_config(self):
-        asyncio.create_task(self._reload_config_async())
+        self._trigger_reload_config = True
 
     async def _reload_config_async(self):
         _logger.info("Reloading config")
         self._config = await asyncio.to_thread(load_config)
         self._setup_buttons()
         await self._update_device_status(force=True)
-        self._virtual_macropad.update_config(self._config)
+        self._virtual_macropad.set_config(self._config)
         _logger.info("Config reloaded")
