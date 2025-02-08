@@ -61,7 +61,10 @@ class LogMessage:
         if not self.is_valid:
             return
         self.level = "debug" if self.identifier == "LD" else "error"
-        self.message = data[2 : data.index(0)].decode("utf-8")
+        end_pos = data.find(0)
+        if end_pos == -1:
+            end_pos = len(data)
+        self.message = data[2:end_pos].decode("utf-8")
 
     @property
     def is_valid(self):
