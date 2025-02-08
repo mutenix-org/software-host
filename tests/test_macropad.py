@@ -506,6 +506,7 @@ async def test_update_device_status_cmd_source_without_result(macropad):
 async def test_update_device_status_cmd_source_interval_not_elapsed(macropad):
     macropad._config.leds = [
         Mock(
+            button_id=1,
             teams_state=False,
             result_command=Mock(
                 command="exit 0",
@@ -705,7 +706,7 @@ async def test_reload_config(macropad):
         patch.object(macropad, "_update_device_status") as mock_update_device_status,
     ):
         mock_load_config.return_value = create_default_config()
-        macropad.reload_config()
+        await macropad._reload_config_async()
         mock_load_config.assert_called_once()
         mock_setup_buttons.assert_called_once()
         mock_update_device_status.assert_called_once_with(force=True)
@@ -756,15 +757,18 @@ def test_perform_webhook(
     expected_headers,
     macropad,
 ):
-    with patch("mutenix.macropad.requests.request") as mock_request:
-        extra = WebhookAction(**extra)
-        macropad._perform_webhook(extra)
-        mock_request.assert_called_once_with(
-            expected_method,
-            expected_url,
-            json=expected_json,
-            headers=expected_headers,
-        )
+    mock_request = Mock()
+    macropad._session = Mock(
+        request=mock_request,
+    )
+    extra = WebhookAction(**extra)
+    macropad._perform_webhook(extra)
+    mock_request.assert_called_once_with(
+        expected_method,
+        expected_url,
+        json=expected_json,
+        headers=expected_headers,
+    )
 
 
 @pytest.mark.asyncio

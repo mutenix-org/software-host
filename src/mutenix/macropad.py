@@ -53,22 +53,27 @@ class Macropad:
     def __init__(self, config: Config):
         self._run = True
         self._version_seen = None
-        self._last_status_check: defaultdict[int, float] = defaultdict(
-            lambda: time.time(),
-        )
+        self._last_status_check: defaultdict[int, float] = defaultdict(time.time)
         self._config = config
         self._last_led_update: dict[int, SetLed] = {}
+        self._session = requests.Session()
         self._setup()
         self._current_state: ServerMessage | None = None
         self._setup_buttons()
         self._checktime = time.time()
 
+    def _setup(self):
+        self._setup_device()
+        self._setup_websocket()
+        self._setup_virtual_macropad()
+        self._websocket.register_callback(self._teams_callback)
+        self._virtual_macropad.register_callback(self._hid_callback)
+
     def _setup_device(self):
         self._device = HidDevice(self._config.device_identifications)
         self._device.register_callback(self._hid_callback)
 
-    def _setup(self):
-        self._setup_device()
+    def _setup_websocket(self):
         token = self._config.teams_token
         self._websocket = WebSocketClient(
             "ws://127.0.0.1:8124",
@@ -80,13 +85,13 @@ class Macropad:
                 token=token,
             ),
         )
+
+    def _setup_virtual_macropad(self):
         self._virtual_macropad = VirtualMacropad(
             self._config.virtual_keypad.bind_address,
             self._config.virtual_keypad.bind_port,
         )
         self._virtual_macropad.set_config(self._config)
-        self._websocket.register_callback(self._teams_callback)
-        self._virtual_macropad.register_callback(self._hid_callback)
 
     def _setup_buttons(self):
         self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
@@ -96,7 +101,7 @@ class Macropad:
 
     def _perform_webhook(self, extra: WebhookAction):
         try:
-            result = requests.request(
+            result = self._session.request(
                 extra.method,
                 extra.url,
                 json=extra.data,
@@ -104,7 +109,7 @@ class Macropad:
             )
             _logger.info("Webhook result: %i %s", result.status_code, result.text)
         except Exception as e:
-            _logger.warn("Webhook resulted in an exeption %s", e)
+            _logger.warning("Webhook resulted in an exception %s", e)
 
     def _keypress(self, extra):
         if not Controller:
@@ -114,25 +119,25 @@ class Macropad:
         keyboard = Controller()
         _logger.debug("Keypress: %s", extra)
         if "key" in extra:
-
-            def do_key(*keys):
-                if len(keys) == 1:
-                    keyboard.tap(keys[0])
-                else:
-                    with keyboard.pressed(keys[0]):
-                        do_key(*keys[1:])
-
-            try:
-                do_key(
-                    *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
-                    extra["key"]
-                    if len(extra["key"]) == 1
-                    else getattr(Key, extra["key"]),
-                )
-            except AttributeError:
-                _logger.warning("Key not found")
+            self._do_keypress(keyboard, extra)
         elif "string" in extra:
             keyboard.type(extra["string"])
+
+    def _do_keypress(self, keyboard, extra):
+        def do_key(*keys):
+            if len(keys) == 1:
+                keyboard.tap(keys[0])
+            else:
+                with keyboard.pressed(keys[0]):
+                    do_key(*keys[1:])
+
+        try:
+            do_key(
+                *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
+                extra["key"] if len(extra["key"]) == 1 else getattr(Key, extra["key"]),
+            )
+        except AttributeError:
+            _logger.warning("Key not found")
 
     def _mousemove(self, extra):
         if not MouseController:
@@ -144,6 +149,9 @@ class Macropad:
             return
         mouse = MouseController()
         action = extra.get("action", "move")
+        self._do_mouse_action(mouse, action, extra)
+
+    def _do_mouse_action(self, mouse, action, extra):
         match action:
             case "move":
                 mouse.move(extra.get("x", 0), extra.get("y", 0))
@@ -168,11 +176,13 @@ class Macropad:
         _logger.debug("Command return code: %s", result.returncode)
 
     def _run_command(self, extra):  # pragma: no cover
+        tasks = []
         for command in extra:
-            try:
-                asyncio.create_task(asyncio.to_thread(self._do_run_command, command))
-            except Exception as e:
-                _logger.error("Error running command: %s", e)
+            tasks.append(asyncio.to_thread(self._do_run_command, command))
+        try:
+            asyncio.create_task(asyncio.gather(*tasks))
+        except Exception as e:
+            _logger.error("Error running command: %s", e)
 
     async def _send_status(self, status: Status):
         _logger.info(
@@ -187,37 +197,44 @@ class Macropad:
         if status.triggered:
             if not status.released:
                 return
-            if not status.longpressed and status.button in self._tap_actions:
-                action = self._tap_actions.get(status.button, None)
-            elif status.longpressed and status.button in self._longpress_actions:
-                action = self._longpress_actions.get(status.button, None)
+            action = self._get_action(status)
             if not action:
                 return
 
             for single_action in action.actions:
-                if single_action.meeting_action:
-                    client_message = ClientMessage.create(
-                        action=single_action.meeting_action,
-                    )
-                    await self._websocket.send_message(client_message)
-                elif single_action.teams_reaction:
-                    client_message = ClientMessage.create(
-                        action=MeetingAction.React,
-                    )
-                    client_message.parameters = ClientMessageParameter(
-                        type_=single_action.teams_reaction.reaction,
-                    )
-                    await self._websocket.send_message(client_message)
-                elif single_action.activate_teams:
-                    bring_teams_to_foreground()
-                elif single_action.command:
-                    self._run_command(single_action.command)
-                elif single_action.webhook:
-                    self._perform_webhook(single_action.webhook)
-                elif single_action.keypress:
-                    self._keypress(single_action.keypress)
-                elif single_action.mouse:
-                    self._mousemove(single_action.mouse)
+                await self._execute_action(single_action)
+
+    def _get_action(self, status):
+        if not status.longpressed and status.button in self._tap_actions:
+            return self._tap_actions.get(status.button, None)
+        elif status.longpressed and status.button in self._longpress_actions:
+            return self._longpress_actions.get(status.button, None)
+        return None
+
+    async def _execute_action(self, single_action):
+        if single_action.meeting_action:
+            client_message = ClientMessage.create(
+                action=single_action.meeting_action,
+            )
+            await self._websocket.send_message(client_message)
+        elif single_action.teams_reaction:
+            client_message = ClientMessage.create(
+                action=MeetingAction.React,
+            )
+            client_message.parameters = ClientMessageParameter(
+                type_=single_action.teams_reaction.reaction,
+            )
+            await self._websocket.send_message(client_message)
+        elif single_action.activate_teams:
+            bring_teams_to_foreground()
+        elif single_action.command:
+            self._run_command(single_action.command)
+        elif single_action.webhook:
+            self._perform_webhook(single_action.webhook)
+        elif single_action.keypress:
+            self._keypress(single_action.keypress)
+        elif single_action.mouse:
+            self._mousemove(single_action.mouse)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:
@@ -265,69 +282,18 @@ class Macropad:
 
     async def _update_led(self, ledstatus: LedStatus):
         msg = self._current_state
-        color: ConfigLedColor = ConfigLedColor.BLACK
+        color: ConfigLedColor | None = ConfigLedColor.BLACK
         if ledstatus.teams_state:
-            if (
-                msg
-                and msg.meeting_update
-                and msg.meeting_update.meeting_state
-                and msg.meeting_update.meeting_state.is_in_meeting
-            ):
-                mapped_state = getattr(
-                    msg.meeting_update.meeting_state,
-                    ledstatus.teams_state.teams_state.value.replace("-", "_").lower(),
-                )
-                color = (
-                    ledstatus.teams_state.color_on
-                    if mapped_state
-                    else ledstatus.teams_state.color_off
-                )
+            color = self._get_teams_state_color(ledstatus, msg)
         elif ledstatus.result_command:
-            cmd_cfg = ledstatus.result_command
-            if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
-                return
-
-            try:
-                command = shlex.split(cmd_cfg.command)
-                async with asyncio.timeout(cmd_cfg.timeout):
-                    exit_code: int = await asyncio.to_thread(
-                        subprocess.check_call,
-                        command,
-                    )
-                    color = cmd_cfg.color_on if exit_code == 0 else cmd_cfg.color_off
-                    _logger.debug(
-                        "Result for %d: %d -> %s",
-                        ledstatus.button_id,
-                        exit_code,
-                        color,
-                    )
-            except Exception as e:
-                _logger.warning("Error running command: %s %s", cmd_cfg, e)
+            color = await self._get_result_command_color(ledstatus)
         elif ledstatus.color_command:
-            cmd_cfg = ledstatus.color_command
-            if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
-                return
-            try:
-                command = shlex.split(cmd_cfg.command)
-                async with asyncio.timeout(cmd_cfg.timeout):
-                    result: bytes = await asyncio.to_thread(
-                        subprocess.check_output,
-                        command,
-                    )
-                    result_str = result.decode("utf-8")
-                    _logger.debug("Result for %d: %s", ledstatus.button_id, result_str)
-                    try:
-                        color = getattr(ConfigLedColor, result_str.strip().upper())
-                    except AttributeError:
-                        _logger.warning("Unknown color: %s", result)
-            except Exception as e:
-                _logger.warning("Error running command: %s %s", cmd_cfg, e)
+            color = await self._get_color_command_color(ledstatus)
         elif ledstatus.webhook:
-            color_name = self._virtual_macropad.get_led_status(ledstatus.button_id)
-            try:
-                color = ConfigLedColor[color_name.upper()]
-            except KeyError:
-                _logger.warning("Unknown color: %s", color_name)
+            color = self._get_webhook_color(ledstatus)
+
+        if color is None:
+            return
 
         await self._send_led_message(
             ledstatus.button_id,
@@ -336,6 +302,78 @@ class Macropad:
                 self._map_led_color(color),
             ),
         )
+
+    def _get_teams_state_color(self, ledstatus, msg):
+        if (
+            msg
+            and msg.meeting_update
+            and msg.meeting_update.meeting_state
+            and msg.meeting_update.meeting_state.is_in_meeting
+        ):
+            mapped_state = getattr(
+                msg.meeting_update.meeting_state,
+                ledstatus.teams_state.teams_state.value.replace("-", "_").lower(),
+            )
+            return (
+                ledstatus.teams_state.color_on
+                if mapped_state
+                else ledstatus.teams_state.color_off
+            )
+        return ConfigLedColor.BLACK
+
+    async def _get_result_command_color(self, ledstatus):
+        cmd_cfg = ledstatus.result_command
+        if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
+            return None
+
+        try:
+            command = shlex.split(cmd_cfg.command)
+            async with asyncio.timeout(cmd_cfg.timeout):
+                exit_code: int = await asyncio.to_thread(
+                    subprocess.check_call,
+                    command,
+                )
+                color = cmd_cfg.color_on if exit_code == 0 else cmd_cfg.color_off
+                _logger.debug(
+                    "Result for %d: %d -> %s",
+                    ledstatus.button_id,
+                    exit_code,
+                    color,
+                )
+                return color
+        except Exception as e:
+            _logger.warning("Error running command: %s %s", cmd_cfg, e)
+            return ConfigLedColor.BLACK
+
+    async def _get_color_command_color(self, ledstatus):
+        cmd_cfg = ledstatus.color_command
+        if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
+            return None
+        try:
+            command = shlex.split(cmd_cfg.command)
+            async with asyncio.timeout(cmd_cfg.timeout):
+                result: bytes = await asyncio.to_thread(
+                    subprocess.check_output,
+                    command,
+                )
+                result_str = result.decode("utf-8")
+                _logger.debug("Result for %d: %s", ledstatus.button_id, result_str)
+                try:
+                    return getattr(ConfigLedColor, result_str.strip().upper())
+                except AttributeError:
+                    _logger.warning("Unknown color: %s", result)
+                    return ConfigLedColor.BLACK
+        except Exception as e:
+            _logger.warning("Error running command: %s %s", cmd_cfg, e)
+            return ConfigLedColor.BLACK
+
+    def _get_webhook_color(self, ledstatus):
+        color_name = self._virtual_macropad.get_led_status(ledstatus.button_id)
+        try:
+            return ConfigLedColor[color_name.upper()]
+        except KeyError:
+            _logger.warning("Unknown color: %s", color_name)
+            return ConfigLedColor.BLACK
 
     async def _send_led_message(self, key, message, force=False):
         try:
@@ -351,13 +389,13 @@ class Macropad:
             await self._virtual_macropad.send_msg(message)
             self._last_led_update[key] = message
         except Exception as e:
-            _logger.exception(e)
+            _logger.error("Error sending LED message: %s", e)
 
     async def _update_device_status(self, force=False):
-        led_updata_work = [
+        led_update_work = [
             self._update_led(ledstatus) for ledstatus in self._config.leds
         ]
-        await asyncio.gather(*led_updata_work)
+        await asyncio.gather(*led_update_work)
 
     async def _do_check_status(self):
         from mutenix.tray_icon import my_icon
@@ -371,7 +409,6 @@ class Macropad:
                 self._checktime = time.time()
             except Exception as e:  # pragma: no cover
                 _logger.error("Error updating tray icon: %s", e)
-                print(e)
 
     _check_status = run_loop(_do_check_status)
 
@@ -435,9 +472,12 @@ class Macropad:
         return self._device.connected
 
     def reload_config(self):
+        asyncio.create_task(self._reload_config_async())
+
+    async def _reload_config_async(self):
         _logger.info("Reloading config")
-        self._config = load_config()
+        self._config = await asyncio.to_thread(load_config)
         self._setup_buttons()
-        asyncio.create_task(self._update_device_status(force=True))
+        await self._update_device_status(force=True)
         self._virtual_macropad.update_config(self._config)
         _logger.info("Config reloaded")
