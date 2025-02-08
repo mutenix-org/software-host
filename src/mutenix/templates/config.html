@@ -14,7 +14,7 @@
             </tr>
             </thead>
             <tbody>
-            {% for button_id, action in button_actions.items() %}
+            {% for button_id, theaction in button_actions.items() %}
             <tr>
                 <td style="padding-right: 20px; text-align: right;">{{ button_id }}
                     <span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color:
@@ -25,24 +25,62 @@
                         {% elif button_id in [4, 9] %} blue
                         {% endif %};"></span>
                 </td>
-                {% if action.action %}
-                <td style="padding-right: 20px;">{{ action.action.action }}
-                    {% if action.action.extra %}
-                    <br /> <small>
-                    {{ action.action.extra }}
-                    </small>
+                {% if theaction.action %}
+                <td style="padding-right: 20px;">
+                    {% for action in theaction.action.actions %}
+                    {% if action.webhook %}
+                    Webhook <small>{{ action.webhook.url }}</small>
                     {% endif %}
+                    {% if action.keyboard %}
+                    Keyboard <small>{{ action.keyboard.key }}</small>
+                    {% endif %}
+                    {% if action.mouse %}
+                    Mouse <small>{{ action.mouse.button }}</small>
+                    {% endif %}
+                    {% if action.teams_reaction %}
+                    Teams Reaction <small>{{ action.teams_reaction.reaction.name }}</small>
+                    {% endif %}
+                    {% if action.meeting_action %}
+                    Meeting Action <small>{{ action.meeting_action.name }}</small>
+                    {% endif %}
+                    {% if action.activate_teams %}
+                    Activate Teams
+                    {% endif %}
+                    {% if action.command %}
+                    Command <small>{{ action.command }}</small>
+                    {% endif %}
+                    {% if not loop.last %}<br />{% endif %}
+                    {% endfor %}
                 </td>
                 {% else %}
                 <td style="padding-right: 20px;">N/A</td>
                 {% endif %}
-                {% if action.longpress_action %}
-                <td style="padding-right: 20px;">{{ action.longpress_action.action }}
-                    {% if action.longpress_action.extra %}
-                    <br /> <small>
-                    {{ action.action.extra }}
-                    </small>
+                {% if theaction.longpress_action %}
+                <td style="padding-right: 20px;">
+                    {% for action in theaction.longpress_action.actions %}
+                    {% if action.webhook %}
+                    Webhook <small>{{ action.webhook.url }}</small>
                     {% endif %}
+                    {% if action.keyboard %}
+                    Keyboard <small>{{ action.keyboard.key }}</small>
+                    {% endif %}
+                    {% if action.mouse %}
+                    Mouse <small>{{ action.mouse.button }}</small>
+                    {% endif %}
+                    {% if action.teams_reaction %}
+                    Teams Reaction <small>{{ action.teams_reaction.reaction.name }}</small>
+                    {% endif %}
+                    {% if action.meeting_action %}
+                    Meeting Action <small>{{ action.meeting_action.name }}</small>
+                    {% endif %}
+                    {% if action.activate_teams %}
+                    Activate Teams
+                    {% endif %}
+                    {% if action.command %}
+                    Command <small>{{ action.command }}</small>
+                    {% endif %}
+                    {% if not loop.last %}<br />{% endif %}
+                    {% endfor %}
                 </td>
                 {% else %}
                 <td style="padding-right: 20px;">N/A</td>
@@ -68,10 +106,56 @@
             {% for led in leds %}
             <tr>
                 <td style="padding-right: 20px;">{{ led.button_id }}</td>
-                <td style="padding-right: 20px;">{{ led.source }}</td>
-                <td style="padding-right: 20px;">{{ led.color_on }}</td>
-                <td style="padding-right: 20px;">{{ led.color_off }}</td>
-                <td style="padding-right: 20px;">{{ led.extra }}</td>
+                <td style="padding-right: 20px;">
+                    {% if led.teams_state %}
+                        Teams State
+                    {% elif led.result_command %}
+                        Result Command
+                    {% elif led.color_command %}
+                        Color Command
+                    {% elif led.webhook %}
+                        Webhook
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td style="padding-right: 20px;">
+                    {% if led.teams_state %}
+                        {{ led.teams_state.color_on.name | lower }}
+                    {% elif led.result_command %}
+                        {{ led.result_command.color_on.name | lower }}
+                    {% elif led.color_command %}
+                        N/A
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td style="padding-right: 20px;">
+                    {% if led.teams_state %}
+                        {{ led.teams_state.color_off.name | lower  }}
+                    {% elif led.result_command %}
+                        {{ led.result_command.color_off.name | lower  }}
+                    {% elif led.color_command %}
+                        N/A
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td style="padding-right: 20px;">
+                    {% if led.teams_state %}
+                        {{ led.teams_state.teams_state.name }}
+                    {% elif led.result_command %}
+                        <small>Command: {{ led.result_command.command }}<br>
+                        Interval: {{ led.result_command.interval }}<br>
+                        Timeout: {{ led.result_command.timeout }}</small>
+                    {% elif led.color_command %}
+                        <small>Command: {{ led.color_command.command }}<br>
+                        Interval: {{ led.color_command.interval }}<br>
+                        Timeout: {{ led.color_command.timeout }}</small>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
             </tbody>
@@ -80,8 +164,8 @@
     <section>
         <h2>YAML Configuration</h2>
         <button onclick="toggleYaml()">Show/Hide YAML</button>
-        <pre id="yamlConfig" style="display: none; background-color: #f8f8f8; padding: 10px; border: 1px solid #ccc;">
-    {{ yaml_config }}
+        <pre id="yamlConfig">
+            <code class="language-yaml">{{ yaml_config }}</code>
         </pre>
     </section>
     <script>
@@ -93,6 +177,12 @@
                 yamlSection.style.display = "none";
             }
         }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            document.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightBlock(block);
+            });
+        });
     </script>
 </main>
 {% endblock %}

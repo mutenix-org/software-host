@@ -168,7 +168,13 @@ class WebServer:
         context = {
             "button_actions": button_actions,
             "leds": self._config.leds,
-            "yaml_config": yaml.dump(self._config.model_dump(mode="json")),
+            "yaml_config": yaml.dump(
+                self._config.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    exclude_unset=True,
+                ),
+            ),
         }
         return self._render_template("config.html", request, context)
 

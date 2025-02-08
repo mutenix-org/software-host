@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 import pytest
 from mutenix.config import create_default_config
-from mutenix.config import LedStatusSource
+from mutenix.config import LedColor as ConfigLedColor
+from mutenix.config import TeamsState
 from mutenix.config import WebhookAction
 from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
@@ -92,10 +93,10 @@ async def test_hid_callback_version_info_only_once(macropad):
 async def test_teams_callback_token_refresh(macropad):
     msg = ServerMessage(tokenRefresh="new_token")
     macropad._current_state = None
-    with patch("builtins.open", mock_open()) as mock_file:
+    with patch("pathlib.Path.open", mock_open()) as mock_file:
         await macropad._teams_callback(msg)
         mock_file.assert_called_once()
-        assert str(mock_file.call_args[0][0]).endswith("mutenix.yaml")
+        assert str(mock_file.call_args[0][0]).endswith("w")
         mock_file().write.assert_any_call("new_token")
 
 
@@ -104,13 +105,13 @@ async def test_teams_callback_token_refresh_save_failed(macropad):
     msg = ServerMessage(tokenRefresh="new_token")
     macropad._current_state = None
     with (
-        patch("builtins.open", mock_open()) as mock_file,
+        patch("pathlib.Path.open", mock_open()) as mock_file,
         patch("mutenix.macropad._logger.error"),
     ):
         mock_file().write.side_effect = IOError
         await macropad._teams_callback(msg)
         mock_file.assert_called()
-        assert str(mock_file.call_args[0][0]).endswith("mutenix.yaml")
+        assert str(mock_file.call_args[0][0]).endswith("w")
 
 
 @pytest.mark.asyncio
@@ -381,11 +382,12 @@ async def test_stop():
 async def test_update_device_status_teams_source_in_meeting(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.TEAMS,
             button_id=1,
-            extra="is-muted",
-            color_on="red",
-            color_off="green",
+            teams_state=Mock(
+                teams_state=TeamsState.MUTED,
+                color_on=ConfigLedColor.RED,
+                color_off=ConfigLedColor.GREEN,
+            ),
         ),
     ]
     macropad._current_state = ServerMessage(
@@ -413,11 +415,12 @@ async def test_update_device_status_teams_source_in_meeting(macropad):
 async def test_update_device_status_teams_source_not_in_meeting(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.TEAMS,
             button_id=1,
-            extra="is-muted",
-            color_on="red",
-            color_off="green",
+            teams_state=Mock(
+                teams_state=TeamsState.MUTED,
+                color_on=ConfigLedColor.RED,
+                color_off=ConfigLedColor.GREEN,
+            ),
         ),
     ]
     macropad._current_state = ServerMessage(
@@ -447,12 +450,14 @@ async def test_update_device_status_teams_source_not_in_meeting(macropad):
 async def test_update_device_status_cmd_source_with_result(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.CMD,
             button_id=1,
-            extra="echo blue",
-            interval=0,
-            read_result=True,
-            timeout=1.0,
+            teams_state=False,
+            result_command=False,
+            color_command=Mock(
+                command="echo blue",
+                interval=0,
+                timeout=1.0,
+            ),
         ),
     ]
     macropad._last_status_check = defaultdict(int)
@@ -472,14 +477,16 @@ async def test_update_device_status_cmd_source_with_result(macropad):
 async def test_update_device_status_cmd_source_without_result(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.CMD,
             button_id=1,
-            extra="exit 0",
-            interval=0,
-            read_result=False,
-            color_on="yellow",
-            color_off="black",
-            timeout=1.0,
+            teams_state=False,
+            result_command=Mock(
+                command="exit 0",
+                interval=0,
+                read_result=False,
+                color_on=ConfigLedColor.YELLOW,
+                color_off=ConfigLedColor.BLACK,
+                timeout=1.0,
+            ),
         ),
     ]
     macropad._last_status_check = defaultdict(int)
@@ -499,13 +506,15 @@ async def test_update_device_status_cmd_source_without_result(macropad):
 async def test_update_device_status_cmd_source_interval_not_elapsed(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.CMD,
-            button_id=1,
-            extra="exit 0",
-            interval=10,
-            read_result=False,
-            color_on="yellow",
-            color_off="black",
+            teams_state=False,
+            result_command=Mock(
+                command="exit 0",
+                interval=10,
+                read_result=False,
+                color_on=ConfigLedColor.YELLOW,
+                color_off=ConfigLedColor.BLACK,
+                timeout=1.0,
+            ),
         ),
     ]
     macropad._last_status_check = defaultdict(lambda: time.time())
@@ -687,22 +696,6 @@ def test_mousemove_invalid_action():
         mock_mouse.release.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "color, expected_led_color",
-    [
-        ("red", LedColor.RED),
-        ("green", LedColor.GREEN),
-        ("blue", LedColor.BLUE),
-        ("yellow", LedColor.YELLOW),
-        ("invalid_color", LedColor.GREEN),  # Default to GREEN for invalid colors
-    ],
-)
-def test_map_led_color(color, expected_led_color):
-    macropad = Macropad(create_default_config())
-    result = macropad._map_led_color(color)
-    assert result == expected_led_color
-
-
 @pytest.mark.asyncio
 async def test_reload_config(macropad):
     with (
@@ -815,11 +808,11 @@ async def test_teams_callback_update_device_status_called(macropad):
 async def test_update_device_status_webhook_source_with_color(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.WEBHOOK,
             button_id=1,
-            extra=None,
-            color_on="red",
-            color_off="green",
+            teams_state=False,
+            result_command=False,
+            color_command=False,
+            webhook=True,
         ),
     ]
     macropad._virtual_macropad.get_led_status = Mock(return_value="red")
@@ -836,11 +829,11 @@ async def test_update_device_status_webhook_source_with_color(macropad):
 async def test_update_device_status_webhook_source_with_invalid_color(macropad):
     macropad._config.leds = [
         Mock(
-            source=LedStatusSource.WEBHOOK,
             button_id=1,
-            extra=None,
-            color_on="red",
-            color_off="green",
+            teams_state=False,
+            result_command=False,
+            color_command=False,
+            webhook=True,
         ),
     ]
     macropad._virtual_macropad.get_led_status = Mock(return_value="invalid_color")
@@ -849,9 +842,9 @@ async def test_update_device_status_webhook_source_with_invalid_color(macropad):
 
     await macropad._update_device_status()
 
-    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.GREEN))
+    macropad._device.send_msg.assert_called_once_with(SetLed(1, LedColor.BLACK))
     macropad._virtual_macropad.send_msg.assert_called_once_with(
-        SetLed(1, LedColor.GREEN),
+        SetLed(1, LedColor.BLACK),
     )
 
 

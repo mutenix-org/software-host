@@ -1,45 +1,24 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
+import json
 import logging
 import os
+from abc import ABC
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
 from typing import Any
-from typing import Literal
-from typing import Union
+from typing import ClassVar
 
 import pydantic
 import yaml
 from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
 from pydantic import BaseModel
-from pydantic import Discriminator
 from pydantic import Field
-from pydantic import Tag
 
 _logger = logging.getLogger(__name__)
 
 CONFIG_FILENAME = "mutenix.yaml"
-
-
-class ActionEnum(str, Enum):
-    """
-    ActionEnum is an enumeration that represents different types of actions that can be performed.
-    """
-
-    TEAMS = "teams"
-    ACTIVATE_TEAMS = "activate-teams"
-    CMD = "cmd"
-    WEBHOOK = "webhook"
-    KEYPRESS = "key-press"
-    MOUSE = "mouse"
-
-
-class LedStatusSource(str, Enum):
-    TEAMS = "teams"
-    CMD = "cmd"
-    WEBHOOK = "webhook"
 
 
 class LedColor(str, Enum):
@@ -66,78 +45,102 @@ class TeamsState(str, Enum):
     VIDEO_ON = "is-video-on"
 
 
-class TeamsReact(str, Enum):
+class AtLeastOneOption(ABC):
+    OPTION_FIELDS: ClassVar[list[str]] = []
+
+    @pydantic.model_validator(mode="before")
+    def at_least_one_option(cls, values):
+        option_fields = cls.OPTION_FIELDS
+        if not any(values.get(field) for field in option_fields):
+            raise ValueError(
+                f"At least one of the following fields must be set: {', '.join(option_fields)}",
+            )
+        return values
+
+
+class TeamsReact(BaseModel):
     reaction: ClientMessageParameterType = Field(
         description="The type of client message parameter for the reaction.",
     )
 
 
-class KeyPress(BaseModel):
-    key: str | None = Field(default=None, description="The key to be pressed.")
-    string: str | None = Field(default=None, description="The string to be typed.")
+class Key(BaseModel):
+    key: str | None = Field(
+        default=None,
+        description="The key to be pressed. This field has precedence over 'string'.",
+    )
+
+
+class KeyTap(BaseModel):
+    key: str | None = Field(
+        default=None,
+        description="The key to be pressed. This field has precedence over 'string'.",
+    )
     modifiers: list[str] | None = Field(
         default=None,
         description="List of modifier keys to be held down during the key press.",
     )
 
 
-class MouseActionPosition(BaseModel):
+class KeyType(BaseModel):
+    string: str | None = Field(
+        default=None,
+        description="The string to be typed. This field is only used if 'key' is not set.",
+    )
+
+
+class Keyboard(BaseModel, AtLeastOneOption):
+    press: Key | None = Field(
+        default=None,
+        description="The key press action to be performed. This will hold down the key until released.",
+    )
+    release: Key | None = Field(
+        default=None,
+        description="The key release action to be performed. This will release the key.",
+    )
+    tap: KeyTap | None = Field(
+        default=None,
+        description="The key tap action to be performed. This will press and release the key.",
+    )
+    type: KeyType | None = Field(
+        default=None,
+        description="The key type action to be performed. This will type the string.",
+    )
+
+    OPTION_FIELDS: ClassVar[list[str]] = ["press", "release", "tap", "type"]
+
+
+class MousePosition(BaseModel):
     x: int = Field(description="The x-coordinate of the mouse action position.")
     y: int = Field(description="The y-coordinate of the mouse action position.")
 
 
-class MouseActionMove(MouseActionPosition):
-    action: Literal["move", None] = Field(
-        default="move",
-        description="The action type for moving the mouse.",
-    )
-
-
-class MouseActionSetPosition(MouseActionPosition):
-    action: Literal["set"] = Field(
-        default="set",
-        description="The action type for setting the mouse position.",
-    )
-
-
-class MouseActionClick(BaseModel):
-    action: Literal["click"] = Field(
-        default="click",
-        description="The action type for clicking the mouse.",
-    )
+class MouseButton(BaseModel):
     button: str = Field(description="The mouse button to be clicked.")
-    count: int = Field(
-        default=1,
-        description="The number of times the mouse button should be clicked.",
+
+
+class Mouse(BaseModel, AtLeastOneOption):
+    move: MousePosition | None = Field(
+        default=None,
+        description="The mouse move action to be performed.",
     )
-
-
-class MouseActionPress(BaseModel):
-    action: Literal["press"] = Field(
-        default="press",
-        description="The action type for pressing the mouse button.",
+    set: MousePosition | None = Field(
+        default=None,
+        description="The mouse set position action to be performed.",
     )
-    button: str = Field(description="The mouse button to be pressed.")
-
-
-class MouseActionRelease(BaseModel):
-    action: Literal["release"] = Field(
-        default="release",
-        description="The action type for releasing the mouse button.",
+    click: MouseButton | None = Field(
+        default=None,
+        description="The mouse click action to be performed.",
     )
-    button: str = Field(description="The mouse button to be released.")
-
-
-MouseMove = Annotated[
-    Union[
-        Annotated[MouseActionMove, Tag("move")],
-        Annotated[MouseActionSetPosition, Tag("set")],
-        Annotated[MouseActionClick, Tag("click")],
-        Annotated[MouseActionPress, Tag("press")],
-        Annotated[MouseActionRelease, Tag("release")],
-    ],
-    Discriminator(lambda v: v["action"] if "action" in v else "move"),
-]
+    press: MouseButton | None = Field(
+        default=None,
+        description="The mouse press action to be performed.",
+    )
+    release: MouseButton | None = Field(
+        default=None,
+        description="The mouse release action to be performed.",
+    )
+    OPTION_FIELDS: ClassVar[list[str]] = ["move", "set", "click", "press", "release"]
 
 
 class WebhookAction(BaseModel):
@@ -147,7 +150,7 @@ class WebhookAction(BaseModel):
     )
     url: str = Field(..., description="The URL to send the webhook request to.")
     headers: dict[str, str] = Field(
-        default={},
+        default_factory=dict,
         description="Optional headers to include in the webhook request.",
     )
     data: dict[str, Any] | None = Field(
@@ -156,44 +159,45 @@ class WebhookAction(BaseModel):
     )
 
 
-def button_action_details_descriminator(v: Any) -> str:
-    if isinstance(v, str):
-        return "cmd"
-    if not isinstance(v, dict):
-        return ""
-    if "key" in v or "modifiers" in v or "string" in v:
-        return "key"
-    if "x" in v or "y" in v or "button" in v:
-        return "mouse"
-    if "url" in v:
-        return "webhook"
-    return ""
+class ActionDetails(BaseModel, AtLeastOneOption):
+    webhook: WebhookAction | None = Field(
+        default=None,
+        description="The webhook action to be performed.",
+    )
+    keyboard: Keyboard | None = Field(
+        default=None,
+        description="The key press action to be performed.",
+    )
+    mouse: Mouse | None = Field(
+        default=None,
+        description="The mouse action to be performed.",
+    )
+    teams_reaction: TeamsReact | None = Field(
+        default=None,
+        description="The Teams reaction to be performed.",
+    )
+    meeting_action: MeetingAction | None = Field(
+        default=None,
+        description="The meeting action to be performed.",
+    )
+    activate_teams: bool = Field(
+        default=False,
+        description="Flag to activate Teams.",
+    )
+    command: str | None = Field(
+        default=None,
+        description="The command to be executed.",
+    )
 
-
-SequenceElementType = Annotated[
-    Union[
-        Annotated[KeyPress, Tag("key")],
-        Annotated[MouseMove, Tag("mouse")],
-        Annotated[str, Tag("cmd")],
-        Annotated[WebhookAction, Tag("webhook")],
-    ],
-    Discriminator(button_action_details_descriminator),
-]
-
-SequenceType = list[SequenceElementType]
-
-
-def button_action_discriminator(v: Any) -> str:
-    if v is None:
-        return "none"
-    if isinstance(v, str):
-        if str(v).lower() in [e.value for e in ClientMessageParameterType]:
-            return "react"
-    if isinstance(v, (list)):
-        return "sequence"
-    if isinstance(v, (dict)):
-        return "single"
-    return "none"
+    OPTION_FIELDS: ClassVar[list[str]] = [
+        "webhook",
+        "keyboard",
+        "mouse",
+        "teams_reaction",
+        "meeting_action",
+        "activate_teams",
+        "command",
+    ]
 
 
 class ButtonAction(BaseModel):
@@ -203,46 +207,27 @@ class ButtonAction(BaseModel):
         le=10,
         description="The ID of the button, must be between 1 and 10 inclusive.",
     )
-    action: Union[MeetingAction, ActionEnum] = Field(
-        description="The action associated with the button.",
-    )
-    extra: Annotated[
-        Union[
-            Annotated[None, Tag("none")],
-            Annotated[ClientMessageParameterType, Tag("react")],
-            Annotated[SequenceType, Tag("sequence")],
-            Annotated[SequenceElementType, Tag("single")],
-        ],
-        Discriminator(button_action_discriminator),
-    ] = Field(
-        default=None,
-        description="Additional parameters for the action, can be None, a client message parameter, a sequence, or a single sequence element.",
+    actions: list[ActionDetails] = Field(
+        default_factory=list,
+        description="The actions to be performed when the button is pressed.",
     )
 
 
-class LedStatus(BaseModel):
-    button_id: int = Field(
+class LedStatusColoredCheck(BaseModel):
+    color_on: LedColor = Field(
+        default=LedColor.GREEN,
+        description="The color of the LED when result is `0` or the value is true",
+    )
+    color_off: LedColor = Field(
+        default=LedColor.RED,
+        description="The color of the LED when result is not `0` or the value is false.",
+    )
+
+
+class LedStatusColorCommand(BaseModel):
+    command: str = Field(
         ...,
-        ge=1,
-        le=10,
-        description="The ID of the button, must be between 1 and 10.",
-    )
-    source: LedStatusSource = Field(description="The source of the LED status.")
-    extra: TeamsState | str | None = Field(
-        default=None,
-        description="Additional information about the LED status, can be a TeamsState, string, or None.",
-    )
-    color_on: LedColor | None = Field(
-        default=None,
-        description="The color of the LED when it is on.",
-    )
-    color_off: LedColor | None = Field(
-        default=None,
-        description="The color of the LED when it is off.",
-    )
-    read_result: bool = Field(
-        default=False,
-        description="Indicates whether the result has been read.",
+        description="The command to be executed. It must output a color name.",
     )
     interval: float = Field(
         default=5.0,
@@ -254,6 +239,61 @@ class LedStatus(BaseModel):
     )
 
 
+class LedStatusResultCommand(LedStatusColorCommand, LedStatusColoredCheck):
+    pass
+
+
+class LedStatusTeamsState(LedStatusColoredCheck):
+    teams_state: TeamsState = Field(
+        ...,
+        description="The Teams state to be used for the LED status.",
+    )
+
+
+class LedStatus(BaseModel):
+    button_id: int = Field(
+        ...,
+        ge=1,
+        le=10,
+        description="The ID of the button, must be between 1 and 10.",
+    )
+    teams_state: LedStatusTeamsState | None = Field(
+        default=None,
+        description="The Teams state to be used for the LED status.",
+    )
+    result_command: LedStatusResultCommand | None = Field(
+        default=None,
+        description="The command to be used for the LED status. (on/off)",
+    )
+    color_command: LedStatusColorCommand | None = Field(
+        default=None,
+        description="The command to be used for the LED status. (color)",
+    )
+    webhook: bool = Field(
+        default=False,
+        description="Flag to enable the color via webhook.",
+    )
+    off: bool = Field(
+        default=False,
+        description="Flag to disable the LED.",
+    )
+
+    @pydantic.model_validator(mode="before")
+    def check_at_least_one_set(cls, values):
+        required_fields = [
+            "teams_state",
+            "result_command",
+            "color_command",
+            "webhook",
+            "off",
+        ]
+        if not any(values.get(field) for field in required_fields):
+            raise ValueError(
+                f"At least one source ({', '.join(f'\'{field}\'' for field in required_fields)}) must be set.",
+            )
+        return values
+
+
 class VirtualKeypadConfig(BaseModel):
     bind_address: str = Field(
         default="127.0.0.1",
@@ -262,6 +302,8 @@ class VirtualKeypadConfig(BaseModel):
     bind_port: int = Field(
         default=12909,
         description="The port number to bind the virtual keypad server to. Defaults to 12909.",
+        le=65535,
+        ge=1024,
     )
 
 
@@ -335,11 +377,12 @@ class LoggingConfig(BaseModel):
 
 class Config(BaseModel):
     _internal_state: Any = pydantic.PrivateAttr()
-    actions: list[ButtonAction]
+    actions: list[ButtonAction] = [ButtonAction(button_id=i) for i in range(1, 11)]
     longpress_action: list[ButtonAction] = pydantic.Field(
+        default_factory=lambda: [ButtonAction(button_id=i) for i in range(1, 11)],
         validation_alias=pydantic.AliasChoices("longpress_action", "double_tap_action"),
     )
-    leds: list[LedStatus] = []
+    leds: list[LedStatus] = [LedStatus(button_id=i, off=True) for i in range(1, 11)]
     teams_token: str | None = None
     file_path: str | None = None
     virtual_keypad: VirtualKeypadConfig = VirtualKeypadConfig()
@@ -356,85 +399,130 @@ class Config(BaseModel):
 def create_default_config() -> Config:
     config = Config(
         actions=[
-            ButtonAction(button_id=1, action=MeetingAction.ToggleMute),
-            ButtonAction(button_id=2, action=MeetingAction.ToggleHand),
-            ButtonAction(button_id=3, action=ActionEnum.ACTIVATE_TEAMS),
+            ButtonAction(
+                button_id=1,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleMute)],
+            ),
+            ButtonAction(
+                button_id=2,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleHand)],
+            ),
+            ButtonAction(
+                button_id=3,
+                actions=[ActionDetails(activate_teams=True)],
+            ),
             ButtonAction(
                 button_id=4,
-                action=MeetingAction.React,
-                extra="like",
+                actions=[
+                    ActionDetails(
+                        teams_reaction=TeamsReact(
+                            reaction=ClientMessageParameterType.ReactLike,
+                        ),
+                    ),
+                ],
             ),
-            ButtonAction(button_id=5, action=MeetingAction.LeaveCall),
-            ButtonAction(button_id=6, action=MeetingAction.ToggleMute),
-            ButtonAction(button_id=7, action=MeetingAction.ToggleHand),
-            ButtonAction(button_id=8, action=ActionEnum.ACTIVATE_TEAMS),
+            ButtonAction(
+                button_id=5,
+                actions=[ActionDetails(meeting_action=MeetingAction.LeaveCall)],
+            ),
+            ButtonAction(
+                button_id=6,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleMute)],
+            ),
+            ButtonAction(
+                button_id=7,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleHand)],
+            ),
+            ButtonAction(button_id=8, actions=[ActionDetails(activate_teams=True)]),
             ButtonAction(
                 button_id=9,
-                action=MeetingAction.React,
-                extra="like",
+                actions=[
+                    ActionDetails(
+                        teams_reaction=TeamsReact(
+                            reaction=ClientMessageParameterType.ReactLike,
+                        ),
+                    ),
+                ],
             ),
-            ButtonAction(button_id=10, action=MeetingAction.LeaveCall),
+            ButtonAction(
+                button_id=10,
+                actions=[ActionDetails(meeting_action=MeetingAction.LeaveCall)],
+            ),
         ],
         longpress_action=[
-            ButtonAction(button_id=3, action=MeetingAction.ToggleVideo),
-            ButtonAction(button_id=8, action=MeetingAction.ToggleVideo),
+            ButtonAction(
+                button_id=3,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleVideo)],
+            ),
+            ButtonAction(
+                button_id=8,
+                actions=[ActionDetails(meeting_action=MeetingAction.ToggleVideo)],
+            ),
         ],
         leds=[
             LedStatus(
                 button_id=1,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.MUTED,
-                color_on=LedColor.RED,
-                color_off=LedColor.GREEN,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.MUTED,
+                    color_off=LedColor.RED,
+                    color_on=LedColor.GREEN,
+                ),
             ),
             LedStatus(
                 button_id=2,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.HAND_RAISED,
-                color_on=LedColor.YELLOW,
-                color_off=LedColor.BLACK,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.HAND_RAISED,
+                    color_on=LedColor.YELLOW,
+                    color_off=LedColor.BLACK,
+                ),
             ),
             LedStatus(
                 button_id=3,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.VIDEO_ON,
-                color_on=LedColor.GREEN,
-                color_off=LedColor.RED,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.VIDEO_ON,
+                    color_on=LedColor.GREEN,
+                    color_off=LedColor.RED,
+                ),
             ),
             LedStatus(
                 button_id=5,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.IN_MEETING,
-                color_on=LedColor.GREEN,
-                color_off=LedColor.BLACK,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.IN_MEETING,
+                    color_on=LedColor.GREEN,
+                    color_off=LedColor.BLACK,
+                ),
             ),
             LedStatus(
                 button_id=6,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.MUTED,
-                color_on=LedColor.RED,
-                color_off=LedColor.GREEN,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.MUTED,
+                    color_on=LedColor.RED,
+                    color_off=LedColor.GREEN,
+                ),
             ),
             LedStatus(
                 button_id=7,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.HAND_RAISED,
-                color_on=LedColor.YELLOW,
-                color_off=LedColor.BLACK,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.HAND_RAISED,
+                    color_on=LedColor.YELLOW,
+                    color_off=LedColor.BLACK,
+                ),
             ),
             LedStatus(
                 button_id=8,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.VIDEO_ON,
-                color_on=LedColor.RED,
-                color_off=LedColor.GREEN,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.VIDEO_ON,
+                    color_on=LedColor.RED,
+                    color_off=LedColor.GREEN,
+                ),
             ),
             LedStatus(
                 button_id=10,
-                source=LedStatusSource.TEAMS,
-                extra=TeamsState.IN_MEETING,
-                color_on=LedColor.GREEN,
-                color_off=LedColor.BLACK,
+                teams_state=LedStatusTeamsState(
+                    teams_state=TeamsState.IN_MEETING,
+                    color_on=LedColor.GREEN,
+                    color_off=LedColor.BLACK,
+                ),
             ),
         ],
         teams_token=None,
@@ -503,7 +591,21 @@ def save_config(config: Config, file_path: Path | str | None = None):
         _logger.error("Not saving default config")
         return
     try:
-        with open(file_path, "w") as file:
-            yaml.dump(config.model_dump(mode="json"), file)
+        file_path = Path(file_path)
+        with file_path.open("w") as file:
+            yaml.dump(
+                config.model_dump(mode="json", exclude_none=True, exclude_unset=True),
+                file,
+            )
+            file.write(
+                "\n# yaml-language-server: $schema=https://github.com/mutenix-org/software-host/raw/refs/heads/main/docs/mutenix.schema.json\n",
+            )
     except (FileNotFoundError, yaml.YAMLError, IOError):
         _logger.error("Failed to write config to file: %s", file_path)
+
+
+if __name__ == "__main__":
+    print(json.dumps(Config.model_json_schema()))
+
+    config = load_config()
+    print(config.model_dump_json(indent=2))
