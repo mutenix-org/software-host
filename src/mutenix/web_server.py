@@ -68,6 +68,7 @@ class WebServer:
         self.app.router.add_route("GET", "/about", self.about)
         self.app.router.add_route("GET", "/config", self.config)
         self.app.router.add_route("GET", "/device", self.device)
+        self.app.router.add_route("GET", "/hardware_info", self.hardware_info)
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -193,6 +194,14 @@ class WebServer:
         except Exception as e:
             _logger.error("Error starting WebServer: %s", e)
             self._running = False
+
+    async def hardware_info(self, request: web.Request):
+        return web.json_response(
+            {
+                "hardware": self._hardware,
+                "variant": self._version,
+            },
+        )
 
     async def stop(self):
         await self.app.shutdown()
