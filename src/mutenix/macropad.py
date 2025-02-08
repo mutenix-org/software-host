@@ -6,13 +6,12 @@ import shlex
 import subprocess
 import time
 from collections import defaultdict
-from typing import Callable
 
 import requests
-from mutenix.config import ActionEnum
 from mutenix.config import ButtonAction
 from mutenix.config import Config
-from mutenix.config import LedStatusSource
+from mutenix.config import LedColor as ConfigLedColor
+from mutenix.config import LedStatus
 from mutenix.config import load_config
 from mutenix.config import save_config
 from mutenix.config import WebhookAction
@@ -24,7 +23,6 @@ from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
 from mutenix.teams_messages import ClientMessage
 from mutenix.teams_messages import ClientMessageParameter
-from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
 from mutenix.teams_messages import ServerMessage
 from mutenix.updates import check_for_device_update
@@ -112,10 +110,6 @@ class Macropad:
         if not Controller:
             _logger.error("pynput not supported, cannot send keypress")
             return
-        if isinstance(extra, list):  # pragma: no cover
-            for sequence in extra:
-                self._keypress(sequence)
-            return
 
         keyboard = Controller()
         _logger.debug("Keypress: %s", extra)
@@ -189,15 +183,6 @@ class Macropad:
         )
         _logger.debug("Status: %s", status)
         action: None | ButtonAction = None
-        mapped_action: Callable | None | MeetingAction = None
-
-        action_map: dict[ActionEnum, Callable] = {
-            ActionEnum.ACTIVATE_TEAMS: lambda _: bring_teams_to_foreground(),
-            ActionEnum.CMD: self._run_command,
-            ActionEnum.WEBHOOK: self._perform_webhook,
-            ActionEnum.KEYPRESS: self._keypress,
-            ActionEnum.MOUSE: self._mousemove,
-        }
 
         if status.triggered:
             if not status.released:
@@ -208,24 +193,31 @@ class Macropad:
                 action = self._longpress_actions.get(status.button, None)
             if not action:
                 return
-            if isinstance(action.action, MeetingAction):
-                if action.action == MeetingAction.React and isinstance(
-                    action.extra,
-                    ClientMessageParameterType,
-                ):
+
+            for single_action in action.actions:
+                if single_action.meeting_action:
+                    client_message = ClientMessage.create(
+                        action=single_action.meeting_action,
+                    )
+                    await self._websocket.send_message(client_message)
+                elif single_action.teams_reaction:
                     client_message = ClientMessage.create(
                         action=MeetingAction.React,
                     )
                     client_message.parameters = ClientMessageParameter(
-                        type_=action.extra,
+                        type_=single_action.teams_reaction.reaction,
                     )
-                else:
-                    client_message = ClientMessage.create(action=action.action)
-                await self._websocket.send_message(client_message)
-            else:
-                mapped_action = action_map.get(action.action, None)
-                if callable(mapped_action):
-                    mapped_action(action.extra)  # pragma: no cover
+                    await self._websocket.send_message(client_message)
+                elif single_action.activate_teams:
+                    bring_teams_to_foreground()
+                elif single_action.command:
+                    self._run_command(single_action.command)
+                elif single_action.webhook:
+                    self._perform_webhook(single_action.webhook)
+                elif single_action.keypress:
+                    self._keypress(single_action.keypress)
+                elif single_action.mouse:
+                    self._mousemove(single_action.mouse)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:
@@ -258,16 +250,23 @@ class Macropad:
             save_config(self._config)
         await self._update_device_status()
 
-    def _map_led_color(self, color):
-        color = color.upper()
-        if not hasattr(LedColor, color):
-            return LedColor.GREEN
-        return getattr(LedColor, color)
+    def _map_led_color(self, color: ConfigLedColor):
+        return getattr(LedColor, color.name, LedColor.GREEN)
 
-    async def _update_led(self, ledstatus):
+    def _is_command_allowed_now(self, button_id, cmd_cfg):
+        if self._last_status_check[button_id] + cmd_cfg.interval > time.time():
+            return False
+        _logger.debug(
+            "Command to update led %d is allowed to run: %s",
+            button_id,
+            cmd_cfg,
+        )
+        return True
+
+    async def _update_led(self, ledstatus: LedStatus):
         msg = self._current_state
-        color = "black"
-        if ledstatus.source == LedStatusSource.TEAMS:
+        color: ConfigLedColor = ConfigLedColor.BLACK
+        if ledstatus.teams_state:
             if (
                 msg
                 and msg.meeting_update
@@ -276,51 +275,59 @@ class Macropad:
             ):
                 mapped_state = getattr(
                     msg.meeting_update.meeting_state,
-                    ledstatus.extra.replace("-", "_").lower(),
+                    ledstatus.teams_state.teams_state.value.replace("-", "_").lower(),
                 )
-                color = ledstatus.color_on if mapped_state else ledstatus.color_off
-        elif ledstatus.source == LedStatusSource.CMD:
-            if (
-                self._last_status_check[ledstatus.button_id] + ledstatus.interval
-                > time.time()
-            ):
+                color = (
+                    ledstatus.teams_state.color_on
+                    if mapped_state
+                    else ledstatus.teams_state.color_off
+                )
+        elif ledstatus.result_command:
+            cmd_cfg = ledstatus.result_command
+            if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
                 return
-            self._last_status_check[ledstatus.button_id] += ledstatus.interval
-            _logger.debug(
-                "Running command to check status for led %d: %s",
-                ledstatus.button_id,
-                ledstatus.extra,
-            )
+
             try:
-                command = shlex.split(ledstatus.extra)
-                if ledstatus.read_result:
-                    async with asyncio.timeout(ledstatus.timeout):
-                        result = await asyncio.to_thread(
-                            subprocess.check_output,
-                            command,
-                        )
-                        result = result.decode("utf-8")
-                        _logger.debug("Result for %d: %s", ledstatus.button_id, result)
-                        color = result.strip()
-                else:
-                    async with asyncio.timeout(ledstatus.timeout):
-                        result = await asyncio.to_thread(
-                            subprocess.check_call,
-                            command,
-                        )
-                        color = (
-                            ledstatus.color_on if result == 0 else ledstatus.color_off
-                        )
-                        _logger.debug(
-                            "Result for %d: %d -> %s",
-                            ledstatus.button_id,
-                            result,
-                            color,
-                        )
+                command = shlex.split(cmd_cfg.command)
+                async with asyncio.timeout(cmd_cfg.timeout):
+                    exit_code: int = await asyncio.to_thread(
+                        subprocess.check_call,
+                        command,
+                    )
+                    color = cmd_cfg.color_on if exit_code == 0 else cmd_cfg.color_off
+                    _logger.debug(
+                        "Result for %d: %d -> %s",
+                        ledstatus.button_id,
+                        exit_code,
+                        color,
+                    )
             except Exception as e:
-                _logger.warning("Error running command: %s %s", ledstatus.extra, e)
-        elif ledstatus.source == LedStatusSource.WEBHOOK:
-            color = self._virtual_macropad.get_led_status(ledstatus.button_id)
+                _logger.warning("Error running command: %s %s", cmd_cfg, e)
+        elif ledstatus.color_command:
+            cmd_cfg = ledstatus.color_command
+            if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
+                return
+            try:
+                command = shlex.split(cmd_cfg.command)
+                async with asyncio.timeout(cmd_cfg.timeout):
+                    result: bytes = await asyncio.to_thread(
+                        subprocess.check_output,
+                        command,
+                    )
+                    result_str = result.decode("utf-8")
+                    _logger.debug("Result for %d: %s", ledstatus.button_id, result_str)
+                    try:
+                        color = getattr(ConfigLedColor, result_str.strip().upper())
+                    except AttributeError:
+                        _logger.warning("Unknown color: %s", result)
+            except Exception as e:
+                _logger.warning("Error running command: %s %s", cmd_cfg, e)
+        elif ledstatus.webhook:
+            color_name = self._virtual_macropad.get_led_status(ledstatus.button_id)
+            try:
+                color = ConfigLedColor[color_name.upper()]
+            except KeyError:
+                _logger.warning("Unknown color: %s", color_name)
 
         await self._send_led_message(
             ledstatus.button_id,

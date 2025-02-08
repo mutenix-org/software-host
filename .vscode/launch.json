@@ -35,8 +35,12 @@
             "program": "${workspaceFolder}/.venv/bin/pytest",
             "args": [
                 "-k",
-                "send_connection_exception"
+                "send_connection_exception",
+                "--timeout=0"
             ],
+            "env": {
+                "PYTEST_TIMEOUT": "0"
+            },
             "console": "integratedTerminal"
         }
     ]

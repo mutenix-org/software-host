@@ -64,20 +64,29 @@ def mock_signal():
         yield mock_signal
 
 
+@pytest.fixture
+def default_args():
+    return argparse.Namespace(
+        update_file=None,
+        list_devices=False,
+        config=None,
+        config_schema=False,
+    )
+
+
 def test_main_no_update_file(
     mock_macropad,
     mock_check_for_self_update,
     mock_run_trayicon,
     mock_signal,
+    default_args: argparse.Namespace,
 ):
-    args = argparse.Namespace(update_file=None, list_devices=False, config=None)
-
     with (
         patch("threading.Thread.start", autospec=True) as mock_thread_start,
         patch("threading.Thread.join", autospec=True) as mock_thread_join,
         patch("asyncio.run", autospec=True),
     ):
-        main(args)
+        main(default_args)
 
         mock_check_for_self_update.assert_called_once()
         mock_signal.assert_called_once()
@@ -86,26 +95,26 @@ def test_main_no_update_file(
         mock_thread_join.assert_called_once()
 
 
-def test_main_with_update_file(mock_macropad, mock_check_for_self_update, mock_signal):
-    args = argparse.Namespace(
-        update_file="path/to/update.tar.gz",
-        list_devices=False,
-        config=None,
-    )
+def test_main_with_update_file(
+    mock_macropad,
+    mock_check_for_self_update,
+    mock_signal,
+    default_args,
+):
+    default_args.update_file = "path/to/update.tar.gz"
 
     with patch("asyncio.run", autospec=True) as mock_asyncio_run:
-        main(args)
+        main(default_args)
 
         mock_check_for_self_update.assert_called_once()
         mock_signal.assert_called_once()
         mock_asyncio_run.assert_called_once()
 
 
-def test_main_list_devices(mock_signal):
-    args = argparse.Namespace(update_file=None, list_devices=True, config=None)
-
+def test_main_list_devices(mock_signal, default_args):
+    default_args.list_devices = True
     with patch("hid.enumerate", autospec=True) as mock_hid_enumerate:
-        main(args)
+        main(default_args)
 
         mock_signal.assert_not_called()
         mock_hid_enumerate.assert_called_once()
