@@ -81,7 +81,7 @@ class WebServer:
         context["mutenix_version"] = f"{MAJOR}.{MINOR}.{PATCH}"
         return render_template(template_name, request, context)
 
-    def update_config(self, config):
+    def set_config(self, config):
         self._config: Config = config
 
     async def index(self, request: web.Request):

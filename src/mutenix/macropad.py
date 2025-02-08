@@ -86,7 +86,7 @@ class Macropad:
             self._config.virtual_keypad.bind_address,
             self._config.virtual_keypad.bind_port,
         )
-        self._virtual_macropad.update_config(self._config)
+        self._virtual_macropad.set_config(self._config)
         self._websocket.register_callback(self._teams_callback)
         self._virtual_macropad.register_callback(self._hid_callback)
 
