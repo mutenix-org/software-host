@@ -87,6 +87,7 @@ def setup_logging(logging_config: LoggingConfig):
             ),
         )
         all_levels.append(file_log_level)
+
     if logging_config.console_enabled:
         console_log_level = (
             logging_config.console_level.to_logging_level()
@@ -102,6 +103,7 @@ def setup_logging(logging_config: LoggingConfig):
             ),
         )
         all_levels.append(console_log_level)
+
     daiquiri.setup(
         level=min(all_levels),
         outputs=outputs,

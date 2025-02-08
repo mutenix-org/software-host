@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
-const ws = new WebSocket('ws://' + window.location.host + '/ws');
+let ws;
 function requestState() {
     //ws.send(JSON.stringify({ command: "state_request"}));
 }
-ws.onmessage = function (event) {
+function onMessage(event) {
     const data = JSON.parse(event.data);
-    const indicators = document.getElementsByClassName('indicator' + data.button);
-    for (let i = 0; i < indicators.length; i++) {
-        indicators[i].style.backgroundColor = data.color;
+    if (data.button){
+        const indicators = document.getElementsByClassName('indicator' + data.button);
+        for (let i = 0; i < indicators.length; i++) {
+            indicators[i].style.backgroundColor = data.color;
+        }
     }
 };
 function sendButtonPress(button) {
@@ -19,12 +21,25 @@ function sendButtonPress(button) {
         console.log('WebSocket not open');
     }
 }
-ws.onopen = function () {
+function onOpen() {
+    console.log('WebSocket connection opened');
     requestState();
-};
-ws.onclose = function () {
+}
+function onClose(event) {
     console.log('WebSocket connection closed');
+    if (event.wasClean === false) {
+        console.log('WebSocket connection closed due to an error, attempting to reopen...');
+        setTimeout(function() {
+            ws = new WebSocket('ws://' + window.location.host + '/ws');
+            setup_websocket(ws);
+        }, 1000); // Reconnect after 1 second
+    }
 };
+function setup_websocket(ws){
+    ws.onmessage = onMessage;
+    ws.onopen = onOpen;
+    ws.onclose = onClose;
+}
 window.onblur = function () {
     requestState();
 };
@@ -50,7 +65,6 @@ function activateButton(buttonSelection) {
         tenButtonDiv.style.display = 'none';
         toggleButton.textContent = 'Show 10 Buttons';
     }
-    localStorage.setItem('buttonSelection', buttonSelection);
     requestState();
 }
 function toggleButtons() {
@@ -63,4 +77,19 @@ function toggleButtons() {
     } else {
         activateButton('ten');
     }
+}
+
+window.onload = function() {
+    ws = new WebSocket('ws://' + window.location.host + '/ws');
+    setup_websocket(ws);
+    fetch('/hardware_info')
+        .then(response => response.json())
+        .then(data => {
+            const buttonSelection = data.variant.indexOf('ten') !== -1 ? 'ten_button' : 'five_button';
+            activateButton(buttonSelection);
+        })
+        .catch(error => {
+            console.warn('Error fetching button variant:', error);
+            activateButton('five'); // Default to 'five' if there's an error
+        });
 }
