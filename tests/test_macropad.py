@@ -21,7 +21,10 @@ from mutenix.hid_commands import LedColor
 from mutenix.hid_commands import SetLed
 from mutenix.hid_commands import Status
 from mutenix.hid_commands import VersionInfo
+from mutenix.macropad import do_run_command
+from mutenix.macropad import keypress
 from mutenix.macropad import Macropad
+from mutenix.macropad import mousemove
 from mutenix.teams_messages import ClientMessageParameter
 from mutenix.teams_messages import ClientMessageParameterType
 from mutenix.teams_messages import MeetingAction
@@ -590,8 +593,7 @@ def test_activate_filesystem(macropad):
 def test_keypress(extra, expected_calls):
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
-        macropad = Macropad(create_default_config())
-        macropad._keypress(extra)
+        keypress(extra)
 
         if "key" in extra:
             if len(extra["key"]) == 1:
@@ -613,9 +615,8 @@ def test_keypress(extra, expected_calls):
 @pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
 def test_keypress_pynput_not_supported():
     with patch("mutenix.macropad.Controller", None):
-        macropad = Macropad(create_default_config())
         with patch("mutenix.macropad._logger.error") as mock_logger_error:
-            macropad._keypress({"key": "a"})
+            keypress({"key": "a"})
             mock_logger_error.assert_called_once_with(
                 "pynput not supported, cannot send keypress",
             )
@@ -625,8 +626,7 @@ def test_keypress_pynput_not_supported():
 def test_keypress_invalid_key():
     with patch("mutenix.macropad.Controller") as MockController:
         mock_keyboard = MockController.return_value
-        macropad = Macropad(create_default_config())
-        macropad._keypress({"key": "invalid_key"})
+        keypress({"key": "invalid_key"})
         mock_keyboard.press.assert_not_called()
         mock_keyboard.release.assert_not_called()
 
@@ -651,8 +651,7 @@ def test_keypress_invalid_key():
 def test_mousemove(extra, expected_calls):
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
-        macropad = Macropad(create_default_config())
-        macropad._mousemove(extra)
+        mousemove(extra)
 
         for call in expected_calls:
             if call[0] == "move":
@@ -673,9 +672,8 @@ def test_mousemove(extra, expected_calls):
 )
 def test_mousemove_pynput_not_supported():
     with patch("mutenix.macropad.MouseController", None):
-        macropad = Macropad(create_default_config())
         with patch("mutenix.macropad._logger.error") as mock_logger_error:
-            macropad._mousemove({"action": "move", "x": 10, "y": 20})
+            mousemove({"action": "move", "x": 10, "y": 20})
             mock_logger_error.assert_called_once_with(
                 "pynput not supported, cannot send mousemove",
             )
@@ -688,8 +686,7 @@ def test_mousemove_pynput_not_supported():
 def test_mousemove_invalid_action():
     with patch("mutenix.macropad.MouseController") as MockMouseController:
         mock_mouse = MockMouseController.return_value
-        macropad = Macropad(create_default_config())
-        macropad._mousemove({"action": "invalid_action"})
+        mousemove({"action": "invalid_action"})
         mock_mouse.move.assert_not_called()
         mock_mouse.position = (0, 0)
         mock_mouse.click.assert_not_called()
@@ -864,14 +861,13 @@ def test_do_run_command(
     expected_stdout,
     expected_stderr,
     expected_returncode,
-    macropad,
 ):
     with patch("mutenix.macropad.subprocess.run") as mock_run:
         mock_run.return_value.stdout = expected_stdout
         mock_run.return_value.stderr = expected_stderr
         mock_run.return_value.returncode = expected_returncode
         with patch("mutenix.macropad._logger.debug") as mock_logger_debug:
-            macropad._do_run_command(command)
+            do_run_command(command)
 
             mock_run.assert_called_once_with(
                 shlex.split(command),

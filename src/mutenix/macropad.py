@@ -47,6 +47,85 @@ except ImportError:  # pragma: no cover
 _logger = logging.getLogger(__name__)
 
 
+def keypress(extra):
+    if not Controller:
+        _logger.error("pynput not supported, cannot send keypress")
+        return
+
+    keyboard = Controller()
+    _logger.debug("Keypress: %s", extra)
+    if "key" in extra:
+        do_keypress(keyboard, extra)
+    elif "string" in extra:
+        keyboard.type(extra["string"])
+
+
+def do_keypress(keyboard, extra):
+    def do_key(*keys):
+        if len(keys) == 1:
+            keyboard.tap(keys[0])
+        else:
+            with keyboard.pressed(keys[0]):
+                do_key(*keys[1:])
+
+    try:
+        do_key(
+            *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
+            extra["key"] if len(extra["key"]) == 1 else getattr(Key, extra["key"]),
+        )
+    except AttributeError:
+        _logger.warning("Key not found")
+
+
+def mousemove(extra):
+    if not MouseController:
+        _logger.error("pynput not supported, cannot send mousemove")
+        return
+    if isinstance(extra, list):  # pragma: no cover
+        for sequence in extra:
+            mousemove(sequence)
+        return
+    mouse = MouseController()
+    action = extra.get("action", "move")
+    do_mouse_action(mouse, action, extra)
+
+
+def do_mouse_action(mouse, action, extra):
+    match action:
+        case "move":
+            mouse.move(extra.get("x", 0), extra.get("y", 0))
+        case "set":
+            mouse.position = (extra.get("x", 0), extra.get("y", 0))
+        case "click":
+            mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
+        case "press":
+            mouse.press(getattr(Button, extra["button"]))
+        case "release":
+            mouse.release(getattr(Button, extra["button"]))
+
+
+def do_run_command(command):
+    _logger.debug("Running command: %s", command)
+    result = subprocess.run(
+        shlex.split(command),
+        capture_output=True,
+        text=True,
+    )
+    _logger.debug("Command output: %s", result.stdout)
+    _logger.debug("Command error: %s", result.stderr)
+    _logger.debug("Command return code: %s", result.returncode)
+
+
+def run_command(extra):  # pragma: no cover
+    tasks = []
+    for command in extra:
+        tasks.append(asyncio.to_thread(do_run_command, command))
+    try:
+        asyncio.create_task(asyncio.gather(*tasks))
+    except Exception as e:
+        _logger.error("Error running command: %s", e)
+
+
 class Macropad:
     """The main logic for the Macropad."""
 
@@ -111,79 +190,6 @@ class Macropad:
         except Exception as e:
             _logger.warning("Webhook resulted in an exception %s", e)
 
-    def _keypress(self, extra):
-        if not Controller:
-            _logger.error("pynput not supported, cannot send keypress")
-            return
-
-        keyboard = Controller()
-        _logger.debug("Keypress: %s", extra)
-        if "key" in extra:
-            self._do_keypress(keyboard, extra)
-        elif "string" in extra:
-            keyboard.type(extra["string"])
-
-    def _do_keypress(self, keyboard, extra):
-        def do_key(*keys):
-            if len(keys) == 1:
-                keyboard.tap(keys[0])
-            else:
-                with keyboard.pressed(keys[0]):
-                    do_key(*keys[1:])
-
-        try:
-            do_key(
-                *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
-                extra["key"] if len(extra["key"]) == 1 else getattr(Key, extra["key"]),
-            )
-        except AttributeError:
-            _logger.warning("Key not found")
-
-    def _mousemove(self, extra):
-        if not MouseController:
-            _logger.error("pynput not supported, cannot send mousemove")
-            return
-        if isinstance(extra, list):  # pragma: no cover
-            for sequence in extra:
-                self._mousemove(sequence)
-            return
-        mouse = MouseController()
-        action = extra.get("action", "move")
-        self._do_mouse_action(mouse, action, extra)
-
-    def _do_mouse_action(self, mouse, action, extra):
-        match action:
-            case "move":
-                mouse.move(extra.get("x", 0), extra.get("y", 0))
-            case "set":
-                mouse.position = (extra.get("x", 0), extra.get("y", 0))
-            case "click":
-                mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
-            case "press":
-                mouse.press(getattr(Button, extra["button"]))
-            case "release":
-                mouse.release(getattr(Button, extra["button"]))
-
-    def _do_run_command(self, command):
-        _logger.debug("Running command: %s", command)
-        result = subprocess.run(
-            shlex.split(command),
-            capture_output=True,
-            text=True,
-        )
-        _logger.debug("Command output: %s", result.stdout)
-        _logger.debug("Command error: %s", result.stderr)
-        _logger.debug("Command return code: %s", result.returncode)
-
-    def _run_command(self, extra):  # pragma: no cover
-        tasks = []
-        for command in extra:
-            tasks.append(asyncio.to_thread(self._do_run_command, command))
-        try:
-            asyncio.create_task(asyncio.gather(*tasks))
-        except Exception as e:
-            _logger.error("Error running command: %s", e)
-
     async def _send_status(self, status: Status):
         _logger.info(
             "Button %s, Triggered: %s, Longpress: %s",
@@ -228,13 +234,13 @@ class Macropad:
         elif single_action.activate_teams:
             bring_teams_to_foreground()
         elif single_action.command:
-            self._run_command(single_action.command)
+            run_command(single_action.command)
         elif single_action.webhook:
             self._perform_webhook(single_action.webhook)
         elif single_action.keypress:
-            self._keypress(single_action.keypress)
+            keypress(single_action.keypress)
         elif single_action.mouse:
-            self._mousemove(single_action.mouse)
+            mousemove(single_action.mouse)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:
