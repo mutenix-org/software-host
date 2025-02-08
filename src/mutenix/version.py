@@ -2,5 +2,5 @@
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 
 MAJOR = 0
-MINOR = 5
-PATCH = 10
+MINOR = 6
+PATCH = 0
