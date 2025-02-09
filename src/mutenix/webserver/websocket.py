@@ -1,19 +1,12 @@
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import asyncio
 import json
 import logging
 from typing import Callable
 
 from aiohttp import web
-from mutenix.hid_commands import HidOutputMessage
-from mutenix.hid_commands import SetLed
-from mutenix.hid_commands import Status
-from mutenix.web_server import WebServer
-
-
-HOST = "127.0.0.1"
-PORT = 12909
+from mutenix.models.hid_commands import HidOutputMessage
+from mutenix.models.hid_commands import SetLed
+from mutenix.models.hid_commands import Status
 
 _logger = logging.getLogger(__name__)
 
@@ -24,36 +17,12 @@ class UnsupportedMessageTypeError(Exception):
     pass
 
 
-class VirtualMacropad(WebServer):
-    """A virtual representation of the Macropad for testing or playing around."""
-
-    def __init__(self, host: str = HOST, port: int = PORT):
-        super().__init__(host, port)
+class WebSocketHandler:
+    def __init__(self):
         self._callbacks: list[Callable[[HidOutputMessage], asyncio.Future]] = []
         self._websockets: set[web.WebSocketResponse] = set()
         self._led_status: dict[int, str] = {}
-        self._led_input_status: dict[int, str] = {}
         self._led_status_lock = asyncio.Lock()
-
-        self.app.add_routes(
-            [
-                web.post("/button", self.button_handler),
-                web.get("/ws", self.websocket_handler),
-                web.post("/led", self.led_handler),
-            ],
-        )
-
-    def register_callback(self, callback: Callable[[HidOutputMessage], asyncio.Future]):
-        self._callbacks.append(callback)
-
-    async def button_handler(self, request: web.Request):
-        data = await request.json()
-        await self._handle_msg(Status.trigger_button(data.get("button")))
-        return web.Response(status=200)
-
-    async def _handle_msg(self, msg: HidOutputMessage):
-        for callback in self._callbacks:
-            await callback(msg)
 
     async def handle_state_request(self, ws):
         async with self._led_status_lock:
@@ -84,6 +53,10 @@ class VirtualMacropad(WebServer):
         self._websockets.remove(ws)
         return ws
 
+    async def _handle_msg(self, msg: HidOutputMessage):
+        for callback in self._callbacks:
+            await callback(msg)
+
     @staticmethod
     async def _send_json_safe(ws, data):
         try:
@@ -97,6 +70,12 @@ class VirtualMacropad(WebServer):
                 self._send_json_safe(ws, {"button": button, "color": color}),
             )
 
+    def setup_routes(self, app: web.Application, prefix: str = "/ws"):
+        app.router.add_route("GET", f"{prefix}", self.websocket_handler)
+
+    def register_callback(self, callback):
+        self._callbacks.append(callback)
+
     async def send_msg(self, msg: HidOutputMessage):
         if isinstance(msg, SetLed):
             color = msg.color.name.lower()
@@ -106,11 +85,3 @@ class VirtualMacropad(WebServer):
         else:
             raise UnsupportedMessageTypeError("Unsupported message type")
         _logger.debug("Sent message: %s", msg)
-
-    async def led_handler(self, request: web.Request):
-        data = await request.json()
-        self._led_input_status[int(data["button"])] = data["color"]
-        return web.Response(status=200)
-
-    def get_led_status(self, button: int) -> str:
-        return self._led_input_status.get(button, "black")

@@ -10,7 +10,7 @@ from unittest.mock import mock_open
 from unittest.mock import patch
 
 import requests
-from mutenix.hid_commands import HardwareTypes
+from mutenix.models.hid_commands import HardwareTypes
 from mutenix.updates import check_for_device_update
 from mutenix.updates import check_for_self_update
 from mutenix.updates import VersionInfo

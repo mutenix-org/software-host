@@ -7,7 +7,7 @@ import webbrowser
 import hid
 import requests
 import semver
-from mutenix.hid_commands import VersionInfo
+from mutenix.models.hid_commands import VersionInfo
 from mutenix.updates.device_update import perform_upgrade_with_file
 
 _logger = logging.getLogger(__name__)

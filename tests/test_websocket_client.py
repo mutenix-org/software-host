@@ -9,10 +9,11 @@ from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
-from mutenix.teams_messages import ClientMessage
-from mutenix.teams_messages import MeetingAction
+from mutenix.models.state import State
+from mutenix.models.teams_messages import ClientMessage
+from mutenix.models.teams_messages import MeetingAction
 from mutenix.websocket_client import Identifier
-from mutenix.websocket_client import WebSocketClient
+from mutenix.websocket_client import TeamsWebSocketClient
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -34,7 +35,11 @@ def identifier():
 
 @pytest.fixture
 def websocket_client(identifier):
-    return WebSocketClient(uri="ws://testserver", identifier=identifier)
+    return TeamsWebSocketClient(
+        State().teams,
+        uri="ws://testserver",
+        identifier=identifier,
+    )
 
 
 @pytest.mark.asyncio

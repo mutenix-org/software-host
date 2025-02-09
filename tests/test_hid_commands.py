@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import pytest
-from mutenix.hid_commands import HidInCommands
-from mutenix.hid_commands import HidInputMessage
-from mutenix.hid_commands import HidOutCommands
-from mutenix.hid_commands import LedColor
-from mutenix.hid_commands import Reset
-from mutenix.hid_commands import SetLed
-from mutenix.hid_commands import Status
-from mutenix.hid_commands import StatusRequest
-from mutenix.hid_commands import UpdateConfig
-from mutenix.hid_commands import VersionInfo
+from mutenix.models.hid_commands import HidInCommands
+from mutenix.models.hid_commands import HidInputMessage
+from mutenix.models.hid_commands import HidOutCommands
+from mutenix.models.hid_commands import LedColor
+from mutenix.models.hid_commands import Reset
+from mutenix.models.hid_commands import SetLed
+from mutenix.models.hid_commands import Status
+from mutenix.models.hid_commands import StatusRequest
+from mutenix.models.hid_commands import UpdateConfig
+from mutenix.models.hid_commands import VersionInfo
 
 
 def test_status():

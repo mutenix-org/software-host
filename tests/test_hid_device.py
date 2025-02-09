@@ -10,20 +10,25 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
-from mutenix.config import DeviceInfo
-from mutenix.hid_commands import HidOutputMessage
-from mutenix.hid_commands import Ping
-from mutenix.hid_commands import PrepareUpdate
 from mutenix.hid_device import HidDevice
+from mutenix.models.config import DeviceInfo
+from mutenix.models.hid_commands import HidOutputMessage
+from mutenix.models.hid_commands import Ping
+from mutenix.models.hid_commands import PrepareUpdate
 
 tracemalloc.start()
 
 
 @pytest.fixture
-def hid_device():
+def mutenix_state():
+    return Mock()
+
+
+@pytest.fixture
+def hid_device(mutenix_state):
     with patch("hid.device") as MockHidDevice:
         MockHidDevice.return_value = Mock()
-        return HidDevice()
+        return HidDevice(mutenix_state)
 
 
 @pytest.mark.asyncio
@@ -110,7 +115,7 @@ async def test_read_success(hid_device):
 
     hid_device._callbacks.append(callback)
     with patch(
-        "mutenix.hid_commands.HidInputMessage.from_buffer",
+        "mutenix.models.hid_commands.HidInputMessage.from_buffer",
         return_value=Mock(),
     ):
         await hid_device._read()
@@ -229,23 +234,20 @@ async def test_send_report_exception(hid_device):
 
 @pytest.mark.asyncio
 async def test_unregister_callback(hid_device: HidDevice):
-    # Create a HidDevice instance
-    device = HidDevice()
-
     # Create a mock callback
     callback = Mock()
 
     # Register the callback
-    device.register_callback(callback)
-    assert callback in device._callbacks
+    hid_device.register_callback(callback)
+    assert callback in hid_device._callbacks
 
     # Unregister the callback
-    device.unregister_callback(callback)
-    assert callback not in device._callbacks
+    hid_device.unregister_callback(callback)
+    assert callback not in hid_device._callbacks
 
     # Try to unregister the callback again (should not raise an error)
-    device.unregister_callback(callback)
-    assert callback not in device._callbacks
+    hid_device.unregister_callback(callback)
+    assert callback not in hid_device._callbacks
 
 
 @pytest.mark.asyncio
