@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 import pytest
 from aiohttp import web
 from mutenix.models.state import State

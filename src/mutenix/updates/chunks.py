@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 from enum import IntEnum
 
 from mutenix.updates.constants import MAX_CHUNK_SIZE

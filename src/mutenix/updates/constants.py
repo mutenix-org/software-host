@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 HEADER_SIZE = 8
 MAX_CHUNK_SIZE = 60 - HEADER_SIZE
 DATA_TRANSFER_SLEEP_TIME = 1

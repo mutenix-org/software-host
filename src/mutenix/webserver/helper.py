@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 import aiohttp.web as web
 from aiohttp_jinja2 import get_env
 from mutenix.version import MAJOR

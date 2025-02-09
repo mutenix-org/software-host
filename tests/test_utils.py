@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger matthias@bilger.info
-from __future__ import annotations
-
 import asyncio
 import logging
 import os
@@ -159,12 +157,14 @@ def test_rate_limited_logger(limit, interval):
     def log_message(message):
         logger.debug(message)
 
-    with patch.object(logger, "debug") as mock_debug:
+    with (
+        patch.object(logger, "debug") as mock_debug,
+        patch.object(logger, "warning") as mock_warning,
+    ):
         for _ in range(limit + 2):
             log_message("test message")
         assert mock_debug.call_count == limit
 
-    with patch.object(logger, "warning") as mock_warning:
         time.sleep(interval + 1)
         log_message("test message")
         assert mock_warning.call_count == 1

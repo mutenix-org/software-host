@@ -28,52 +28,49 @@ def test_find_config_file_not_found():
 
 
 def test_load_config_default():
-    with patch("pathlib.Path.exists", return_value=False):
-        with patch("builtins.open", mock_open(read_data="")):
-            with patch(
-                "mutenix.models.config.Config",
-            ) as mock_create_default_config:
-                default_config = Config()
-                default_config._file_path = str(Path(CONFIG_FILENAME))
-                mock_create_default_config.return_value = default_config
-                config = load_config()
-                assert (
-                    config.model_dump()
-                    == mock_create_default_config.return_value.model_dump()
-                )
+    with (
+        patch("pathlib.Path.exists", return_value=False),
+        patch("builtins.open", mock_open(read_data="")),
+        patch("mutenix.models.config.Config") as mock_create_default_config,
+    ):
+        default_config = Config()
+        default_config._file_path = str(Path(CONFIG_FILENAME))
+        mock_create_default_config.return_value = default_config
+        config = load_config()
+        assert (
+            config.model_dump() == mock_create_default_config.return_value.model_dump()
+        )
 
 
 def test_load_config_file_not_found():
-    with patch("pathlib.Path.exists", return_value=False):
-        with patch("builtins.open", mock_open(read_data="")):
-            with patch(
-                "mutenix.models.config.Config",
-            ) as mock_create_default_config:
-                mock_create_default_config.return_value = Config()
-                with patch("mutenix.config.save_config") as mock_save_config:
-                    config = load_config()
-                    assert (
-                        config.model_dump()
-                        == mock_create_default_config.return_value.model_dump()
-                    )
-                    mock_save_config.assert_not_called()
+    with (
+        patch("pathlib.Path.exists", return_value=False),
+        patch("builtins.open", mock_open(read_data="")),
+        patch("mutenix.models.config.Config") as mock_create_default_config,
+        patch("mutenix.config.save_config") as mock_save_config,
+    ):
+        mock_create_default_config.return_value = Config()
+        config = load_config()
+        assert (
+            config.model_dump() == mock_create_default_config.return_value.model_dump()
+        )
+        mock_save_config.assert_not_called()
 
 
 def test_load_config_yaml_error():
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", mock_open(read_data="invalid_yaml")):
-            with patch("yaml.safe_load", side_effect=yaml.YAMLError):
-                with patch(
-                    "mutenix.models.config.Config",
-                ) as mock_create_default_config:
-                    mock_create_default_config.return_value = Config()
-                    with patch("mutenix.config.save_config") as mock_save_config:
-                        config = load_config()
-                        assert (
-                            config.model_dump()
-                            == mock_create_default_config.return_value.model_dump()
-                        )
-                        mock_save_config.assert_not_called()
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data="invalid_yaml")),
+        patch("yaml.safe_load", side_effect=yaml.YAMLError),
+        patch("mutenix.models.config.Config") as mock_create_default_config,
+        patch("mutenix.config.save_config") as mock_save_config,
+    ):
+        mock_create_default_config.return_value = Config()
+        config = load_config()
+        assert (
+            config.model_dump() == mock_create_default_config.return_value.model_dump()
+        )
+        mock_save_config.assert_not_called()
 
 
 def test_load_config_success():
@@ -86,11 +83,13 @@ def test_load_config_success():
         "teams_token": None,
         "version": 1,
     }
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
-            with patch("yaml.safe_load", return_value=config_data):
-                config = load_config()
-                assert config.model_dump() == Config(**config_data).model_dump()
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=yaml.dump(config_data))),
+        patch("yaml.safe_load", return_value=config_data),
+    ):
+        config = load_config()
+        assert config.model_dump() == Config(**config_data).model_dump()
 
 
 def test_config_initialization():
@@ -129,32 +128,33 @@ def test_load_config_with_valid_file():
         "auto_update": True,
         "device_identifications": [],
     }
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
-            with patch("yaml.safe_load", return_value=config_data):
-                config = load_config()
-                assert config.actions[0].button_id == 1
-                assert config.actions[0].actions[0].meeting_action == "toggle-mute"
-                assert config.virtual_keypad.bind_address == "127.0.0.1"
-                assert config.virtual_keypad.bind_port == 12909
-                assert config.auto_update is True
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=yaml.dump(config_data))),
+        patch("yaml.safe_load", return_value=config_data),
+    ):
+        config = load_config()
+        assert config.actions[0].button_id == 1
+        assert config.actions[0].actions[0].meeting_action == "toggle-mute"
+        assert config.virtual_keypad.bind_address == "127.0.0.1"
+        assert config.virtual_keypad.bind_port == 12909
+        assert config.auto_update is True
 
 
 def test_load_config_with_invalid_yaml():
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", mock_open(read_data="invalid_yaml")):
-            with patch("yaml.safe_load", side_effect=yaml.YAMLError):
-                with patch(
-                    "mutenix.models.config.Config",
-                ) as mock_create_default_config:
-                    mock_create_default_config.return_value = Config()
-                    with patch("mutenix.config.save_config") as mock_save_config:
-                        config = load_config()
-                        assert (
-                            config.model_dump()
-                            == mock_create_default_config.return_value.model_dump()
-                        )
-                        mock_save_config.assert_not_called()
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data="invalid_yaml")),
+        patch("yaml.safe_load", side_effect=yaml.YAMLError),
+        patch("mutenix.models.config.Config") as mock_create_default_config,
+        patch("mutenix.config.save_config") as mock_save_config,
+    ):
+        mock_create_default_config.return_value = Config()
+        config = load_config()
+        assert (
+            config.model_dump() == mock_create_default_config.return_value.model_dump()
+        )
+        mock_save_config.assert_not_called()
 
 
 def test_save_config():
@@ -201,12 +201,14 @@ def test_load_config_with_file_path():
         "auto_update": True,
         "device_identifications": [],
     }
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
-            with patch("yaml.safe_load", return_value=config_data):
-                config = load_config(Path("custom_config.yaml"))
-                assert config.actions[0].button_id == 1
-                assert config.actions[0].actions[0].meeting_action == "toggle-mute"
-                assert config.virtual_keypad.bind_address == "127.0.0.1"
-                assert config.virtual_keypad.bind_port == 12909
-                assert config.auto_update is True
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=yaml.dump(config_data))),
+        patch("yaml.safe_load", return_value=config_data),
+    ):
+        config = load_config(Path("custom_config.yaml"))
+        assert config.actions[0].button_id == 1
+        assert config.actions[0].actions[0].meeting_action == "toggle-mute"
+        assert config.virtual_keypad.bind_address == "127.0.0.1"
+        assert config.virtual_keypad.bind_port == 12909
+        assert config.auto_update is True
