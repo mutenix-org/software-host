@@ -15,6 +15,7 @@ from mutenix.actions import webhook_action
 from mutenix.config import load_config
 from mutenix.config import save_config
 from mutenix.hid_device import HidDevice
+from mutenix.models.config import ActionDetails
 from mutenix.models.config import ButtonAction
 from mutenix.models.config import Config
 from mutenix.models.config import LedColor as ConfigLedColor
@@ -125,8 +126,11 @@ class Macropad:
             if not action:
                 return
 
-            for single_action in action.actions:
-                await self._execute_action(single_action)
+            await asyncio.create_task(self._execute_actions(action.actions))
+
+    async def _execute_actions(self, actions: list[ActionDetails]):
+        for single_action in actions:
+            await self._execute_action(single_action)
 
     def _get_action(self, status):
         if not status.longpressed and status.button in self._tap_actions:
@@ -135,7 +139,7 @@ class Macropad:
             return self._longpress_actions.get(status.button, None)
         return None
 
-    async def _execute_action(self, single_action):
+    async def _execute_action(self, single_action: ActionDetails):
         if single_action.meeting_action:
             client_message = ClientMessage.create(
                 action=single_action.meeting_action,
@@ -159,6 +163,8 @@ class Macropad:
             keyboard_action(single_action.keypress)
         elif single_action.mouse:
             mouse_action(single_action.mouse)
+        elif single_action.delay:
+            await asyncio.sleep(single_action.delay)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:

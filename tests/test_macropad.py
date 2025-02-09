@@ -37,6 +37,12 @@ except ImportError:
     Button = Mock()
 
 
+patch("mutenix.actions.keyboard_action")
+patch("mutenix.actions.mouse_action")
+patch("mutenix.actions.command_action")
+patch("mutenix.actions.webhook_action")
+
+
 @pytest.fixture
 def macropad():
     with (
