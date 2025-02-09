@@ -30,14 +30,16 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
     from pystray import Icon as icon, Menu as menu, MenuItem as item
 
     def open_url(endpoint=""):
+        keypad_config = macropad.state.config.virtual_keypad
+
         def open_url(icon, item):
             address = (
-                macropad.virtual_keypad_address
-                if macropad.virtual_keypad_address != "0.0.0.0"
+                keypad_config.bind_address
+                if keypad_config.bind_address != "0.0.0.0"
                 else "127.0.0.1"
             )
             webbrowser.open(
-                f"http://{address}:{macropad.virtual_keypad_port}{endpoint}",
+                f"http://{address}:{keypad_config.bind_port}{endpoint}",
             )
 
         return open_url
@@ -73,30 +75,30 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
             item(
                 "Teams connected",
                 nothing,
-                checked=lambda x: macropad.teams_connected,
+                checked=lambda x: bool(macropad.state.teams.connection_status),
                 enabled=False,
             ),
             item(
                 "Device connected",
                 nothing,
-                checked=lambda x: macropad.device_connected,
+                checked=lambda x: bool(macropad.state.hardware.connection_status),
                 enabled=False,
             ),
             item(
                 "Show Config",
-                open_url("/config"),
+                open_url("/pages/config"),
             ),
             item(
                 "Help",
-                open_url("/help"),
+                open_url("/pages/help"),
             ),
             item(
                 "About",
-                open_url("/about"),
+                open_url("/pages/about"),
             ),
             item(
                 "Device",
-                open_url("/device"),
+                open_url("/pages/device"),
             ),
             item(
                 "Debug Options",

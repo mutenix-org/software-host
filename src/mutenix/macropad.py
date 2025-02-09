@@ -8,128 +8,44 @@ import time
 from collections import defaultdict
 
 import requests
-from mutenix.config import ButtonAction
-from mutenix.config import Config
-from mutenix.config import LedColor as ConfigLedColor
-from mutenix.config import LedStatus
+from mutenix.actions import command_action
+from mutenix.actions import keyboard_action
+from mutenix.actions import mouse_action
+from mutenix.actions import webhook_action
 from mutenix.config import load_config
 from mutenix.config import save_config
-from mutenix.config import WebhookAction
-from mutenix.hid_commands import LedColor
-from mutenix.hid_commands import SetLed
-from mutenix.hid_commands import Status
-from mutenix.hid_commands import UpdateConfig
-from mutenix.hid_commands import VersionInfo
 from mutenix.hid_device import HidDevice
-from mutenix.teams_messages import ClientMessage
-from mutenix.teams_messages import ClientMessageParameter
-from mutenix.teams_messages import MeetingAction
-from mutenix.teams_messages import ServerMessage
+from mutenix.models.config import ButtonAction
+from mutenix.models.config import Config
+from mutenix.models.config import LedColor as ConfigLedColor
+from mutenix.models.config import LedStatus
+from mutenix.models.config import WebhookAction
+from mutenix.models.hid_commands import LedColor
+from mutenix.models.hid_commands import SetLed
+from mutenix.models.hid_commands import Status
+from mutenix.models.hid_commands import UpdateConfig
+from mutenix.models.hid_commands import VersionInfo
+from mutenix.models.state import State
+from mutenix.models.teams_messages import ClientMessage
+from mutenix.models.teams_messages import ClientMessageParameter
+from mutenix.models.teams_messages import MeetingAction
+from mutenix.models.teams_messages import ServerMessage
 from mutenix.updates import check_for_device_update
 from mutenix.updates import perform_upgrade_with_file
 from mutenix.utils import bring_teams_to_foreground
 from mutenix.utils import run_loop
-from mutenix.virtual_macropad import VirtualMacropad
+from mutenix.webserver import WebServer
 from mutenix.websocket_client import Identifier
-from mutenix.websocket_client import WebSocketClient
-
-try:
-    from pynput.keyboard import Controller
-    from pynput.keyboard import Key
-    from pynput.mouse import Button
-    from pynput.mouse import Controller as MouseController
-except ImportError:  # pragma: no cover
-    Controller = None
-    Key = None
-    Button = None
-    MouseController = None
+from mutenix.websocket_client import TeamsWebSocketClient
 
 _logger = logging.getLogger(__name__)
-
-
-def keypress(extra):
-    if not Controller:
-        _logger.error("pynput not supported, cannot send keypress")
-        return
-
-    keyboard = Controller()
-    _logger.debug("Keypress: %s", extra)
-    if "key" in extra:
-        do_keypress(keyboard, extra)
-    elif "string" in extra:
-        keyboard.type(extra["string"])
-
-
-def do_keypress(keyboard, extra):
-    def do_key(*keys):
-        if len(keys) == 1:
-            keyboard.tap(keys[0])
-        else:
-            with keyboard.pressed(keys[0]):
-                do_key(*keys[1:])
-
-    try:
-        do_key(
-            *map(lambda x: getattr(Key, x), extra.get("modifiers", [])),
-            extra["key"] if len(extra["key"]) == 1 else getattr(Key, extra["key"]),
-        )
-    except AttributeError:
-        _logger.warning("Key not found")
-
-
-def mousemove(extra):
-    if not MouseController:
-        _logger.error("pynput not supported, cannot send mousemove")
-        return
-    if isinstance(extra, list):  # pragma: no cover
-        for sequence in extra:
-            mousemove(sequence)
-        return
-    mouse = MouseController()
-    action = extra.get("action", "move")
-    do_mouse_action(mouse, action, extra)
-
-
-def do_mouse_action(mouse, action, extra):
-    match action:
-        case "move":
-            mouse.move(extra.get("x", 0), extra.get("y", 0))
-        case "set":
-            mouse.position = (extra.get("x", 0), extra.get("y", 0))
-        case "click":
-            mouse.click(getattr(Button, extra["button"]), extra.get("count", 1))
-        case "press":
-            mouse.press(getattr(Button, extra["button"]))
-        case "release":
-            mouse.release(getattr(Button, extra["button"]))
-
-
-def do_run_command(command):
-    _logger.debug("Running command: %s", command)
-    result = subprocess.run(
-        shlex.split(command),
-        capture_output=True,
-        text=True,
-    )
-    _logger.debug("Command output: %s", result.stdout)
-    _logger.debug("Command error: %s", result.stderr)
-    _logger.debug("Command return code: %s", result.returncode)
-
-
-def run_command(extra):  # pragma: no cover
-    tasks = []
-    for command in extra:
-        tasks.append(asyncio.to_thread(do_run_command, command))
-    try:
-        asyncio.create_task(asyncio.gather(*tasks))
-    except Exception as e:
-        _logger.error("Error running command: %s", e)
 
 
 class Macropad:
     """The main logic for the Macropad."""
 
     def __init__(self, config: Config):
+        self._state = State()
         self._run = True
         self._version_seen = None
         self._last_status_check: defaultdict[int, float] = defaultdict(time.time)
@@ -143,19 +59,22 @@ class Macropad:
         self._trigger_reload_config = False
 
     def _setup(self):
+        self._state.config = self._config
         self._setup_device()
         self._setup_websocket()
         self._setup_virtual_macropad()
-        self._websocket.register_callback(self._teams_callback)
-        self._virtual_macropad.register_callback(self._hid_callback)
 
     def _setup_device(self):
-        self._device = HidDevice(self._config.device_identifications)
+        self._device = HidDevice(
+            self._state.hardware,
+            self._config.device_identifications,
+        )
         self._device.register_callback(self._hid_callback)
 
     def _setup_websocket(self):
         token = self._config.teams_token
-        self._websocket = WebSocketClient(
+        self._teams_websocket = TeamsWebSocketClient(
+            self._state.teams,
             "ws://127.0.0.1:8124",
             Identifier(
                 manufacturer="test",
@@ -165,13 +84,11 @@ class Macropad:
                 token=token,
             ),
         )
+        self._teams_websocket.register_callback(self._teams_callback)
 
     def _setup_virtual_macropad(self):
-        self._virtual_macropad = VirtualMacropad(
-            self._config.virtual_keypad.bind_address,
-            self._config.virtual_keypad.bind_port,
-        )
-        self._virtual_macropad.set_config(self._config)
+        self._virtual_macropad = WebServer(self._state, self._config.virtual_keypad)
+        self._virtual_macropad.register_callback(self._hid_callback)
 
     def _setup_buttons(self):
         self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
@@ -223,7 +140,7 @@ class Macropad:
             client_message = ClientMessage.create(
                 action=single_action.meeting_action,
             )
-            await self._websocket.send_message(client_message)
+            await self._teams_websocket.send_message(client_message)
         elif single_action.teams_reaction:
             client_message = ClientMessage.create(
                 action=MeetingAction.React,
@@ -231,17 +148,17 @@ class Macropad:
             client_message.parameters = ClientMessageParameter(
                 type_=single_action.teams_reaction.reaction,
             )
-            await self._websocket.send_message(client_message)
+            await self._teams_websocket.send_message(client_message)
         elif single_action.activate_teams:
             bring_teams_to_foreground()
         elif single_action.command:
-            run_command(single_action.command)
+            command_action(single_action.command)
         elif single_action.webhook:
-            self._perform_webhook(single_action.webhook)
+            webhook_action(single_action.webhook)
         elif single_action.keypress:
-            keypress(single_action.keypress)
+            keyboard_action(single_action.keypress)
         elif single_action.mouse:
-            mousemove(single_action.mouse)
+            mouse_action(single_action.mouse)
 
     async def _process_version_info(self, version_info: VersionInfo):
         if self._version_seen != version_info.version:
@@ -256,7 +173,8 @@ class Macropad:
                     self._setup_device()
         else:
             _logger.debug(version_info)
-        self._virtual_macropad.set_version(version_info.version, version_info.type.name)
+        self._state.hardware.variant = version_info.type.name
+        self._state.hardware.version = version_info.version
         await self._update_device_status(force=True)
 
     async def _hid_callback(self, msg):
@@ -427,7 +345,7 @@ class Macropad:
         try:
             await asyncio.gather(
                 self._device.process(),
-                self._websocket.process(),
+                self._teams_websocket.process(),
                 self._virtual_macropad.process(),
                 self._check_status(),
             )
@@ -445,7 +363,7 @@ class Macropad:
         self._run = False
         await self._device.stop()
         _logger.info("Device stopped")
-        await self._websocket.stop()
+        await self._teams_websocket.stop()
         _logger.info("Websocket stopped")
         await self._virtual_macropad.stop()
         _logger.info("Virtual Device stopped")
@@ -475,7 +393,7 @@ class Macropad:
 
     @property
     def teams_connected(self) -> bool:  # pragma: no cover
-        return self._websocket.connected
+        return self._teams_websocket.connected
 
     @property
     def device_connected(self) -> bool:  # pragma: no cover
@@ -490,4 +408,9 @@ class Macropad:
         self._setup_buttons()
         await self._update_device_status(force=True)
         self._virtual_macropad.set_config(self._config)
+        self._state.config = self._config
         _logger.info("Config reloaded")
+
+    @property
+    def state(self):
+        return self._state

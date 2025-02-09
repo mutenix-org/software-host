@@ -2,11 +2,14 @@
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 import asyncio
 import logging
+import time
 from typing import Callable
 
 import websockets
-from mutenix.teams_messages import ClientMessage
-from mutenix.teams_messages import ServerMessage
+from mutenix.models.state import ConnectionState
+from mutenix.models.state import TeamsState
+from mutenix.models.teams_messages import ClientMessage
+from mutenix.models.teams_messages import ServerMessage
 from mutenix.utils import block_parallel
 from mutenix.utils import rate_limited_logger
 from mutenix.utils import run_loop
@@ -33,12 +36,13 @@ class Identifier:
         self.token = token
 
 
-class WebSocketClient:
+class TeamsWebSocketClient:
     """Handles the WebSocket connection to Teams."""
 
     RETRY_INTERVAL = 0.25
 
-    def __init__(self, uri: str, identifier: Identifier):
+    def __init__(self, state: TeamsState, uri: str, identifier: Identifier):
+        self._state = state
         self._uri = uri
         self._connection = None
         self._send_queue: asyncio.Queue[tuple[ClientMessage, asyncio.Future]] = (
@@ -62,11 +66,13 @@ class WebSocketClient:
     async def _connect(self):
         while self._run:
             self._connection = None
+            self._state.connection_status = ConnectionState.DISCONNECTED
             connection = await self._do_connect()
             if not connection:
                 await asyncio.sleep(self.RETRY_INTERVAL)
             else:
                 self._connection = connection
+                self._state.connection_status = ConnectionState.CONNECTED
                 break
 
     async def _do_connect(self):
@@ -124,8 +130,12 @@ class WebSocketClient:
                 msg = await self._connection.recv()
                 _logger.debug("Received message: %s", msg)
                 message = ServerMessage.model_validate_json(msg)
-                if message:
-                    _logger.debug("Decoded message: %s", message)
+                if not message:
+                    return
+                _logger.debug("Decoded message: %s", message)
+                merge_state = self._state.state.model_dump() | message.model_dump()
+                self._state.state = ServerMessage.model_validate(merge_state)
+                self._state.last_received_timestamp = time.time()
                 if self._callback:
                     if asyncio.iscoroutinefunction(self._callback):
                         asyncio.create_task(self._callback(message))

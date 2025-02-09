@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import shlex
 import time
 from collections import defaultdict
 from unittest.mock import ANY
@@ -13,25 +12,22 @@ from unittest.mock import mock_open
 from unittest.mock import patch
 
 import pytest
-from mutenix.config import create_default_config
-from mutenix.config import LedColor as ConfigLedColor
-from mutenix.config import TeamsState
-from mutenix.config import WebhookAction
-from mutenix.hid_commands import LedColor
-from mutenix.hid_commands import SetLed
-from mutenix.hid_commands import Status
-from mutenix.hid_commands import VersionInfo
-from mutenix.macropad import do_run_command
-from mutenix.macropad import keypress
 from mutenix.macropad import Macropad
-from mutenix.macropad import mousemove
-from mutenix.teams_messages import ClientMessageParameter
-from mutenix.teams_messages import ClientMessageParameterType
-from mutenix.teams_messages import MeetingAction
-from mutenix.teams_messages import MeetingPermissions
-from mutenix.teams_messages import MeetingState
-from mutenix.teams_messages import MeetingUpdate
-from mutenix.teams_messages import ServerMessage
+from mutenix.models.config import Config
+from mutenix.models.config import LedColor as ConfigLedColor
+from mutenix.models.config import TeamsState
+from mutenix.models.config import WebhookAction
+from mutenix.models.hid_commands import LedColor
+from mutenix.models.hid_commands import SetLed
+from mutenix.models.hid_commands import Status
+from mutenix.models.hid_commands import VersionInfo
+from mutenix.models.teams_messages import ClientMessageParameter
+from mutenix.models.teams_messages import ClientMessageParameterType
+from mutenix.models.teams_messages import MeetingAction
+from mutenix.models.teams_messages import MeetingPermissions
+from mutenix.models.teams_messages import MeetingState
+from mutenix.models.teams_messages import MeetingUpdate
+from mutenix.models.teams_messages import ServerMessage
 
 try:
     from pynput.keyboard import Key
@@ -45,8 +41,8 @@ except ImportError:
 def macropad():
     with (
         patch("mutenix.macropad.HidDevice") as MockHidDevice,
-        patch("mutenix.macropad.WebSocketClient") as MockWebSocketClient,
-        patch("mutenix.macropad.VirtualMacropad") as MockVirtualMacropad,
+        patch("mutenix.macropad.TeamsWebSocketClient") as MockWebSocketClient,
+        patch("mutenix.macropad.WebServer") as MockVirtualMacropad,
         patch("mutenix.config.save_config"),
     ):
         mock_device = Mock()
@@ -54,17 +50,17 @@ def macropad():
         MockHidDevice.return_value = mock_device
         MockWebSocketClient.return_value = Mock()
         MockVirtualMacropad.return_value = Mock()
-        return Macropad(create_default_config())
+        return Macropad(Config())
 
 
 @pytest.mark.asyncio
 async def test_hid_callback_status(macropad):
     msg = Status(bytes([1, 1, 0, 0, 1]))
-    macropad._websocket.send_message = AsyncMock()
+    macropad._teams_websocket.send_message = AsyncMock()
     await macropad._hid_callback(msg)
-    macropad._websocket.send_message.assert_called_once()
+    macropad._teams_websocket.send_message.assert_called_once()
     assert (
-        macropad._websocket.send_message.call_args[0][0].action
+        macropad._teams_websocket.send_message.call_args[0][0].action
         == MeetingAction.ToggleMute
     )
 
@@ -196,18 +192,18 @@ async def test_hid_callback_parametrized(
     should_call,
 ):
     msg = Status(msg_bytes)
-    macropad._websocket.send_message = AsyncMock()
+    macropad._teams_websocket.send_message = AsyncMock()
 
     await macropad._hid_callback(msg)
     if should_call:
-        macropad._websocket.send_message.assert_called_once()
+        macropad._teams_websocket.send_message.assert_called_once()
         if expected_action:
             assert (
-                macropad._websocket.send_message.call_args[0][0].action.name
+                macropad._teams_websocket.send_message.call_args[0][0].action.name
                 == expected_action.name
             )
     else:
-        macropad._websocket.send_message.assert_not_called()
+        macropad._teams_websocket.send_message.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -215,7 +211,7 @@ async def test_hid_callback_invalid_button(macropad):
     msg = Status([11, 1, 0, 0, 1])
 
     await macropad._hid_callback(msg)
-    macropad._websocket.send_message.assert_not_called()
+    macropad._teams_websocket.send_message.assert_not_called()
 
 
 class IdentifierWithoutToken:
@@ -230,11 +226,12 @@ async def test_setup_without_existing_token():
     with patch("builtins.open", mock_open(read_data="")) as mock_file:
         mock_file.side_effect = FileNotFoundError
         with patch("mutenix.macropad.HidDevice"):
-            with patch("mutenix.macropad.WebSocketClient") as MockWebSocketClient:
-                with patch("mutenix.macropad.VirtualMacropad"):
-                    macropad = Macropad(create_default_config())
+            with patch("mutenix.macropad.TeamsWebSocketClient") as MockWebSocketClient:
+                with patch("mutenix.macropad.WebServer"):
+                    macropad = Macropad(Config())
                     macropad._setup()
                     MockWebSocketClient.assert_called_with(
+                        ANY,
                         ANY,
                         IdentifierWithoutToken(),
                     )
@@ -263,19 +260,19 @@ async def test_setup_without_existing_token():
     ],
 )
 async def test_send_status(macropad, status, expected_action, expected_parameters):
-    macropad._websocket.send_message = AsyncMock()
+    macropad._teams_websocket.send_message = AsyncMock()
     with patch(
         "mutenix.macropad.bring_teams_to_foreground",
     ) as mock_bring_teams_to_foreground:
         await macropad._send_status(status)
         if expected_action:
-            macropad._websocket.send_message.assert_called_once()
-            client_message = macropad._websocket.send_message.call_args[0][0]
+            macropad._teams_websocket.send_message.assert_called_once()
+            client_message = macropad._teams_websocket.send_message.call_args[0][0]
             assert client_message.action == expected_action
             if expected_parameters:
                 assert client_message.parameters == expected_parameters
         else:
-            macropad._websocket.send_message.assert_not_called()
+            macropad._teams_websocket.send_message.assert_not_called()
             if status.button == 3 and status.triggered and status.released:
                 mock_bring_teams_to_foreground.assert_called_once()
             else:
@@ -285,7 +282,7 @@ async def test_send_status(macropad, status, expected_action, expected_parameter
 @pytest.mark.asyncio
 async def test_process(macropad):
     macropad._device.process = AsyncMock()
-    macropad._websocket.process = AsyncMock()
+    macropad._teams_websocket.process = AsyncMock()
     macropad._virtual_macropad.process = AsyncMock()
 
     async def stop_macropad():
@@ -297,14 +294,14 @@ async def test_process(macropad):
     await macropad.process()
 
     macropad._device.process.assert_called_once()
-    macropad._websocket.process.assert_called_once()
+    macropad._teams_websocket.process.assert_called_once()
     macropad._virtual_macropad.process.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_process_with_exception(macropad):
     macropad._device.process = AsyncMock(side_effect=Exception("Device error"))
-    macropad._websocket.process = AsyncMock(return_value=None)
+    macropad._teams_websocket.process = AsyncMock(return_value=None)
     macropad._virtual_macropad.process = AsyncMock(return_value=None)
 
     macropad._check_status = AsyncMock()
@@ -314,7 +311,7 @@ async def test_process_with_exception(macropad):
         mock_logger_error.assert_called_with("Error in Macropad process: %s", ANY)
 
     macropad._device.process.assert_called_once()
-    macropad._websocket.process.assert_called_once()
+    macropad._teams_websocket.process.assert_called_once()
     macropad._virtual_macropad.process.assert_called_once()
 
 
@@ -369,15 +366,15 @@ async def test_manual_update_io_error(macropad):
 
 @pytest.mark.asyncio
 async def test_stop():
-    macropad = Macropad(create_default_config())
+    macropad = Macropad(Config())
     macropad._device = AsyncMock()
-    macropad._websocket = AsyncMock()
+    macropad._teams_websocket = AsyncMock()
     macropad._virtual_macropad = AsyncMock()
 
     await macropad.stop()
 
     macropad._device.stop.assert_called_once()
-    macropad._websocket.stop.assert_called_once()
+    macropad._teams_websocket.stop.assert_called_once()
     macropad._virtual_macropad.stop.assert_called_once()
 
 
@@ -577,123 +574,6 @@ def test_activate_filesystem(macropad):
     assert sent_message._activate_filesystem == 2
 
 
-@pytest.mark.parametrize(
-    "extra, expected_calls",
-    [
-        ({"key": "a"}, [("tap", "a")]),
-        ({"key": "enter"}, [("tap", Key.enter)]),
-        (
-            {"modifiers": ["ctrl", "shift"], "key": "a"},
-            [("pressed", Key.ctrl), ("pressed", Key.shift), ("tap", "a")],
-        ),
-        ({"string": "hello"}, [("type", "hello")]),
-    ],
-)
-@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
-def test_keypress(extra, expected_calls):
-    with patch("mutenix.macropad.Controller") as MockController:
-        mock_keyboard = MockController.return_value
-        keypress(extra)
-
-        if "key" in extra:
-            if len(extra["key"]) == 1:
-                mock_keyboard.tap.assert_any_call(extra["key"])
-            else:
-                mock_keyboard.tap.assert_any_call(getattr(Key, extra["key"]))
-        elif "string" in extra:
-            mock_keyboard.type.assert_called_once_with(extra["string"])
-
-        for call in expected_calls:
-            if call[0] == "pressed":
-                mock_keyboard.pressed.assert_any_call(call[1])
-            elif call[0] == "tap":
-                mock_keyboard.tap.assert_any_call(call[1])
-            elif call[0] == "type":
-                mock_keyboard.type.assert_any_call(call[1])
-
-
-@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
-def test_keypress_pynput_not_supported():
-    with patch("mutenix.macropad.Controller", None):
-        with patch("mutenix.macropad._logger.error") as mock_logger_error:
-            keypress({"key": "a"})
-            mock_logger_error.assert_called_once_with(
-                "pynput not supported, cannot send keypress",
-            )
-
-
-@pytest.mark.skipif(isinstance(Key, Mock), reason="pynput not supported on plattform")
-def test_keypress_invalid_key():
-    with patch("mutenix.macropad.Controller") as MockController:
-        mock_keyboard = MockController.return_value
-        keypress({"key": "invalid_key"})
-        mock_keyboard.press.assert_not_called()
-        mock_keyboard.release.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "extra, expected_calls",
-    [
-        ({"action": "move", "x": 10, "y": 20}, [("move", 10, 20)]),
-        ({"action": "set", "x": 30, "y": 40}, [("position", (30, 40))]),
-        (
-            {"action": "click", "button": "left", "count": 2},
-            [("click", Button.left, 2)],
-        ),
-        ({"action": "press", "button": "right"}, [("press", Button.right)]),
-        ({"action": "release", "button": "middle"}, [("release", Button.middle)]),
-    ],
-)
-@pytest.mark.skipif(
-    isinstance(Button, Mock),
-    reason="pynput not supported on plattform",
-)
-def test_mousemove(extra, expected_calls):
-    with patch("mutenix.macropad.MouseController") as MockMouseController:
-        mock_mouse = MockMouseController.return_value
-        mousemove(extra)
-
-        for call in expected_calls:
-            if call[0] == "move":
-                mock_mouse.move.assert_called_once_with(call[1], call[2])
-            elif call[0] == "position":
-                assert mock_mouse.position == call[1]
-            elif call[0] == "click":
-                mock_mouse.click.assert_called_once_with(call[1], call[2])
-            elif call[0] == "press":
-                mock_mouse.press.assert_called_once_with(call[1])
-            elif call[0] == "release":
-                mock_mouse.release.assert_called_once_with(call[1])
-
-
-@pytest.mark.skipif(
-    isinstance(Button, Mock),
-    reason="pynput not supported on plattform",
-)
-def test_mousemove_pynput_not_supported():
-    with patch("mutenix.macropad.MouseController", None):
-        with patch("mutenix.macropad._logger.error") as mock_logger_error:
-            mousemove({"action": "move", "x": 10, "y": 20})
-            mock_logger_error.assert_called_once_with(
-                "pynput not supported, cannot send mousemove",
-            )
-
-
-@pytest.mark.skipif(
-    isinstance(Button, Mock),
-    reason="pynput not supported on plattform",
-)
-def test_mousemove_invalid_action():
-    with patch("mutenix.macropad.MouseController") as MockMouseController:
-        mock_mouse = MockMouseController.return_value
-        mousemove({"action": "invalid_action"})
-        mock_mouse.move.assert_not_called()
-        mock_mouse.position = (0, 0)
-        mock_mouse.click.assert_not_called()
-        mock_mouse.press.assert_not_called()
-        mock_mouse.release.assert_not_called()
-
-
 @pytest.mark.asyncio
 async def test_reload_config(macropad):
     with (
@@ -702,7 +582,7 @@ async def test_reload_config(macropad):
         patch.object(macropad, "_setup_buttons") as mock_setup_buttons,
         patch.object(macropad, "_update_device_status") as mock_update_device_status,
     ):
-        mock_load_config.return_value = create_default_config()
+        mock_load_config.return_value = Config()
         await macropad._reload_config_async()
         mock_load_config.assert_called_once()
         mock_setup_buttons.assert_called_once()
@@ -847,37 +727,3 @@ async def test_update_device_status_webhook_source_with_invalid_color(macropad):
     macropad._virtual_macropad.send_msg.assert_called_once_with(
         SetLed(1, LedColor.BLACK),
     )
-
-
-@pytest.mark.parametrize(
-    "command, expected_stdout, expected_stderr, expected_returncode",
-    [
-        ("echo Hello", "Hello\n", "", 0),
-        ("exit 1", "", "", 1),
-    ],
-)
-def test_do_run_command(
-    command,
-    expected_stdout,
-    expected_stderr,
-    expected_returncode,
-):
-    with patch("mutenix.macropad.subprocess.run") as mock_run:
-        mock_run.return_value.stdout = expected_stdout
-        mock_run.return_value.stderr = expected_stderr
-        mock_run.return_value.returncode = expected_returncode
-        with patch("mutenix.macropad._logger.debug") as mock_logger_debug:
-            do_run_command(command)
-
-            mock_run.assert_called_once_with(
-                shlex.split(command),
-                capture_output=True,
-                text=True,
-            )
-            mock_logger_debug.assert_any_call("Running command: %s", command)
-            mock_logger_debug.assert_any_call("Command output: %s", expected_stdout)
-            mock_logger_debug.assert_any_call("Command error: %s", expected_stderr)
-            mock_logger_debug.assert_any_call(
-                "Command return code: %s",
-                expected_returncode,
-            )

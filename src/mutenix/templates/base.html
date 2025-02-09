@@ -24,18 +24,14 @@
         <h1>{% block header %}{% endblock %}</h1>
         <nav>
             <div>
-                <a href="/">Virtual Keypad</a> &middot;
-                <a href="/about">About</a> &middot;
-                <a href="/config">Config</a> &middot;
-                <a href="/device">Device</a> &middot;
-                <a href="/help">Help</a>
+                {% include "links.html" %}
             </div>
         </nav>
     </header>
     {% endif %}
     {% block content %}{% endblock %}
     <footer>
-        <a href="/">Virtual Macropad</a> &middot; <a href="/about">About</a> &middot; <a href="/config">Config</a> &middot; <a href="/device">Device</a> &middot; <a href="/help">Help</a><br />
+        {% include "links.html" %}<br />
         <small>&copy; 2025 Matthias Bilger</small> &middot; <small>Version {{ mutenix_version }}</small>
     </footer>
 </body>

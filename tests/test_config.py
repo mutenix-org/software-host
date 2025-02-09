@@ -8,12 +8,11 @@ from unittest.mock import mock_open
 from unittest.mock import patch
 
 import yaml
-from mutenix.config import Config
 from mutenix.config import CONFIG_FILENAME
-from mutenix.config import create_default_config
 from mutenix.config import find_config_file
 from mutenix.config import load_config
 from mutenix.config import save_config
+from mutenix.models.config import Config
 
 
 def test_find_config_file_default_location():
@@ -32,25 +31,31 @@ def test_load_config_default():
     with patch("pathlib.Path.exists", return_value=False):
         with patch("builtins.open", mock_open(read_data="")):
             with patch(
-                "mutenix.config.create_default_config",
+                "mutenix.models.config.Config",
             ) as mock_create_default_config:
-                default_config = create_default_config()
+                default_config = Config()
                 default_config._file_path = str(Path(CONFIG_FILENAME))
                 mock_create_default_config.return_value = default_config
                 config = load_config()
-                assert config == mock_create_default_config.return_value
+                assert (
+                    config.model_dump()
+                    == mock_create_default_config.return_value.model_dump()
+                )
 
 
 def test_load_config_file_not_found():
     with patch("pathlib.Path.exists", return_value=False):
         with patch("builtins.open", mock_open(read_data="")):
             with patch(
-                "mutenix.config.create_default_config",
+                "mutenix.models.config.Config",
             ) as mock_create_default_config:
-                mock_create_default_config.return_value = create_default_config()
+                mock_create_default_config.return_value = Config()
                 with patch("mutenix.config.save_config") as mock_save_config:
                     config = load_config()
-                    assert config == mock_create_default_config.return_value
+                    assert (
+                        config.model_dump()
+                        == mock_create_default_config.return_value.model_dump()
+                    )
                     mock_save_config.assert_not_called()
 
 
@@ -59,13 +64,16 @@ def test_load_config_yaml_error():
         with patch("builtins.open", mock_open(read_data="invalid_yaml")):
             with patch("yaml.safe_load", side_effect=yaml.YAMLError):
                 with patch(
-                    "mutenix.config.create_default_config",
+                    "mutenix.models.config.Config",
                 ) as mock_create_default_config:
-                    mock_create_default_config.return_value = create_default_config()
+                    mock_create_default_config.return_value = Config()
                     with patch("mutenix.config.save_config") as mock_save_config:
                         config = load_config()
-                        assert config == mock_create_default_config.return_value
-                    mock_save_config.assert_not_called()
+                        assert (
+                            config.model_dump()
+                            == mock_create_default_config.return_value.model_dump()
+                        )
+                        mock_save_config.assert_not_called()
 
 
 def test_load_config_success():
@@ -138,17 +146,20 @@ def test_load_config_with_invalid_yaml():
         with patch("builtins.open", mock_open(read_data="invalid_yaml")):
             with patch("yaml.safe_load", side_effect=yaml.YAMLError):
                 with patch(
-                    "mutenix.config.create_default_config",
+                    "mutenix.models.config.Config",
                 ) as mock_create_default_config:
-                    mock_create_default_config.return_value = create_default_config()
+                    mock_create_default_config.return_value = Config()
                     with patch("mutenix.config.save_config") as mock_save_config:
                         config = load_config()
-                        assert config == mock_create_default_config.return_value
+                        assert (
+                            config.model_dump()
+                            == mock_create_default_config.return_value.model_dump()
+                        )
                         mock_save_config.assert_not_called()
 
 
 def test_save_config():
-    config = create_default_config()
+    config = Config()
     with patch("pathlib.Path.open", mock_open()) as mocked_file:
         save_config(config, "test_config.yaml")
         mocked_file.assert_called_once_with("w")

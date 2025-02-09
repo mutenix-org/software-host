@@ -8,10 +8,10 @@ import signal
 import threading
 
 import daiquiri
-from mutenix.config import Config
 from mutenix.config import load_config
-from mutenix.config import LoggingConfig
 from mutenix.macropad import Macropad
+from mutenix.models.config import Config
+from mutenix.models.config import LoggingConfig
 from mutenix.tray_icon import run_trayicon
 from mutenix.updates import check_for_self_update
 from mutenix.utils import ensure_process_run_once

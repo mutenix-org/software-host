@@ -5,11 +5,13 @@ import logging
 from typing import Callable
 
 import hid
-from mutenix.config import DeviceInfo
-from mutenix.hid_commands import HidCommand
-from mutenix.hid_commands import HidInputMessage
-from mutenix.hid_commands import HidOutputMessage
-from mutenix.hid_commands import Ping
+from mutenix.models.config import DeviceInfo
+from mutenix.models.hid_commands import HidCommand
+from mutenix.models.hid_commands import HidInputMessage
+from mutenix.models.hid_commands import HidOutputMessage
+from mutenix.models.hid_commands import Ping
+from mutenix.models.state import ConnectionState
+from mutenix.models.state import HardwareState
 from mutenix.utils import block_parallel
 from mutenix.utils import rate_limited_logger
 from mutenix.utils import run_loop
@@ -23,7 +25,12 @@ class HidDevice:
     Providing async read and write loops for incoming and outgoing messages.
     """
 
-    def __init__(self, device_identifications: list[DeviceInfo] | None = None):
+    def __init__(
+        self,
+        state: HardwareState,
+        device_identifications: list[DeviceInfo] | None = None,
+    ):
+        self._state = state
         self._device_info = device_identifications or []
         self._device: hid.device | None = None
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
@@ -45,7 +52,17 @@ class HidDevice:
             "Looking for device with",
         )
         self._device = None
+        self._state.connection_status = ConnectionState.DISCONNECTED
         self._device = await self._search_for_device_loop()
+        if self._device:
+            self._set_hardware_info()
+
+    def _set_hardware_info(self):
+        if self._device:
+            self._state.serial_number = self._device.get_serial_number_string()
+            self._state.manufacturer = self._device.get_manufacturer_string()
+            self._state.product = self._device.get_product_string()
+            self._state.connection_status = ConnectionState.CONNECTED
 
     def _open_device_with_info(self, device_info: DeviceInfo):
         device = hid.device()
