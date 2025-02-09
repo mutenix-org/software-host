@@ -147,6 +147,15 @@ class Mouse(BaseModel, AtLeastOneOption):
     OPTION_FIELDS: ClassVar[list[str]] = ["move", "set", "click", "press", "release"]
 
 
+class DelayAction(BaseModel):
+    delay: float = Field(
+        ...,
+        ge=0.0,
+        description="The delay in seconds before the action is performed.",
+        examples=[0.5, 1.0],
+    )
+
+
 class WebhookAction(BaseModel):
     method: str = Field(
         default="GET",
@@ -200,6 +209,10 @@ class ActionDetails(BaseModel, AtLeastOneOption):
         default=None,
         description="The command to be executed.",
     )
+    delay: DelayAction | None = Field(
+        default=None,
+        description="The delay in seconds to wait. Be carefully with this option.",
+    )
 
     OPTION_FIELDS: ClassVar[list[str]] = [
         "webhook",
@@ -209,6 +222,7 @@ class ActionDetails(BaseModel, AtLeastOneOption):
         "meeting_action",
         "activate_teams",
         "command",
+        "delay",
     ]
 
 
