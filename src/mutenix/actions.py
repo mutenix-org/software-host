@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 _session = requests.Session()
 
 
-def keyboard_action(action: Keyboard):
+def keyboard_action(action: Keyboard) -> None:
     if not Controller:
         _logger.error("pynput not supported, cannot send keypress")
         return
@@ -52,7 +52,7 @@ def keyboard_action(action: Keyboard):
         keyboard.type(action.type.string)
 
 
-def mouse_action(action: Mouse):
+def mouse_action(action: Mouse) -> None:
     if not MouseController:
         _logger.error("pynput not supported, cannot send mousemove")
         return
@@ -80,7 +80,7 @@ def mouse_action(action: Mouse):
         mouse.press(getattr(Button, action.press.button))
 
 
-def _do_run_command(command):
+def _do_run_command(command) -> None:
     _logger.debug("Running command: %s", command)
     result = subprocess.run(
         shlex.split(command),
@@ -92,14 +92,14 @@ def _do_run_command(command):
     _logger.debug("Command return code: %s", result.returncode)
 
 
-def command_action(command: str):  # pragma: no cover
+def command_action(command: str) -> None:  # pragma: no cover
     try:
         asyncio.create_task(asyncio.to_thread(_do_run_command, command))
     except Exception as e:
         _logger.error("Error running commands: %s", e)
 
 
-def webhook_action(webhook: WebhookAction):
+def webhook_action(webhook: WebhookAction) -> None:
     try:
         result = _session.request(
             webhook.method,

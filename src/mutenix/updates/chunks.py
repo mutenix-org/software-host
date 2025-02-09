@@ -22,14 +22,14 @@ class Chunk:
         self._acked = False
         self.content = b""
 
-    def packet(self):  # pragma: no cover
+    def packet(self) -> bytes:  # pragma: no cover
         return (
             self._base_packet()
             + self.content
             + b"\0" * (MAX_CHUNK_SIZE - len(self.content))
         )
 
-    def _base_packet(self):
+    def _base_packet(self) -> bytes:
         return (
             int(self.type_).to_bytes(2, "little")
             + self.id.to_bytes(2, "little")
@@ -38,7 +38,7 @@ class Chunk:
         )
 
     @property
-    def acked(self):
+    def acked(self) -> bool:
         return self._acked
 
 

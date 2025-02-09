@@ -27,7 +27,7 @@ from mutenix.models.config_v0 import MouseActionRelease
 from mutenix.models.config_v0 import MouseActionSetPosition
 
 
-def convert_action_details(action):
+def convert_action_details(action) -> ActionDetails | None:
     if isinstance(action, str):
         return ActionDetails(command=action)
     if isinstance(action, Key):
@@ -60,7 +60,7 @@ def convert_action_details(action):
     return None
 
 
-def convert_button_action(action):
+def convert_button_action(action) -> ButtonAction:
     return ButtonAction(
         button_id=action.button_id,
         actions=[convert_action_details(a) for a in action.extra]
@@ -69,7 +69,7 @@ def convert_button_action(action):
     )
 
 
-def convert_led_status(led):
+def convert_led_status(led) -> LedStatus | None:
     if led.source == LedStatusSource.TEAMS:
         return LedStatus(
             button_id=led.button_id,
@@ -140,7 +140,7 @@ def convert_config_v0(config: ConfigV0) -> Config:
     return new_config
 
 
-def convert_old_config(config_data):
+def convert_old_config(config_data) -> Config:
     if "version" not in config_data:
         return convert_config_v0(ConfigV0(**config_data))
     return Config(**config_data)

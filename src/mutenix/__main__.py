@@ -49,7 +49,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def register_signal_handler(macropad: Macropad):
+def register_signal_handler(macropad: Macropad) -> None:
     """
     Registers a signal handler to shut down the Macropad gracefully on SIGINT.
     Args:
@@ -64,7 +64,7 @@ def register_signal_handler(macropad: Macropad):
     signal.signal(signal.SIGINT, signal_handler)
 
 
-def list_devices():
+def list_devices() -> None:
     import hid
 
     for device in sorted(hid.enumerate(), key=lambda x: x["vendor_id"]):
@@ -73,7 +73,7 @@ def list_devices():
         print(device)
 
 
-def setup_logging(logging_config: LoggingConfig):
+def setup_logging(logging_config: LoggingConfig) -> None:
     log_file_path = logging_config.file_path or pathlib.Path.cwd() / "mutenix.log"
     log_level = logging_config.level.to_logging_level()
     all_levels = [log_level]
@@ -118,7 +118,7 @@ def setup_logging(logging_config: LoggingConfig):
 
 
 @ensure_process_run_once()
-def main(args: argparse.Namespace):
+def main(args: argparse.Namespace) -> None:
     if args.config_schema:
         print(Config.model_json_schema(indent=2))
         return
@@ -154,7 +154,7 @@ def main(args: argparse.Namespace):
     _logger.info("Trhead joined")
 
 
-def runmain():  # pragma: no cover
+def runmain() -> None:  # pragma: no cover
     args = parse_arguments()
     logging.basicConfig(level=logging.INFO)
     main(args)

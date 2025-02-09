@@ -7,7 +7,6 @@ import subprocess
 import time
 from collections import defaultdict
 
-import requests
 from mutenix.actions import command_action
 from mutenix.actions import keyboard_action
 from mutenix.actions import mouse_action
@@ -20,7 +19,6 @@ from mutenix.models.config import ButtonAction
 from mutenix.models.config import Config
 from mutenix.models.config import LedColor as ConfigLedColor
 from mutenix.models.config import LedStatus
-from mutenix.models.config import WebhookAction
 from mutenix.models.hid_commands import LedColor
 from mutenix.models.hid_commands import SetLed
 from mutenix.models.hid_commands import Status
@@ -52,7 +50,6 @@ class Macropad:
         self._last_status_check: defaultdict[int, float] = defaultdict(time.time)
         self._config = config
         self._last_led_update: dict[int, SetLed] = {}
-        self._session = requests.Session()
         self._setup()
         self._current_state: ServerMessage | None = None
         self._setup_buttons()
@@ -60,20 +57,20 @@ class Macropad:
         self._trigger_reload_config = False
         self._trigger_stop = False
 
-    def _setup(self):
+    def _setup(self) -> None:
         self._state.config = self._config
         self._setup_device()
         self._setup_websocket()
         self._setup_virtual_macropad()
 
-    def _setup_device(self):
+    def _setup_device(self) -> None:
         self._device = HidDevice(
             self._state.hardware,
             self._config.device_identifications,
         )
         self._device.register_callback(self._hid_callback)
 
-    def _setup_websocket(self):
+    def _setup_websocket(self) -> None:
         token = self._config.teams_token
         self._teams_websocket = TeamsWebSocketClient(
             self._state.teams,
@@ -88,29 +85,17 @@ class Macropad:
         )
         self._teams_websocket.register_callback(self._teams_callback)
 
-    def _setup_virtual_macropad(self):
+    def _setup_virtual_macropad(self) -> None:
         self._virtual_macropad = WebServer(self._state, self._config.virtual_keypad)
         self._virtual_macropad.register_callback(self._hid_callback)
 
-    def _setup_buttons(self):
+    def _setup_buttons(self) -> None:
         self._tap_actions = {entry.button_id: entry for entry in self._config.actions}
         self._longpress_actions = {
             entry.button_id: entry for entry in self._config.longpress_action
         }
 
-    def _perform_webhook(self, extra: WebhookAction):
-        try:
-            result = self._session.request(
-                extra.method,
-                extra.url,
-                json=extra.data,
-                headers={str(key): str(value) for key, value in extra.headers.items()},
-            )
-            _logger.info("Webhook result: %i %s", result.status_code, result.text)
-        except Exception as e:
-            _logger.warning("Webhook resulted in an exception %s", e)
-
-    async def _send_status(self, status: Status):
+    async def _send_status(self, status: Status) -> None:
         _logger.info(
             "Button %s, Triggered: %s, Longpress: %s",
             status.button,
@@ -129,18 +114,18 @@ class Macropad:
 
             await asyncio.create_task(self._execute_actions(action.actions))
 
-    async def _execute_actions(self, actions: list[ActionDetails]):
+    async def _execute_actions(self, actions: list[ActionDetails]) -> None:
         for single_action in actions:
             await self._execute_action(single_action)
 
-    def _get_action(self, status):
+    def _get_action(self, status) -> ButtonAction | None:
         if not status.longpressed and status.button in self._tap_actions:
             return self._tap_actions.get(status.button, None)
         elif status.longpressed and status.button in self._longpress_actions:
             return self._longpress_actions.get(status.button, None)
         return None
 
-    async def _execute_action(self, single_action: ActionDetails):
+    async def _execute_action(self, single_action: ActionDetails) -> None:
         if single_action.meeting_action:
             client_message = ClientMessage.create(
                 action=single_action.meeting_action,
@@ -167,7 +152,7 @@ class Macropad:
         elif single_action.delay:
             await asyncio.sleep(single_action.delay)
 
-    async def _process_version_info(self, version_info: VersionInfo):
+    async def _process_version_info(self, version_info: VersionInfo) -> None:
         if self._version_seen != version_info.version:
             _logger.info(version_info)
             self._version_seen = version_info.version
@@ -190,7 +175,7 @@ class Macropad:
         elif isinstance(msg, VersionInfo):
             await self._process_version_info(msg)
 
-    async def _teams_callback(self, msg: ServerMessage):
+    async def _teams_callback(self, msg: ServerMessage) -> None:
         _logger.debug("Teams message: %s", msg)
         if msg.meeting_update:
             self._current_state = msg
@@ -199,10 +184,10 @@ class Macropad:
             save_config(self._config)
         await self._update_device_status()
 
-    def _map_led_color(self, color: ConfigLedColor):
+    def _map_led_color(self, color: ConfigLedColor) -> LedColor:
         return getattr(LedColor, color.name, LedColor.GREEN)
 
-    def _is_command_allowed_now(self, button_id, cmd_cfg):
+    def _is_command_allowed_now(self, button_id, cmd_cfg) -> bool:
         if self._last_status_check[button_id] + cmd_cfg.interval > time.time():
             return False
         _logger.debug(
@@ -212,7 +197,7 @@ class Macropad:
         )
         return True
 
-    async def _update_led(self, ledstatus: LedStatus):
+    async def _update_led(self, ledstatus: LedStatus) -> None:
         msg = self._current_state
         color: ConfigLedColor | None = ConfigLedColor.BLACK
         if ledstatus.teams_state:
@@ -235,7 +220,7 @@ class Macropad:
             ),
         )
 
-    def _get_teams_state_color(self, ledstatus, msg):
+    def _get_teams_state_color(self, ledstatus, msg) -> ConfigLedColor:
         if (
             msg
             and msg.meeting_update
@@ -253,7 +238,7 @@ class Macropad:
             )
         return ConfigLedColor.BLACK
 
-    async def _get_result_command_color(self, ledstatus):
+    async def _get_result_command_color(self, ledstatus) -> ConfigLedColor | None:
         cmd_cfg = ledstatus.result_command
         if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
             return None
@@ -277,7 +262,7 @@ class Macropad:
             _logger.warning("Error running command: %s %s", cmd_cfg, e)
             return ConfigLedColor.BLACK
 
-    async def _get_color_command_color(self, ledstatus):
+    async def _get_color_command_color(self, ledstatus) -> ConfigLedColor | None:
         cmd_cfg = ledstatus.color_command
         if not self._is_command_allowed_now(ledstatus.button_id, cmd_cfg):
             return None
@@ -299,15 +284,15 @@ class Macropad:
             _logger.warning("Error running command: %s %s", cmd_cfg, e)
             return ConfigLedColor.BLACK
 
-    def _get_webhook_color(self, ledstatus):
-        color_name = self._virtual_macropad.get_led_status(ledstatus.button_id)
+    def _get_webhook_color(self, ledstatus) -> ConfigLedColor:
+        color_name = self._state.led_colors.get(ledstatus.button_id, "black")
         try:
             return ConfigLedColor[color_name.upper()]
         except KeyError:
             _logger.warning("Unknown color: %s", color_name)
             return ConfigLedColor.BLACK
 
-    async def _send_led_message(self, key, message, force=False):
+    async def _send_led_message(self, key, message, force=False) -> None:
         try:
             if not force and (
                 key in self._last_led_update and self._last_led_update[key] == message
@@ -323,13 +308,13 @@ class Macropad:
         except Exception as e:
             _logger.error("Error sending LED message: %s", e)
 
-    async def _update_device_status(self, force=False):
+    async def _update_device_status(self, force=False) -> None:
         led_update_work = [
             self._update_led(ledstatus) for ledstatus in self._config.leds
         ]
         await asyncio.gather(*led_update_work)
 
-    async def _do_check_status(self):
+    async def _do_check_status(self) -> None:
         from mutenix.tray_icon import my_icon
 
         await self._update_device_status()
@@ -350,7 +335,7 @@ class Macropad:
 
     _check_status = run_loop(_do_check_status)
 
-    async def process(self):
+    async def process(self) -> None:
         """Starts the process loop for the device and the WebSocket connection."""
         try:
             await asyncio.gather(
@@ -362,13 +347,13 @@ class Macropad:
         except Exception as e:
             _logger.error("Error in Macropad process: %s", e)
 
-    async def manual_update(self, update_file):
+    async def manual_update(self, update_file) -> None:
         """Manually update the device with a given file."""
         await self._device.wait_for_device()
         with open(update_file, "rb") as f:
             perform_upgrade_with_file(self._device.raw, f)
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stops the device and WebSocket connection."""
         self._run = False
         await self._device.stop()
@@ -378,28 +363,20 @@ class Macropad:
         await self._virtual_macropad.stop()
         _logger.info("Virtual Device stopped")
 
-    def trigger_stop(self):
+    def trigger_stop(self) -> None:
         self._trigger_stop = True
 
-    @property
-    def virtual_keypad_address(self):  # pragma: no cover
-        return self._config.virtual_keypad.bind_address
-
-    @property
-    def virtual_keypad_port(self):  # pragma: no cover
-        return self._config.virtual_keypad.bind_port
-
-    def activate_serial_console(self):
+    def activate_serial_console(self) -> None:
         message = UpdateConfig()
         message.activate_serial_console(True)
         self._device.send_msg(message)
 
-    def deactivate_serial_console(self):
+    def deactivate_serial_console(self) -> None:
         message = UpdateConfig()
         message.activate_serial_console(False)
         self._device.send_msg(message)
 
-    def activate_filesystem(self):
+    def activate_filesystem(self) -> None:
         message = UpdateConfig()
         message.activate_filesystem(True)
         self._device.send_msg(message)
@@ -412,18 +389,17 @@ class Macropad:
     def device_connected(self) -> bool:  # pragma: no cover
         return self._device.connected
 
-    def reload_config(self):
+    def reload_config(self) -> None:
         self._trigger_reload_config = True
 
-    async def _reload_config_async(self):
+    async def _reload_config_async(self) -> None:
         _logger.info("Reloading config")
         self._config = await asyncio.to_thread(load_config)
         self._setup_buttons()
         await self._update_device_status(force=True)
-        self._virtual_macropad.set_config(self._config)
         self._state.config = self._config
         _logger.info("Config reloaded")
 
     @property
-    def state(self):
+    def state(self) -> State:
         return self._state

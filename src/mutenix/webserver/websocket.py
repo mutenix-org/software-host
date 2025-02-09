@@ -26,13 +26,13 @@ class WebSocketHandler:
         self._led_status: dict[int, str] = {}
         self._led_status_lock = asyncio.Lock()
 
-    async def handle_state_request(self, ws):
+    async def handle_state_request(self, ws) -> None:
         async with self._led_status_lock:
             for i, color in self._led_status.items():
                 if color:
                     await ws.send_json({"button": i, "color": color})
 
-    async def websocket_handler(self, request: web.Request):
+    async def websocket_handler(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         self._websockets.add(ws)
@@ -55,30 +55,30 @@ class WebSocketHandler:
         self._websockets.remove(ws)
         return ws
 
-    async def _handle_msg(self, msg: HidOutputMessage):
+    async def _handle_msg(self, msg: HidOutputMessage) -> None:
         for callback in self._callbacks:
             await callback(msg)
 
     @staticmethod
-    async def _send_json_safe(ws, data):
+    async def _send_json_safe(ws, data) -> None:
         try:
             await ws.send_json(data)
         except Exception as e:
             _logger.error("Error sending LED status: %s to websocket %s", e, ws)
 
-    def _send_led_status(self, button: int, color: str):
+    def _send_led_status(self, button: int, color: str) -> None:
         for ws in self._websockets:
             asyncio.create_task(
                 self._send_json_safe(ws, {"button": button, "color": color}),
             )
 
-    def setup_routes(self, app: web.Application, prefix: str = "/ws"):
+    def setup_routes(self, app: web.Application, prefix: str = "/ws") -> None:
         app.router.add_route("GET", f"{prefix}", self.websocket_handler)
 
     def register_callback(self, callback):
         self._callbacks.append(callback)
 
-    async def send_msg(self, msg: HidOutputMessage):
+    async def send_msg(self, msg: HidOutputMessage) -> None:
         if isinstance(msg, SetLed):
             color = msg.color.name.lower()
             async with self._led_status_lock:
