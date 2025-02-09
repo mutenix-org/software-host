@@ -136,15 +136,21 @@ class WebServer:
 
     async def about(self, request: web.Request):
         readme_path = pathlib.Path(__file__).parent / "README.md"
+        if not readme_path.exists():
+            readme_path = pathlib.Path(__file__).parent.parent.parent / "README.md"
         license_path = pathlib.Path(__file__).parent / "LICENSE"
+        if not license_path.exists():
+            license_path = pathlib.Path(__file__).parent.parent.parent / "LICENSE"
         try:
             with open(readme_path) as f:
                 readme_content = f.read()
+        except Exception as e:
+            readme_content = "README not found: Exception" + str(e)
+        try:
             with open(license_path) as f:
                 license_content = f.read()
-        except Exception as e:
+        except Exception:
             license_content = "License not found"
-            readme_content = "README not found: Exception" + str(e)
 
         html_readme_content = markdown.markdown(
             readme_content,
