@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
-import asyncio
 import logging
 import webbrowser
 from pathlib import Path
@@ -55,7 +54,7 @@ def run_trayicon(macropad: Macropad):  # pragma: no cover
 
     def quit_macropad(icon, item):
         icon.stop()
-        asyncio.run(macropad.stop())
+        macropad.trigger_stop()
 
     def nothing(icon, item):
         pass
