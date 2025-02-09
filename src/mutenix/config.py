@@ -43,19 +43,43 @@ def load_config(file_path: Path | None = None) -> Config:
         return config
 
     except (yaml.YAMLError, IOError) as e:
-        _logger.info("Error in configuration file: %s", e)
+        _logger.error("Error in configuration file: %s", e)
         config = Config()
         config._internal_state = "default_fallback"
         config._file_path = str(file_path)
+        _logger.info("Using default config")
         return config
 
+    try:
+        config = Config(**config_data)
+        config._internal_state = "file"
     except pydantic.ValidationError as e:
         _logger.info("Configuration errors:")
         for error in e.errors():
-            _logger.info(error)
+            _logger.error("%s: %s", error["loc"], error["msg"])
+        try:
+            from mutenix.utils.config_converter import convert_old_config
 
-    config_data["_file_path"] = str(file_path)
-    return Config(**config_data)
+            config = convert_old_config(config_data)
+            save_config(config, file_path)
+            _logger.info("Converted Configuration")
+            return config
+        except pydantic.ValidationError:
+            _logger.error("Cannot load old config")
+            for error in e.errors():
+                _logger.error("OldConfig Error %s: %s", error["loc"], error["msg"])
+
+        _logger.info("Configuration errors:")
+        for error in e.errors():
+            _logger.error("%s: %s", error["loc"], error["msg"])
+        config = Config()
+        config._internal_state = "validation_fallback"
+        config._file_path = str(file_path)
+        _logger.info("Using default config")
+        return config
+
+    config._file_path = str(file_path)
+    return config
 
 
 def save_config(config: Config, file_path: Path | str | None = None):
@@ -66,8 +90,8 @@ def save_config(config: Config, file_path: Path | str | None = None):
     else:
         config._file_path = file_path  # type: ignore
 
-    if config._internal_state == "default_fallback":
-        _logger.error("Not saving default config")
+    if config._internal_state.endswith("_fallback"):
+        _logger.error("Not saving default config %s", config._internal_state)
         return
     try:
         file_path = Path(config._file_path)

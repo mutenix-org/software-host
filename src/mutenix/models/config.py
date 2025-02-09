@@ -588,8 +588,12 @@ class Config(BaseModel):
     Mutenix configuration parameters for actions, leds keypad and more.
     """
 
-    _internal_state: Any = pydantic.PrivateAttr(default="default")
+    _internal_state: str = pydantic.PrivateAttr(default="default")
     _file_path: str = pydantic.PrivateAttr(default=None)
+    version: int = Field(
+        default=1,
+        description="The version of the configuration file.",
+    )
     actions: list[ButtonAction] = Field(default_factory=_default_actions)
     longpress_action: list[ButtonAction] = pydantic.Field(
         default_factory=_default_longpress,

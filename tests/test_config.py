@@ -84,14 +84,13 @@ def test_load_config_success():
         ],
         "longpress_action": [],
         "teams_token": None,
+        "version": 1,
     }
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
             with patch("yaml.safe_load", return_value=config_data):
                 config = load_config()
-                assert config == Config(
-                    **config_data,
-                )
+                assert config.model_dump() == Config(**config_data).model_dump()
 
 
 def test_config_initialization():
