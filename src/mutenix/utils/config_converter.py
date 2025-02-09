@@ -143,3 +143,4 @@ def convert_config_v0(config: ConfigV0) -> Config:
 def convert_old_config(config_data):
     if "version" not in config_data:
         return convert_config_v0(ConfigV0(**config_data))
+    return Config(**config_data)

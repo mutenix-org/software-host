@@ -25,6 +25,30 @@ def find_config_file() -> Path:
     return file_path
 
 
+def is_conversion_required(config_data):
+    return (
+        "version" not in config_data
+        or config_data["version"] == Config.model_fields["version"].default
+    )
+
+
+def do_conversion(config_data, file_path):
+    from mutenix.utils.config_converter import convert_old_config
+
+    config = convert_old_config(config_data)
+    save_config(config, file_path)
+    _logger.info("Converted Configuration")
+    return config
+
+
+def fallback_config(*, file_path: Path, fallback_type: str | None = None) -> Config:
+    config = Config()
+    if fallback_type:
+        config._internal_state = fallback_type + "_fallback"
+    config._file_path = str(file_path)
+    return config
+
+
 def load_config(file_path: Path | None = None) -> Config:
     if file_path is None:
         file_path = find_config_file()
@@ -37,48 +61,33 @@ def load_config(file_path: Path | None = None) -> Config:
             raise yaml.YAMLError("No data in file")
     except FileNotFoundError:
         _logger.info("No config file found, creating default one")
-        config = Config()
-        config._file_path = str(file_path)
+        config = fallback_config(file_path=file_path)
         save_config(config)
         return config
 
     except (yaml.YAMLError, IOError) as e:
         _logger.error("Error in configuration file: %s", e)
-        config = Config()
-        config._internal_state = "default_fallback"
-        config._file_path = str(file_path)
         _logger.info("Using default config")
-        return config
+        return fallback_config(file_path=file_path, fallback_type="yaml")
 
     try:
         config = Config(**config_data)
         config._internal_state = "file"
     except pydantic.ValidationError as e:
-        _logger.info("Configuration errors:")
+        _logger.warning("Configuration errors:")
         for error in e.errors():
-            _logger.error("%s: %s", error["loc"], error["msg"])
+            _logger.warning("%s: %s", error["loc"], error["msg"])
         try:
-            from mutenix.utils.config_converter import convert_old_config
-
-            config = convert_old_config(config_data)
-            save_config(config, file_path)
-            _logger.info("Converted Configuration")
-            return config
+            return do_conversion(config_data, file_path)
         except pydantic.ValidationError:
-            _logger.error("Cannot load old config")
+            _logger.warning("Cannot load old config")
             for error in e.errors():
-                _logger.error("OldConfig Error %s: %s", error["loc"], error["msg"])
-
-        _logger.info("Configuration errors:")
-        for error in e.errors():
-            _logger.error("%s: %s", error["loc"], error["msg"])
-        config = Config()
-        config._internal_state = "validation_fallback"
-        config._file_path = str(file_path)
+                _logger.warning("OldConfig Error %s: %s", error["loc"], error["msg"])
         _logger.info("Using default config")
-        return config
+        return fallback_config(file_path=file_path, fallback_type="validation")
 
-    config._file_path = str(file_path)
+    if is_conversion_required(config_data):
+        return do_conversion(config_data, file_path)
     return config
 
 
