@@ -198,18 +198,17 @@ class TestUpdates(unittest.TestCase):
             bytes(),
         ]
 
-        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
-                with patch("builtins.open", mock_open(read_data=b"fake content")):
-                    with patch("pathlib.Path.is_file", return_value=True):
-                        with patch(
-                            "pathlib.Path.open",
-                            mock_open(read_data=b"fake content"),
-                        ):
-                            perform_hid_upgrade(
-                                mock_device_instance,
-                                ["file1.py", "file2.py", "file3.py"],
-                            )
+        with (
+            patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001),
+            patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001),
+            patch("builtins.open", mock_open(read_data=b"fake content")),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.open", mock_open(read_data=b"fake content")),
+        ):
+            perform_hid_upgrade(
+                mock_device_instance,
+                ["file1.py", "file2.py", "file3.py"],
+            )
 
         self.assertEqual(
             mock_device_instance.write.call_count,
@@ -235,15 +234,14 @@ class TestUpdates(unittest.TestCase):
             bytes(),  # No more requests
         ]
 
-        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
-                with patch("builtins.open", mock_open(read_data=b"fake content")):
-                    with patch("pathlib.Path.is_file", return_value=True):
-                        with patch(
-                            "pathlib.Path.open",
-                            mock_open(read_data=b"fake content"),
-                        ):
-                            perform_hid_upgrade(mock_device_instance, ["file1.py"])
+        with (
+            patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001),
+            patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001),
+            patch("builtins.open", mock_open(read_data=b"fake content")),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.open", mock_open(read_data=b"fake content")),
+        ):
+            perform_hid_upgrade(mock_device_instance, ["file1.py"])
 
     @patch("mutenix.updates.requests.get")
     def test_check_for_self_update_request_error(self, mock_get):
@@ -363,19 +361,18 @@ class TestPerformHidUpgradeError(unittest.TestCase):
             bytes([2, 69, 82, 5, 69, 114, 114, 111, 114]),  # Error
         ]
 
-        with patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001):
-            with patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001):
-                with patch("builtins.open", mock_open(read_data=b"fake content")):
-                    with patch("pathlib.Path.is_file", return_value=True):
-                        with patch(
-                            "pathlib.Path.open",
-                            mock_open(read_data=b"fake content"),
-                        ):
-                            with self.assertLogs(
-                                "mutenix.updates",
-                                level="ERROR",
-                            ) as log:
-                                perform_hid_upgrade(mock_device_instance, ["file1.py"])
+        with (
+            patch("mutenix.updates.constants.DATA_TRANSFER_SLEEP_TIME", 0.0001),
+            patch("mutenix.updates.constants.STATE_CHANGE_SLEEP_TIME", 0.0001),
+            patch("builtins.open", mock_open(read_data=b"fake content")),
+            patch("pathlib.Path.is_file", return_value=True),
+            patch("pathlib.Path.open", mock_open(read_data=b"fake content")),
+        ):
+            with self.assertLogs(
+                "mutenix.updates",
+                level="ERROR",
+            ) as log:
+                perform_hid_upgrade(mock_device_instance, ["file1.py"])
 
         self.assertIn("Error received from device: Error", log.output[0])
 
@@ -446,4 +443,5 @@ class TestUpdateError(unittest.TestCase):
         data = b"XX" + (5).to_bytes(1, "little") + b"Error"
         update_error = UpdateError(data)
         self.assertFalse(update_error.is_valid)
+        self.assertEqual(str(update_error), "Invalid Request")
         self.assertEqual(str(update_error), "Invalid Request")

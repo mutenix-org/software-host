@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Matthias Bilger matthias@bilger.info
 from mutenix.models.config import ActionDetails
 from mutenix.models.config import ButtonAction
 from mutenix.models.config import Config

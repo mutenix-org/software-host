@@ -48,10 +48,12 @@ async def test_register_callback(hid_device):
 
 @pytest.mark.asyncio
 async def test_ping(hid_device):
-    with patch.object(hid_device, "send_msg", return_value=Mock()):
-        with patch("asyncio.sleep", side_effect=asyncio.CancelledError):
-            with pytest.raises(asyncio.CancelledError):
-                await hid_device._ping()
+    with (
+        patch.object(hid_device, "send_msg", return_value=Mock()),
+        patch("asyncio.sleep", side_effect=asyncio.CancelledError),
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            await hid_device._ping()
 
 
 @pytest.mark.asyncio
@@ -166,10 +168,12 @@ async def test_ping_sends_ping_message(hid_device):
 @pytest.mark.asyncio
 async def test_ping_resets_last_communication(hid_device):
     initial_time = asyncio.get_event_loop().time()
-    with patch("asyncio.get_event_loop", return_value=asyncio.get_event_loop()):
-        with patch.object(hid_device, "send_msg"):
-            await hid_device._ping()
-            assert hid_device._last_ping_time >= initial_time
+    with (
+        patch("asyncio.get_event_loop", return_value=asyncio.get_event_loop()),
+        patch.object(hid_device, "send_msg"),
+    ):
+        await hid_device._ping()
+        assert hid_device._last_ping_time >= initial_time
 
 
 class RoundAboutMatcher:
@@ -298,10 +302,9 @@ async def test_search_for_device_success(hid_device):
         "product_string": "Mutenix Macropad",
         "bus_type": 1,
     }
-    with patch("hid.device"):
-        with patch("hid.enumerate", return_value=[device_info]):
-            device = await hid_device._search_for_device()
-            assert device is not None
+    with patch("hid.device"), patch("hid.enumerate", return_value=[device_info]):
+        device = await hid_device._search_for_device()
+        assert device is not None
 
 
 @pytest.mark.asyncio
@@ -320,13 +323,15 @@ async def test_search_for_device_prefer_bluetooth(hid_device):
         "product_string": "Mutenix Macropad",
         "bus_type": 1,
     }
-    with patch("hid.device") as MockHidDevice:
-        with patch("hid.enumerate", return_value=[device_info_bt, device_info_usb]):
-            m = Mock()
-            MockHidDevice.return_value = m
-            device = await hid_device._search_for_device()
-            assert device is not None
-            m.open.assert_called_with(product_id=0, vendor_id=0, serial_number="122345")
+    with (
+        patch("hid.device") as MockHidDevice,
+        patch("hid.enumerate", return_value=[device_info_bt, device_info_usb]),
+    ):
+        m = Mock()
+        MockHidDevice.return_value = m
+        device = await hid_device._search_for_device()
+        assert device is not None
+        m.open.assert_called_with(product_id=0, vendor_id=0, serial_number="122345")
 
 
 @pytest.mark.asyncio
@@ -354,11 +359,13 @@ async def test_search_for_device_no_device_found_open_fails(hid_device):
 
 @pytest.mark.asyncio
 async def test_search_for_device_exception(hid_device):
-    with patch("hid.enumerate", side_effect=Exception("Error")):
-        with patch("mutenix.hid_device._logger.debug") as mock_logger:
-            device = await hid_device._search_for_device()
-            assert device is None
-            mock_logger.assert_called_with("Failed to get device: %s", ANY)
+    with (
+        patch("hid.enumerate", side_effect=Exception("Error")),
+        patch("mutenix.hid_device._logger.debug") as mock_logger,
+    ):
+        device = await hid_device._search_for_device()
+        assert device is None
+        mock_logger.assert_called_with("Failed to get device: %s", ANY)
 
 
 @pytest.mark.asyncio
@@ -414,17 +421,19 @@ async def test_open_device_with_info_bt_failure(hid_device):
         "serial_number": "122345",
         "bus_type": 2,
     }
-    with patch("hid.device") as MockHidDevice:
+    with (
+        patch("hid.device") as MockHidDevice,
+        patch("mutenix.hid_device._logger.debug") as mock_logger,
+    ):
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("BT Connection error")
-        with patch("mutenix.hid_device._logger.debug") as mock_logger:
-            device = hid_device._open_device_with_info(device_info)
-            assert device is None
-            mock_logger.assert_called_once_with(
-                "Could not open device by serial number %s",
-                ANY,
-            )
+        device = hid_device._open_device_with_info(device_info)
+        assert device is None
+        mock_logger.assert_called_once_with(
+            "Could not open device by serial number %s",
+            ANY,
+        )
 
 
 @pytest.mark.asyncio
@@ -453,17 +462,19 @@ async def test_open_device_with_info_usb_failure(hid_device):
         "vendor_id": 0x5678,
         "serial_number": "122345",
     }
-    with patch("hid.device") as MockHidDevice:
+    with (
+        patch("hid.device") as MockHidDevice,
+        patch("mutenix.hid_device._logger.debug") as mock_logger,
+    ):
         mock_device = Mock()
         MockHidDevice.return_value = mock_device
         mock_device.open.side_effect = Exception("USB Connection error")
-        with patch("mutenix.hid_device._logger.debug") as mock_logger:
-            device = hid_device._open_device_with_info(device_info)
-            assert device is None
-            mock_logger.assert_called_once_with(
-                "Could not open HID Connection (%s)",
-                ANY,
-            )
+        device = hid_device._open_device_with_info(device_info)
+        assert device is None
+        mock_logger.assert_called_once_with(
+            "Could not open HID Connection (%s)",
+            ANY,
+        )
 
 
 @pytest.mark.asyncio

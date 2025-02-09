@@ -231,16 +231,18 @@ class IdentifierWithoutToken:
 async def test_setup_without_existing_token():
     with patch("builtins.open", mock_open(read_data="")) as mock_file:
         mock_file.side_effect = FileNotFoundError
-        with patch("mutenix.macropad.HidDevice"):
-            with patch("mutenix.macropad.TeamsWebSocketClient") as MockWebSocketClient:
-                with patch("mutenix.macropad.WebServer"):
-                    macropad = Macropad(Config())
-                    macropad._setup()
-                    MockWebSocketClient.assert_called_with(
-                        ANY,
-                        ANY,
-                        IdentifierWithoutToken(),
-                    )
+        with (
+            patch("mutenix.macropad.HidDevice"),
+            patch("mutenix.macropad.TeamsWebSocketClient") as MockWebSocketClient,
+            patch("mutenix.macropad.WebServer"),
+        ):
+            macropad = Macropad(Config())
+            macropad._setup()
+            MockWebSocketClient.assert_called_with(
+                ANY,
+                ANY,
+                IdentifierWithoutToken(),
+            )
 
 
 @pytest.mark.asyncio
