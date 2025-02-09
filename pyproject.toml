@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Matthias Bilger <matthias@bilger.info>
 [project]
 name = "mutenix"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
     { name = "Matthias Bilger", email = "matthias@bilger.info" }
 ]
