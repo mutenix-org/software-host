@@ -28,7 +28,7 @@ def find_config_file() -> Path:
 def is_conversion_required(config_data):
     return (
         "version" not in config_data
-        or config_data["version"] == Config.model_fields["version"].default
+        or config_data["version"] < Config.model_fields["version"].default
     )
 
 
@@ -103,6 +103,7 @@ def save_config(config: Config, file_path: Path | str | None = None):
         _logger.error("Not saving default config %s", config._internal_state)
         return
     try:
+        _logger.warning("Saving file")
         file_path = Path(config._file_path)
         with file_path.open("w") as file:
             yaml.dump(

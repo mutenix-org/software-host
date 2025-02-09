@@ -115,7 +115,6 @@ def setup_logging(logging_config: LoggingConfig):
         outputs=outputs,
     )
     daiquiri.parse_and_set_default_log_levels(logging_config.submodules)
-    global _logger
 
 
 @ensure_process_run_once()

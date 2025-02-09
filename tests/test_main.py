@@ -10,6 +10,7 @@ import pytest
 from mutenix.__main__ import list_devices
 from mutenix.__main__ import main
 from mutenix.__main__ import parse_arguments
+from mutenix.models.config import Config
 
 
 def test_parse_arguments_no_update_file():
@@ -103,7 +104,11 @@ def test_main_with_update_file(
 ):
     default_args.update_file = "path/to/update.tar.gz"
 
-    with patch("asyncio.run", autospec=True) as mock_asyncio_run:
+    with (
+        patch("asyncio.run", autospec=True) as mock_asyncio_run,
+        patch("mutenix.__main__.load_config", autospec=True) as mock_load_config,
+    ):
+        mock_load_config.return_value = Config()
         main(default_args)
 
         mock_check_for_self_update.assert_called_once()
@@ -113,7 +118,11 @@ def test_main_with_update_file(
 
 def test_main_list_devices(mock_signal, default_args):
     default_args.list_devices = True
-    with patch("hid.enumerate", autospec=True) as mock_hid_enumerate:
+    with (
+        patch("hid.enumerate", autospec=True) as mock_hid_enumerate,
+        patch("mutenix.__main__.load_config", autospec=True) as mock_load_config,
+    ):
+        mock_load_config.return_value = Config()
         main(default_args)
 
         mock_signal.assert_not_called()
