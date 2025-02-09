@@ -86,6 +86,10 @@ class State(pydantic.BaseModel):
         description="The loaded configuration.",
         default_factory=Config,
     )
+    led_colors: dict[int, str] = pydantic.Field(
+        description="The colors of the LEDs.",
+        default_factory=dict,
+    )
 
     shutdown_requested: bool = pydantic.Field(
         description="Whether a shutdown has been requested.",

@@ -8,9 +8,9 @@ _logger = logging.getLogger(__name__)
 class UpdateError:
     def __init__(self, data: bytes):
         self.info = ""
-        self.parse(data)
+        self._parse(data)
 
-    def parse(self, data: bytes):
+    def _parse(self, data: bytes) -> None:
         self.identifier = data[:2].decode("utf-8")
         if not self.is_valid:
             return
@@ -19,10 +19,10 @@ class UpdateError:
         _logger.info("Error received: %s", self)
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.identifier == "ER"
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_valid:
             return f"Error: {self.info}"
         return "Invalid Request"
@@ -33,9 +33,9 @@ class ChunkAck:
         self.id = 0
         self.package = 0
         self.type_ = 0
-        self.parse(data)
+        self._parse(data)
 
-    def parse(self, data: bytes):
+    def _parse(self, data: bytes) -> None:
         self.identifier = data[:2].decode("utf-8")
         if not self.is_valid:
             return
@@ -44,10 +44,10 @@ class ChunkAck:
         self.type_ = int.from_bytes(data[6:7], "little")
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.identifier == "AK"
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_valid:
             return f"File: {self.id}, Type: {self.type_}, Package: {self.package}"
         return "Invalid Request"
@@ -56,9 +56,9 @@ class ChunkAck:
 class LogMessage:
     def __init__(self, data: bytes):
         self.message = ""
-        self.parse(data)
+        self._parse(data)
 
-    def parse(self, data: bytes):
+    def _parse(self, data: bytes) -> None:
         self.identifier = data[:2].decode("utf-8")
         if not self.is_valid:
             return
@@ -69,10 +69,10 @@ class LogMessage:
         self.message = data[2:end_pos].decode("utf-8")
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.identifier in ("LE", "LD")
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_valid:
             return f"{self.level}: {self.message}"
         return "Invalid Request"

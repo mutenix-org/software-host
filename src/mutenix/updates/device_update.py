@@ -34,7 +34,7 @@ from tqdm import tqdm
 _logger = logging.getLogger(__name__)
 
 
-def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO):
+def perform_upgrade_with_file(device: hid.device, file_stream: BinaryIO) -> None:
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = pathlib.Path(tmpdirname)
         with tarfile.open(fileobj=file_stream, mode="r:gz") as tar:
@@ -84,21 +84,21 @@ class TransferFile:
         self.make_chunks()
         _logger.debug("File %s has %s chunks", self.filename, len(self._chunks))
 
-    def make_chunks(self):
+    def make_chunks(self) -> None:
         total_packages = self.calculate_total_packages()
         self.add_file_start_chunk(total_packages)
         self.add_file_chunks(total_packages)
         self.add_file_end_chunk()
 
-    def calculate_total_packages(self):
+    def calculate_total_packages(self) -> int:
         return math.ceil(self.size / MAX_CHUNK_SIZE)
 
-    def add_file_start_chunk(self, total_packages):
+    def add_file_start_chunk(self, total_packages) -> None:
         self._chunks.append(
             FileStart(self.id, 0, total_packages, self.filename, self.size),
         )
 
-    def add_file_chunks(self, total_packages):
+    def add_file_chunks(self, total_packages) -> None:
         for i in range(0, self.size, MAX_CHUNK_SIZE):
             self._chunks.append(
                 FileChunk(
@@ -109,7 +109,7 @@ class TransferFile:
                 ),
             )
 
-    def add_file_end_chunk(self):
+    def add_file_end_chunk(self) -> None:
         self._chunks.append(FileEnd(self.id))
 
     def get_next_chunk(self) -> Chunk | None:
@@ -117,7 +117,7 @@ class TransferFile:
             return None
         return next((chunk for chunk in self._chunks if not chunk.acked), None)
 
-    def acknowledge_chunk(self, chunk: ChunkAck):
+    def acknowledge_chunk(self, chunk: ChunkAck) -> None:
         # This line is excluded from coverage reports because it is a safeguard
         # and is unlikely to be met during normal execution.
         if chunk.id != self.id:  # pragma: no cover
@@ -137,18 +137,21 @@ class TransferFile:
         _logger.debug("Acked chunk %s", chunk)
 
     @property
-    def chunks(self):
+    def chunks(self) -> int:
         return len(self._chunks)
 
-    def is_complete(self):
+    def is_complete(self) -> bool:
         return all(map(lambda x: x.acked, self._chunks))
 
 
-def send_hid_command(device: hid.device, command: int):
+def send_hid_command(device: hid.device, command: int) -> None:
     device.write([HID_REPORT_ID_COMMUNICATION, command] + [0] * 7)
 
 
-def perform_hid_upgrade(device: hid.device, files: Sequence[str | pathlib.Path]):
+def perform_hid_upgrade(
+    device: hid.device,
+    files: Sequence[str | pathlib.Path],
+) -> None:
     _logger.debug("Opening device for update")
     _logger.debug("Sending prepare update")
     send_hid_command(device, HID_COMMAND_PREPARE_UPDATE)

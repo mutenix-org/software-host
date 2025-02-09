@@ -25,14 +25,14 @@ def find_config_file() -> Path:
     return file_path
 
 
-def is_conversion_required(config_data):
+def is_conversion_required(config_data: dict) -> bool:
     return (
         "version" not in config_data
         or config_data["version"] < Config.model_fields["version"].default
     )
 
 
-def do_conversion(config_data, file_path):
+def do_conversion(config_data: dict, file_path: Path) -> Config:
     from mutenix.utils.config_converter import convert_old_config
 
     config = convert_old_config(config_data)
@@ -91,7 +91,7 @@ def load_config(file_path: Path | None = None) -> Config:
     return config
 
 
-def save_config(config: Config, file_path: Path | str | None = None):
+def save_config(config: Config, file_path: Path | str | None = None) -> None:
     if file_path is None:
         if config._file_path is None:
             config._file_path = str(find_config_file())

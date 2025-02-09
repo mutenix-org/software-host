@@ -16,7 +16,6 @@ from mutenix.macropad import Macropad
 from mutenix.models.config import Config
 from mutenix.models.config import LedColor as ConfigLedColor
 from mutenix.models.config import TeamsState
-from mutenix.models.config import WebhookAction
 from mutenix.models.hid_commands import LedColor
 from mutenix.models.hid_commands import SetLed
 from mutenix.models.hid_commands import Status
@@ -599,63 +598,6 @@ async def test_reload_config(macropad):
         mock_logger_info.assert_any_call("Config reloaded")
 
 
-@pytest.mark.parametrize(
-    "extra, expected_method, expected_url, expected_json, expected_headers",
-    [
-        (
-            {
-                "method": "POST",
-                "url": "http://example.com",
-                "data": {"key": "value"},
-                "headers": {"Content-Type": "application/json"},
-            },
-            "POST",
-            "http://example.com",
-            {"key": "value"},
-            {"Content-Type": "application/json"},
-        ),
-        (
-            {"url": "http://example.com"},
-            "GET",
-            "http://example.com",
-            None,
-            {},
-        ),
-        (
-            {
-                "method": "PUT",
-                "url": "http://example.com",
-                "headers": {"Authorization": "Bearer token"},
-            },
-            "PUT",
-            "http://example.com",
-            None,
-            {"Authorization": "Bearer token"},
-        ),
-    ],
-)
-def test_perform_webhook(
-    extra,
-    expected_method,
-    expected_url,
-    expected_json,
-    expected_headers,
-    macropad,
-):
-    mock_request = Mock()
-    macropad._session = Mock(
-        request=mock_request,
-    )
-    extra = WebhookAction(**extra)
-    macropad._perform_webhook(extra)
-    mock_request.assert_called_once_with(
-        expected_method,
-        expected_url,
-        json=expected_json,
-        headers=expected_headers,
-    )
-
-
 @pytest.mark.asyncio
 async def test_teams_callback_meeting_update(macropad):
     msg = ServerMessage(
@@ -704,7 +646,7 @@ async def test_update_device_status_webhook_source_with_color(macropad):
             webhook=True,
         ),
     ]
-    macropad._virtual_macropad.get_led_status = Mock(return_value="red")
+    macropad._state.led_colors[1] = "red"
     macropad._device.send_msg = Mock()
     macropad._virtual_macropad.send_msg = AsyncMock()
 

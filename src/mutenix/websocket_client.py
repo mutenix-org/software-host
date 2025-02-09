@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import Coroutine
 from typing import Callable
 
 import websockets
@@ -48,7 +49,9 @@ class TeamsWebSocketClient:
         self._send_queue: asyncio.Queue[tuple[ClientMessage, asyncio.Future]] = (
             asyncio.Queue()
         )
-        self._callback: Callable[[ServerMessage], None] | None = None
+        self._callback: (
+            Callable[[ServerMessage], Coroutine[None, None, None]] | None
+        ) = None
         params = (
             f"?protocol-version={identifier.protocol_version}"
             f"&manufacturer={identifier.manufacturer}"
@@ -63,7 +66,7 @@ class TeamsWebSocketClient:
         self._sent_something = True
 
     @block_parallel
-    async def _connect(self):
+    async def _connect(self) -> None:
         while self._run:
             self._connection = None
             self._state.connection_status = ConnectionState.DISCONNECTED
@@ -75,7 +78,7 @@ class TeamsWebSocketClient:
                 self._state.connection_status = ConnectionState.CONNECTED
                 break
 
-    async def _do_connect(self):
+    async def _do_connect(self) -> websockets.connect | None:
         try:
             connection = await websockets.connect(self._uri)
             _logger.info("Connected to WebSocket server at %s", self._uri)
@@ -88,15 +91,18 @@ class TeamsWebSocketClient:
             )
             return None
 
-    def send_message(self, message: ClientMessage):
+    def send_message(self, message: ClientMessage) -> asyncio.Future:
         future = asyncio.get_event_loop().create_future()
         self._send_queue.put_nowait((message, future))
         return future
 
-    def register_callback(self, callback: Callable[[ServerMessage], None]):
+    def register_callback(
+        self,
+        callback: Callable[[ServerMessage], Coroutine[None, None, None]],
+    ) -> None:
         self._callback = callback
 
-    async def _send(self):
+    async def _send(self) -> None:
         try:
             queue_element = self._send_queue.get_nowait()
             message, future = queue_element
@@ -115,6 +121,9 @@ class TeamsWebSocketClient:
                     TypeError("Expected message to be an instance of ClientMessage"),
                 )
                 return
+            if not self._connection:
+                await asyncio.sleep(0.1)
+                return
             await self._connection.send(msg)
             if not future.done():
                 future.set_result(True)
@@ -124,9 +133,12 @@ class TeamsWebSocketClient:
         finally:
             self._send_queue.task_done()
 
-    async def _receive(self):
+    async def _receive(self) -> None:
         try:
             async with asyncio.timeout(1):
+                if not self._connection:
+                    await asyncio.sleep(0.1)
+                    return
                 msg = await self._connection.recv()
                 _logger.debug("Received message: %s", msg)
                 message = ServerMessage.model_validate_json(msg)
@@ -147,9 +159,8 @@ class TeamsWebSocketClient:
             _logger.error("Error receiving message: %s", e)
             await self._connect()
 
-    async def process(self):
+    async def process(self) -> None:
         while self._run:
-            asyncio.current_task().set_name("WebSocketClient.process")
             try:
                 await self._connect()
                 await asyncio.gather(self._send_loop(), self._receive_loop())
@@ -157,7 +168,7 @@ class TeamsWebSocketClient:
                 _logger.info("shutting down due to cancel: %s", e)
                 await self.stop()
 
-    async def stop(self):
+    async def stop(self) -> None:
         self._run = False
         if self._connection:
             await self._connection.close()

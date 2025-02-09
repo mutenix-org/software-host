@@ -15,7 +15,7 @@ my_icon: Any | None = None
 _logger = logging.getLogger(__name__)
 
 
-def load_image(file_name):
+def load_image(file_name) -> Image:
     try:
         file_path = Path(__file__).parent / "assets" / file_name
         return Image.open(file_path)
@@ -24,7 +24,7 @@ def load_image(file_name):
         return Image.new("RGB", (64, 64), "red")
 
 
-def run_trayicon(macropad: Macropad):  # pragma: no cover
+def run_trayicon(macropad: Macropad) -> None:  # pragma: no cover
     global my_icon
     from pystray import Icon as icon, Menu as menu, MenuItem as item
 

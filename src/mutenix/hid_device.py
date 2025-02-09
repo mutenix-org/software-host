@@ -8,7 +8,6 @@ import hid
 from mutenix.models.config import DeviceInfo
 from mutenix.models.hid_commands import HidCommand
 from mutenix.models.hid_commands import HidInputMessage
-from mutenix.models.hid_commands import HidOutputMessage
 from mutenix.models.hid_commands import Ping
 from mutenix.models.state import ConnectionState
 from mutenix.models.state import HardwareState
@@ -34,7 +33,7 @@ class HidDevice:
         self._device_info = device_identifications or []
         self._device: hid.device | None = None
         self._callbacks: list[Callable[[HidInputMessage], None]] = []
-        self._send_buffer: asyncio.Queue[tuple[HidOutputMessage, asyncio.Future]] = (
+        self._send_buffer: asyncio.Queue[tuple[HidCommand, asyncio.Future]] = (
             asyncio.Queue()
         )
         self._last_communication: float = 0
@@ -136,7 +135,7 @@ class HidDevice:
             raise ValueError("Device not connected")
         return self._device.write(buffer)
 
-    def send_msg(self, msg: HidOutputMessage):
+    def send_msg(self, msg: HidCommand):
         """
         Sends a HID output message asynchronously.
 
@@ -151,15 +150,15 @@ class HidDevice:
         _logger.debug("Put message")
         return future
 
-    def register_callback(self, callback):
+    def register_callback(self, callback: Callable[[HidInputMessage], None]) -> None:
         if callback not in self._callbacks:
             self._callbacks.append(callback)
 
-    def unregister_callback(self, callback):
+    def unregister_callback(self, callback: Callable[[HidInputMessage], None]) -> None:
         if callback in self._callbacks:
             self._callbacks.remove(callback)
 
-    def _invoke_callbacks(self, msg):
+    def _invoke_callbacks(self, msg: HidInputMessage) -> None:
         for callback in self._callbacks:
             if asyncio.iscoroutinefunction(callback):
                 asyncio.create_task(callback(msg))
@@ -170,14 +169,17 @@ class HidDevice:
     def _log_failed_to_send(self, *args, **kwargs):
         _logger.error(*args, **kwargs)
 
-    async def _read(self):
+    async def _read(self) -> None:
         try:
-            buffer: list = self._device.read(64)
-            if buffer and len(buffer):
+            if not self._device:
+                await asyncio.sleep(0.1)  # pragma: no cover
+                return
+            buffer: bytes = self._device.read(64)
+            if not buffer or len(buffer) == 0:
+                await asyncio.sleep(0.1)  # pragma: no cover
+            else:
                 msg = HidInputMessage.from_buffer(buffer)
                 self._invoke_callbacks(msg)
-            else:
-                await asyncio.sleep(0.1)  # pragma: no cover
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
             await self._wait_for_device()
@@ -185,7 +187,7 @@ class HidDevice:
         except Exception as e:
             _logger.error("Error reading message: %s", e)
 
-    async def _write(self):
+    async def _write(self) -> None:
         try:
             msg, future = await self._send_buffer.get()
             _logger.debug("Sending message: %s", msg)
@@ -207,7 +209,7 @@ class HidDevice:
             future.set_exception(e)
             await self._wait_for_device()
 
-    async def _ping(self):
+    async def _ping(self) -> None:
         """
         Sends a ping message to the HID device.
         """
@@ -226,14 +228,14 @@ class HidDevice:
                 self._log_failed_to_send("Failed to send ping: %s", e)
             self._last_ping_time = asyncio.get_event_loop().time()
 
-    async def _process(self):  # pragma: no cover
+    async def _process(self) -> None:  # pragma: no cover
         await self._wait_for_device()
         await asyncio.gather(self._read_loop(), self._write_loop(), self._ping_loop())
 
-    async def process(self):  # pragma: no cover
+    async def process(self) -> None:  # pragma: no cover
         await self._process_loop()
 
-    async def stop(self):  # pragma: no cover
+    async def stop(self) -> None:  # pragma: no cover
         self._run = False
 
     # create the run loops
@@ -244,10 +246,10 @@ class HidDevice:
     _search_for_device_loop = run_till_some_loop(sleep_time=1)(_search_for_device)
 
     @property
-    def raw(self):  # pragma: no cover
+    def raw(self) -> hid.device | None:  # pragma: no cover
         return self._device
 
-    async def wait_for_device(self):  # pragma: no cover
+    async def wait_for_device(self) -> None:  # pragma: no cover
         await self._wait_for_device()
 
     @property

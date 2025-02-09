@@ -34,15 +34,15 @@ class BrowserHandler:
 
         self._assetpath = pathlib.Path(__file__).parent.parent / "assets"
 
-    async def _get_image(self, name: str):
+    async def _get_image(self, name: str) -> web.Response:
         image_path = self._assetpath / f"{name}"
         return web.FileResponse(image_path)
 
-    async def serve_image(self, request: web.Request):
+    async def serve_image(self, request: web.Request) -> web.Response:
         name = request.match_info["name"]
         return await self._get_image(name)
 
-    async def favicon(self, request: web.Request):
+    async def favicon(self, request: web.Request) -> web.Response:
         filename = request.match_info["filename"]
         for icon in self.icons:
             if icon["src"].endswith(filename):
@@ -54,13 +54,16 @@ class BrowserHandler:
             raise web.HTTPNotFound()
         return icon_response
 
-    async def favicon_ico(self, request: web.Request):  # pragma: no cover
+    async def favicon_ico(
+        self,
+        request: web.Request,
+    ) -> web.Response:  # pragma: no cover
         return await self._get_image("mutenix.ico")
 
-    async def favicon_svg(self, request: web.Request):
+    async def favicon_svg(self, request: web.Request) -> web.Response:
         return await self._get_image("mutenix_logo_finalicon_active.svg")
 
-    async def serve_manifest(self, request: web.Request):
+    async def serve_manifest(self, request: web.Request) -> web.Response:
         manifest = {
             "name": "Mutenix Virtual Macropad",
             "short_name": "Mutenix",
@@ -70,7 +73,7 @@ class BrowserHandler:
         }
         return web.json_response(manifest)
 
-    def setup_routes(self, app: web.Application, prefix: str = "/web"):
+    def setup_routes(self, app: web.Application, prefix: str = "/web") -> None:
         app.router.add_route("GET", f"{prefix}/favicon/{{filename}}", self.favicon)
         app.router.add_route("GET", f"{prefix}/favicon.svg", self.favicon_svg)
         app.router.add_route("GET", f"{prefix}/favicon.ico", self.favicon_ico)

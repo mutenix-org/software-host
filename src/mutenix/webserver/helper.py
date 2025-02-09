@@ -9,7 +9,7 @@ from mutenix.version import PATCH
 
 class Helper:
     @staticmethod
-    def render_template(template_name, request, context, status=200):
+    def render_template(template_name, request, context, status=200) -> web.Response:
         context["mutenix_version"] = f"{MAJOR}.{MINOR}.{PATCH}"
         content = get_env(request.app).get_template(template_name).render(context)
         return web.Response(text=content, content_type="text/html", status=status)

@@ -25,7 +25,7 @@ class APIHandler:
         self._led_input_status: dict[int, str] = {}
         self._led_status_lock = asyncio.Lock()
 
-    async def handle_hardware_info(self, request: web.Request):
+    async def handle_hardware_info(self, request: web.Request) -> web.Response:
         return web.json_response(
             {
                 "hardware": self._state.hardware.variant,
@@ -33,7 +33,7 @@ class APIHandler:
             },
         )
 
-    async def handle_button(self, request: web.Request):
+    async def handle_button(self, request: web.Request) -> web.Response:
         try:
             data = ButtonRequest.model_validate_json(await request.text())
         except ValidationError as e:
@@ -42,14 +42,14 @@ class APIHandler:
         await self._handle_msg(Status.trigger_button(data.button))
         return web.Response(status=200)
 
-    async def _handle_msg(self, msg: HidOutputMessage):
+    async def _handle_msg(self, msg: HidOutputMessage) -> None:
         for callback in self._callbacks:
             await callback(msg)
 
-    def register_callback(self, callback):
+    def register_callback(self, callback) -> web.Response:
         self._callbacks.append(callback)
 
-    async def handle_post_led(self, request: web.Request):
+    async def handle_post_led(self, request: web.Request) -> web.Response:
         try:
             data = LedRequest.model_validate_json(await request.text())
         except ValidationError as e:
@@ -63,7 +63,7 @@ class APIHandler:
         self._led_input_status[data.button] = data.color
         return web.Response(status=200)
 
-    async def handle_get_led(self, request: web.Request):
+    async def handle_get_led(self, request: web.Request) -> web.Response:
         try:
             button = int(request.query.get("button", 0))
         except Exception as e:
@@ -74,7 +74,7 @@ class APIHandler:
         color = self._led_input_status.get(button, "black")
         return web.json_response({"button": button, "color": color})
 
-    def setup_routes(self, app: web.Application, prefix: str = "/api"):
+    def setup_routes(self, app: web.Application, prefix: str = "/api") -> None:
         app.router.add_route(
             "GET",
             f"{prefix}/hardware_info",
