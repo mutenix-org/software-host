@@ -58,6 +58,7 @@ class Macropad:
         self._setup_buttons()
         self._checktime = time.time()
         self._trigger_reload_config = False
+        self._trigger_stop = False
 
     def _setup(self):
         self._state.config = self._config
@@ -343,6 +344,9 @@ class Macropad:
         if self._trigger_reload_config:
             await self._reload_config_async()
             self._trigger_reload_config = False
+        if self._trigger_stop:
+            await self.stop()
+            self._trigger_stop = False
 
     _check_status = run_loop(_do_check_status)
 
@@ -373,6 +377,9 @@ class Macropad:
         _logger.info("Websocket stopped")
         await self._virtual_macropad.stop()
         _logger.info("Virtual Device stopped")
+
+    def trigger_stop(self):
+        self._trigger_stop = True
 
     @property
     def virtual_keypad_address(self):  # pragma: no cover
