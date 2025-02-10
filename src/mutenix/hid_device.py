@@ -174,7 +174,7 @@ class HidDevice:
             if not self._device:
                 await asyncio.sleep(0.1)  # pragma: no cover
                 return
-            buffer: bytes = self._device.read(64)
+            buffer: bytes = self._device.get_input_report(1, 64)
             if not buffer or len(buffer) == 0:
                 await asyncio.sleep(0.1)  # pragma: no cover
             else:
