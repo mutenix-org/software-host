@@ -18,6 +18,8 @@ from mutenix.utils import run_till_some_loop
 
 _logger = logging.getLogger(__name__)
 
+SLEEP_BETWEEN_TRANSMITS = 0.05
+
 
 class HidDevice:
     """Handles the HID connection to the device.
@@ -200,6 +202,7 @@ class HidDevice:
             if not future.cancelled():
                 future.set_result(result)
             self._send_buffer.task_done()
+            await asyncio.sleep(SLEEP_BETWEEN_TRANSMITS)
         except OSError as e:  # Device disconnected
             _logger.error("Device disconnected: %s", e)
             future.set_exception(e)
