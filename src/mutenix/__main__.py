@@ -8,7 +8,8 @@ import signal
 import threading
 
 import daiquiri
-from mutenix.config import load_config, save_config
+from mutenix.config import load_config
+from mutenix.config import save_config
 from mutenix.macropad import Macropad
 from mutenix.models.config import Config
 from mutenix.models.config import LoggingConfig

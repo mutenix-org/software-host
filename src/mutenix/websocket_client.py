@@ -7,7 +7,6 @@ from collections.abc import Coroutine
 from typing import Callable
 
 import websockets
-from websockets.asyncio.client import ClientConnection
 from mutenix.models.state import ConnectionState
 from mutenix.models.state import TeamsState
 from mutenix.models.teams_messages import ClientMessage
@@ -15,6 +14,7 @@ from mutenix.models.teams_messages import ServerMessage
 from mutenix.utils import block_parallel
 from mutenix.utils import rate_limited_logger
 from mutenix.utils import run_loop
+from websockets.asyncio.client import ClientConnection
 
 _logger = logging.getLogger(__name__)
 

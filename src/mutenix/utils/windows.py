@@ -63,7 +63,10 @@ def ensure_process_run_once(
                 try:
                     win32api.CloseHandle(mutex)
                 except Exception:
-                    _logger.debug("Failed to close mutex handle for existing instance", exc_info=True)
+                    _logger.debug(
+                        "Failed to close mutex handle for existing instance",
+                        exc_info=True,
+                    )
                 sys.exit(1)
 
             try:

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Matthias Bilger matthias@bilger.info
+import logging
+
 from mutenix.models.config import ActionDetails
 from mutenix.models.config import ButtonAction
 from mutenix.models.config import Config
@@ -25,7 +27,6 @@ from mutenix.models.config_v0 import MouseActionMove
 from mutenix.models.config_v0 import MouseActionPress
 from mutenix.models.config_v0 import MouseActionRelease
 from mutenix.models.config_v0 import MouseActionSetPosition
-import logging
 
 _logger = logging.getLogger(__name__)
 
