@@ -15,7 +15,7 @@ my_icon: Any | None = None
 _logger = logging.getLogger(__name__)
 
 
-def load_image(file_name) -> Image:
+def load_image(file_name) -> Image.Image:
     try:
         file_path = Path(__file__).parent / "assets" / file_name
         return Image.open(file_path)
@@ -66,6 +66,7 @@ def run_trayicon(macropad: Macropad) -> None:  # pragma: no cover
             item(
                 "Open Virtual Macropad",
                 open_url("/"),
+                default=True,
             ),
             item(
                 "Reload Config",

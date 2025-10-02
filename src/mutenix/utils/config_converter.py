@@ -25,6 +25,9 @@ from mutenix.models.config_v0 import MouseActionMove
 from mutenix.models.config_v0 import MouseActionPress
 from mutenix.models.config_v0 import MouseActionRelease
 from mutenix.models.config_v0 import MouseActionSetPosition
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 def convert_action_details(action) -> ActionDetails | None:
@@ -141,6 +144,10 @@ def convert_config_v0(config: ConfigV0) -> Config:
 
 
 def convert_old_config(config_data) -> Config:
-    if "version" not in config_data:
-        return convert_config_v0(ConfigV0(**config_data))
-    return Config(**config_data)
+    try:
+        if "version" not in config_data:
+            return convert_config_v0(ConfigV0(**config_data))
+        return Config(**config_data)
+    except Exception as e:
+        _logger.error("Failed to convert config: %s", e, exc_info=True)
+        return Config()

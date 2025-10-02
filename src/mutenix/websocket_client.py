@@ -7,6 +7,7 @@ from collections.abc import Coroutine
 from typing import Callable
 
 import websockets
+from websockets.asyncio.client import ClientConnection
 from mutenix.models.state import ConnectionState
 from mutenix.models.state import TeamsState
 from mutenix.models.teams_messages import ClientMessage
@@ -78,7 +79,7 @@ class TeamsWebSocketClient:
                 self._state.connection_status = ConnectionState.CONNECTED
                 break
 
-    async def _do_connect(self) -> websockets.connect | None:
+    async def _do_connect(self) -> ClientConnection | None:
         try:
             connection = await websockets.connect(self._uri)
             _logger.info("Connected to WebSocket server at %s", self._uri)
@@ -152,6 +153,7 @@ class TeamsWebSocketClient:
                     if asyncio.iscoroutinefunction(self._callback):
                         asyncio.create_task(self._callback(message))
                     else:
+                        _logger.error("Callback is not a coroutine function")
                         self._callback(message)
         except asyncio.TimeoutError:
             pass

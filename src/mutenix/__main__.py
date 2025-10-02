@@ -8,7 +8,7 @@ import signal
 import threading
 
 import daiquiri
-from mutenix.config import load_config
+from mutenix.config import load_config, save_config
 from mutenix.macropad import Macropad
 from mutenix.models.config import Config
 from mutenix.models.config import LoggingConfig
@@ -141,6 +141,8 @@ def main(args: argparse.Namespace) -> None:
 
     def run_asyncio_loop():  # pragma: no cover
         asyncio.run(macropad.process())
+
+    save_config(config)
 
     _logger.info("Running Main Thread")
     loop_thread = threading.Thread(target=run_asyncio_loop)
