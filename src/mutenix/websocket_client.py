@@ -153,7 +153,11 @@ class TeamsWebSocketClient:
                     if asyncio.iscoroutinefunction(self._callback):
                         asyncio.create_task(self._callback(message))
                     else:
-                        _logger.error("Callback is not a coroutine function")
+                        _logger.error(
+                            "Callback %r of type %s is not a coroutine function",
+                            getattr(self._callback, "__name__", repr(self._callback)),
+                            type(self._callback).__name__,
+                        )
                         self._callback(message)
         except asyncio.TimeoutError:
             pass
