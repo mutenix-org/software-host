@@ -215,6 +215,7 @@ def test_load_config_with_file_path():
         assert config.virtual_keypad.bind_port == 12909
         assert config.auto_update is True
 
+
 def test_load_config_with_old_config_conversion():
     old_config_data = {
         "actions": [
