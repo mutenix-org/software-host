@@ -36,6 +36,7 @@ def do_conversion(config_data: dict, file_path: Path) -> Config:
     from mutenix.utils.config_converter import convert_old_config
 
     config = convert_old_config(config_data)
+    config.version = 1
     save_config(config, file_path)
     _logger.info("Converted Configuration")
     return config
@@ -88,7 +89,7 @@ def load_config(file_path: Path | None = None) -> Config:
 
     if is_conversion_required(config_data):
         return do_conversion(config_data, file_path)
-    
+
     return config
 
 
@@ -108,7 +109,7 @@ def save_config(config: Config, file_path: Path | str | None = None) -> None:
         file_path = Path(config._file_path)
         with file_path.open("w") as file:
             yaml.dump(
-                config.model_dump(mode="json"),
+                config.model_dump(mode="json", exclude_none=True, exclude_unset=True),
                 file,
             )
             file.write(
