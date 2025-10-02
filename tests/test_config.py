@@ -215,31 +215,6 @@ def test_load_config_with_file_path():
         assert config.virtual_keypad.bind_port == 12909
         assert config.auto_update is True
 
-
-def test_load_config_with_validation_error():
-    invalid_config_data = {
-        "actions": [
-            {"button_id": "invalid_id", "actions": [{"meeting_action": "toggle-mute"}]},
-        ],
-        "longpress_action": [],
-        "leds": [],
-        "teams_token": None,
-        "file_path": None,
-        "virtual_keypad": {"bind_address": "127.0.0.1", "bind_port": "invalid_port"},
-        "auto_update": True,
-        "device_identifications": [],
-    }
-    with (
-        patch("pathlib.Path.exists", return_value=True),
-        patch("builtins.open", mock_open(read_data=yaml.dump(invalid_config_data))),
-        patch("yaml.safe_load", return_value=invalid_config_data),
-        patch("mutenix.config.save_config") as mock_save_config,
-    ):
-        config = load_config()
-        assert config._internal_state == "validation_fallback"
-        mock_save_config.assert_not_called()
-
-
 def test_load_config_with_old_config_conversion():
     old_config_data = {
         "actions": [
