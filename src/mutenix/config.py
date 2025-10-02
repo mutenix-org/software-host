@@ -88,6 +88,7 @@ def load_config(file_path: Path | None = None) -> Config:
 
     if is_conversion_required(config_data):
         return do_conversion(config_data, file_path)
+    
     return config
 
 
@@ -107,7 +108,7 @@ def save_config(config: Config, file_path: Path | str | None = None) -> None:
         file_path = Path(config._file_path)
         with file_path.open("w") as file:
             yaml.dump(
-                config.model_dump(mode="json", exclude_none=True, exclude_unset=True),
+                config.model_dump(mode="json"),
                 file,
             )
             file.write(

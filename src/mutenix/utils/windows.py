@@ -49,17 +49,37 @@ def ensure_process_run_once(
 ):
     def outerwrapper(func):
         def wrapper(*args, **kwargs):
-            mutex = win32event.CreateMutex(None, False, "mutenix_instance")
+            # Request initial ownership so we know whether this thread created/owns the mutex.
+            mutex = win32event.CreateMutex(None, True, "mutenix_instance")
             last_error = win32api.GetLastError()
 
-            if last_error == ERROR_ALREADY_EXISTS:
+            # If the mutex already existed, another instance holds/created it.
+            got_ownership = last_error != ERROR_ALREADY_EXISTS
+
+            if not got_ownership:
                 print("App instance already running")
                 _logger.error("Another instance of the application is already running.")
+                # Close the handle returned by CreateMutex to avoid a handle leak.
+                try:
+                    win32api.CloseHandle(mutex)
+                except Exception:
+                    _logger.debug("Failed to close mutex handle for existing instance", exc_info=True)
                 sys.exit(1)
+
             try:
                 result = func(*args, **kwargs)
             finally:
-                win32event.ReleaseMutex(mutex)
+                # Only release if we actually own the mutex.
+                try:
+                    win32event.ReleaseMutex(mutex)
+                except Exception:
+                    _logger.exception("Failed to release mutex")
+                finally:
+                    # Always close the handle.
+                    try:
+                        win32api.CloseHandle(mutex)
+                    except Exception:
+                        _logger.debug("Failed to close mutex handle", exc_info=True)
             return result
 
         return wrapper
