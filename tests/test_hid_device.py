@@ -113,7 +113,7 @@ async def test_read_success(hid_device):
         future.set_result(msg)
 
     hid_device._device = Mock()
-    hid_device._device.read.return_value = data
+    hid_device._device.get_input_report.return_value = data
 
     hid_device._callbacks.append(callback)
     with patch(
@@ -128,7 +128,7 @@ async def test_read_success(hid_device):
 async def test_read_device_disconnected(hid_device):
     hid_device._wait_for_device = AsyncMock()
     hid_device._device = Mock()
-    hid_device._device.read.side_effect = OSError("Device disconnected")
+    hid_device._device.get_input_report.side_effect = OSError("Device disconnected")
 
     with patch("mutenix.hid_device._logger.error") as mock_logger:
         await hid_device._read()
