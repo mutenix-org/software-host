@@ -133,7 +133,7 @@ class TransferFile:
         if not acked_chunk:  # pragma: no cover
             _logger.warning("No chunk found for ack")
             return
-        acked_chunk._acked = True
+        acked_chunk.acked = True
         _logger.debug("Acked chunk %s", chunk)
 
     @property

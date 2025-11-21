@@ -40,6 +40,10 @@ class Chunk:
     @property
     def acked(self) -> bool:
         return self._acked
+    
+    @acked.setter
+    def acked(self, value: bool) -> None:
+        self._acked = value
 
 
 class FileChunk(Chunk):

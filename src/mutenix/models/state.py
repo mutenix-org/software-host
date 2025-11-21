@@ -54,7 +54,7 @@ class TeamsState(pydantic.BaseModel):
     )
     state: ServerMessage = pydantic.Field(
         description="The state teams has reported.",
-        default_factory=ServerMessage,
+        default_factory=lambda: ServerMessage(),
     )
     last_received_timestamp: float = pydantic.Field(
         description="The last time a message was received.",

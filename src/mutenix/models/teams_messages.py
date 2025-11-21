@@ -49,11 +49,11 @@ class MeetingUpdate(BaseModel):
 class ServerMessage(BaseModel):
     """Message received from the Teams WebSocket server."""
 
-    request_id: Optional[int] = Field(None, alias="requestId")
-    response: Optional[str] = None
-    error_msg: Optional[str] = Field(None, alias="errorMsg")
-    token_refresh: Optional[str] = Field(None, alias="tokenRefresh")
-    meeting_update: Optional[MeetingUpdate] = Field(None, alias="meetingUpdate")
+    request_id: Optional[int] = Field(default=None, alias="requestId")
+    response: Optional[str] = Field(default=None)
+    error_msg: Optional[str] = Field(default=None, alias="errorMsg")
+    token_refresh: Optional[str] = Field(default=None, alias="tokenRefresh")
+    meeting_update: Optional[MeetingUpdate] = Field(default=None, alias="meetingUpdate")
 
 
 class ClientMessageParameterType(str, Enum):
@@ -98,7 +98,7 @@ class ClientMessage(BaseModel):
 
     action: MeetingAction
     parameters: Optional[ClientMessageParameter] = None
-    request_id: int = Field(None, serialization_alias="requestId")
+    request_id: int | None = Field(None, serialization_alias="requestId")
 
     _request_id_counter: ClassVar[int] = 0
     """Each message must have a unique request_id. The counter is incremented for each message automatically."""

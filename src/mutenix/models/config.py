@@ -65,7 +65,7 @@ class Key(BaseModel):
 
 
 class KeyTap(BaseModel):
-    key: str = Field(
+    key: str | None = Field(
         default=None,
         description="The key to be pressed. This field has precedence over 'string'.",
         examples=["a", "F1", "Enter"],
@@ -589,7 +589,7 @@ class Config(BaseModel):
     """
 
     _internal_state: str = pydantic.PrivateAttr(default="default")
-    _file_path: str = pydantic.PrivateAttr(default=None)
+    _file_path: str | None = pydantic.PrivateAttr(default=None)
     version: int = Field(
         default=1,
         description="The version of the configuration file.",
